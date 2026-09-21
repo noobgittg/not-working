@@ -1,5 +1,6 @@
 import time
 import os
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import Config
@@ -129,7 +130,7 @@ async def ping_refresh_callback(client: Client, query: CallbackQuery):
 @Client.on_message(filters.command(["speedtest", "speed"]))
 async def speedtest_command_handler(client: Client, message: Message):
     status = await message.reply_text(f"🚀 **{to_smallcaps('ʀᴜɴɴɪɴɢ ɴᴇᴛᴡᴏʀᴋ sᴘᴇᴇᴅᴛᴇsᴛ...')}**")
-    await asyncio_sleep(1.5)
+    await asyncio.sleep(1.5)
     text = (
         f"✦ **{to_smallcaps('sᴇʀᴠᴇʀ ɴᴇᴛᴡᴏʀᴋ sᴘᴇᴇᴅᴛᴇsᴛ')}** ✦\n\n"
         f"• 📥 **{to_smallcaps('ᴅᴏᴡɴʟᴏᴀᴅ sᴘᴇᴇᴅ')}** : `842.50 Mbps`\n"
@@ -172,7 +173,6 @@ async def generate_mediainfo_response(client: Client, media_msg: Message, target
     temp_path = os.path.join(temp_dir, raw_name)
 
     try:
-        # Download small header for probing if supported or full file
         await media_msg.download(file_name=temp_path)
     except Exception as e:
         clean_temp_files(temp_path)
@@ -262,6 +262,3 @@ async def search_command_handler(client: Client, message: Message):
 
     text += f"{format_watermark()}"
     await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
-
-import asyncio
-asyncio_sleep = asyncio.sleep
