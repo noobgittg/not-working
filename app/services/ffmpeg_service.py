@@ -2,239 +2,206 @@ import asyncio
 import json
 import os
 import re
-from typing import Any, Dict, Optional
-
-from app.utils.font import to_smallcaps
+from pathlib import Path
+from typing import Dict, Any, Optional, Tuple, Callable
 from app.utils.logger import logger
-from config import Config
+from app.utils.task_manager import task_manager
 
 
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return default
+def sanitize_path(file_path: Any) -> str:
+    """
+    Safely converts any input (including tuples/lists mistakenly passed) into a valid string path.
+    Prevents 'expected str, bytes or os.PathLike object, not tuple' errors.
+    """
+    if isinstance(file_path, (list, tuple)):
+        if len(file_path) > 0:
+            file_path = file_path[0]
+        else:
+            raise ValueError("Empty tuple or list provided as path.")
+
+    if isinstance(file_path, Path):
+        return str(file_path.resolve())
+
+    return str(file_path).strip()
 
 
-async def _run_ffprobe(file_path: str) -> Dict[str, Any]:
-    if not os.path.isfile(file_path):
-        return {}
-    cmd = [
-        "ffprobe", "-v", "error", "-print_format", "json",
-        "-show_format", "-show_streams", file_path,
-    ]
-    try:
+class FFmpegService:
+    """Robust FFmpeg and FFprobe wrapper with stream validation and concurrency support."""
+
+    @staticmethod
+    async def probe_media(file_path: Any) -> Dict[str, Any]:
+        """
+        Probes a media file and returns details on video, audio, format, and streams.
+        Resolves the 'no audio or video stream that ffmpeg can decode' bug.
+        """
+        clean_path = sanitize_path(file_path)
+
+        if not os.path.exists(clean_path):
+            raise FileNotFoundError(f"Input file does not exist on disk: {clean_path}")
+
+        if os.path.getsize(clean_path) == 0:
+            raise ValueError("The input file is 0 bytes (corrupted or incomplete download).")
+
+        # Probe with extended analyzeduration to handle high bitrate or unusual containers
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-analyzeduration", "100M",
+            "-probesize", "100M",
+            "-show_entries", "format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,duration,channels,sample_rate",
+            "-of", "json",
+            clean_path,
+        ]
+
+        logger.info(f"Probing media: {' '.join(cmd)}")
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+
         stdout, stderr = await process.communicate()
+
         if process.returncode != 0:
-            logger.warning("ffprobe failed for %s: %s", file_path, stderr.decode(errors="ignore")[-1000:])
-            return {}
-        return json.loads(stdout.decode("utf-8", errors="ignore") or "{}")
-    except FileNotFoundError:
-        logger.error("ffprobe is not installed or not in PATH")
-    except Exception as exc:
-        logger.warning("ffprobe extraction failed: %s", exc)
-    return {}
+            err_msg = stderr.decode().strip()
+            logger.error(f"FFprobe failed with code {process.returncode}: {err_msg}")
+            raise RuntimeError(f"FFprobe inspection failed: {err_msg}")
 
-
-async def get_media_attributes(file_path: str) -> Dict[str, Any]:
-    """Return a stable dictionary contract used by rename/compress/stream code."""
-    data = await _run_ffprobe(file_path)
-    fmt = data.get("format") or {}
-    streams = data.get("streams") or []
-    video = next((s for s in streams if s.get("codec_type") == "video"), None)
-    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
-
-    return {
-        "width": _safe_int(video.get("width"), 0) if video else 0,
-        "height": _safe_int(video.get("height"), 0) if video else 0,
-        "duration": _safe_int(fmt.get("duration"), 0),
-        "size": _safe_int(fmt.get("size"), 0),
-        "has_video": bool(video),
-        "has_audio": bool(audio),
-        "video_codec": video.get("codec_name") if video else None,
-        "audio_codec": audio.get("codec_name") if audio else None,
-        "format": fmt.get("format_name", "unknown"),
-        "format_long": fmt.get("format_long_name", "Unknown"),
-        "stream_count": len(streams),
-    }
-
-
-async def get_detailed_mediainfo(file_path: str) -> Dict[str, Any]:
-    data = await _run_ffprobe(file_path)
-    if not data:
-        return {}
-
-    fmt = data.get("format") or {}
-    streams = data.get("streams") or []
-    info: Dict[str, Any] = {
-        "container": fmt.get("format_long_name", fmt.get("format_name", "Unknown")),
-        "duration": _safe_int(fmt.get("duration")),
-        "size": _safe_int(fmt.get("size")),
-        "bitrate": _safe_int(fmt.get("bit_rate")),
-        "video_streams": [],
-        "audio_streams": [],
-        "subtitle_streams": [],
-    }
-
-    for stream in streams:
-        kind = stream.get("codec_type")
-        if kind == "video":
-            info["video_streams"].append({
-                "codec": str(stream.get("codec_name", "unknown")).upper(),
-                "profile": stream.get("profile", "N/A"),
-                "width": _safe_int(stream.get("width")),
-                "height": _safe_int(stream.get("height")),
-                "aspect_ratio": stream.get("display_aspect_ratio", "N/A"),
-                "pix_fmt": stream.get("pix_fmt", "N/A"),
-                "r_frame_rate": stream.get("r_frame_rate", "N/A"),
-                "bitrate": _safe_int(stream.get("bit_rate")),
-                "fps": stream.get("avg_frame_rate", stream.get("r_frame_rate", "N/A")),
-            })
-        elif kind == "audio":
-            info["audio_streams"].append({
-                "codec": str(stream.get("codec_name", "unknown")).upper(),
-                "channels": _safe_int(stream.get("channels"), 2),
-                "channel_layout": stream.get("channel_layout", "unknown"),
-                "sample_rate": stream.get("sample_rate", "unknown"),
-                "bitrate": _safe_int(stream.get("bit_rate")),
-                "lang": (stream.get("tags") or {}).get("language", "und"),
-            })
-        elif kind == "subtitle":
-            info["subtitle_streams"].append({
-                "codec": str(stream.get("codec_name", "unknown")).upper(),
-                "lang": (stream.get("tags") or {}).get("language", "und"),
-                "title": (stream.get("tags") or {}).get("title", "Subtitle"),
-            })
-    return info
-
-
-async def extract_frame_screenshot(video_path: str, output_dir: str, duration: int) -> Optional[str]:
-    os.makedirs(output_dir, exist_ok=True)
-    stem = os.path.splitext(os.path.basename(video_path))[0]
-    out_path = os.path.join(output_dir, f"thumb_{stem}.jpg")
-    timestamp = max(0, min(max(duration - 1, 0), duration // 2))
-    cmd = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", str(timestamp),
-        "-i", video_path, "-frames:v", "1", "-q:v", "2", "-y", out_path,
-    ]
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
-        )
-        _, stderr = await process.communicate()
-        if process.returncode == 0 and os.path.isfile(out_path):
-            return out_path
-        logger.warning("Frame extraction failed: %s", stderr.decode(errors="ignore")[-1000:])
-    except Exception as exc:
-        logger.warning("Error taking screenshot: %s", exc)
-    return None
-
-
-async def compress_media(
-    input_path: str,
-    output_path: str,
-    crf: int = 28,
-    preset: str = "superfast",
-    scale_height: int = 720,
-    progress_message=None,
-    total_duration: int = 0,
-) -> bool:
-    """Compress video or audio using FFmpeg, based on detected streams."""
-    attrs = await get_media_attributes(input_path)
-    if not attrs.get("has_video") and not attrs.get("has_audio"):
-        logger.warning("No audio/video stream detected in %s", input_path)
-        return False
-
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    crf = max(18, min(int(crf), 36))
-    allowed_presets = {"ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower"}
-    preset = preset if preset in allowed_presets else "superfast"
-    duration = max(int(total_duration or attrs.get("duration") or 0), 0)
-
-    if attrs.get("has_video"):
-        even_h = max(0, int(scale_height))
-        if even_h and even_h % 2:
-            even_h -= 1
-        vf_filter = f"scale=-2:{even_h}:flags=lanczos,setsar=1" if even_h > 0 else "null"
-        cmd = [
-            "ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", input_path,
-            "-map", "0:v:0", "-map", "0:a?", "-map_metadata", "0",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", preset,
-            "-crf", str(crf), "-vf", vf_filter,
-            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
-            "-progress", "pipe:2", "-nostats", output_path,
-        ]
-    else:
-        # Audio-only compression. Output extension should normally be .m4a from the caller.
-        cmd = [
-            "ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", input_path,
-            "-map", "0:a:0", "-map_metadata", "0", "-c:a", "aac", "-b:a", "128k",
-            "-progress", "pipe:2", "-nostats", output_path,
-        ]
-
-    progress_re = re.compile(r"(?:out_time_ms=(\d+)|out_time=(\d+:\d+:\d+(?:\.\d+)?))")
-    started = asyncio.get_running_loop().time()
-    last_update = 0.0
-    stderr_tail = []
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
-        )
-        assert process.stderr is not None
-        while True:
-            line = await process.stderr.readline()
-            if not line:
-                break
-            text_line = line.decode("utf-8", errors="ignore").strip()
-            if text_line:
-                stderr_tail.append(text_line)
-                if len(stderr_tail) > 40:
-                    stderr_tail.pop(0)
-            match = progress_re.search(text_line)
-            if match and progress_message and duration > 0:
-                if match.group(1):
-                    current = int(match.group(1)) / 1_000_000
-                else:
-                    h, m, s = match.group(2).split(":")
-                    current = int(h) * 3600 + int(m) * 60 + float(s)
-                now = asyncio.get_running_loop().time()
-                if now - last_update >= 4.0:
-                    last_update = now
-                    pct = min(100.0, max(0.0, current / duration * 100.0))
-                    filled = int(pct // 10)
-                    bar = "▰" * filled + "▱" * (10 - filled)
-                    label = "ᴄᴏᴍᴘʀᴇssɪɴɢ ᴍᴇᴅɪᴀ"
-                    try:
-                        await progress_message.edit_text(
-                            f"⚡ **{to_smallcaps(label)}**\n\n"
-                            f"[{bar}] `{pct:.1f}%`\n"
-                            f"⏱ **{to_smallcaps('ᴘʀᴏᴄᴇssᴇᴅ')}** : `{int(current)}s / {duration}s`\n"
-                            f"⚙️ **{to_smallcaps('ᴘʀᴇsᴇᴛ')}** : `{preset}` | **{to_smallcaps('ᴄʀғ')}** : `{crf}`\n\n"
-                            f"⚡ **{to_smallcaps('ᴘᴏᴡᴇʀᴇᴅ ʙʏ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
-                        )
-                    except Exception:
-                        pass
-
-        return_code = await process.wait()
-        ok = return_code == 0 and os.path.isfile(output_path) and os.path.getsize(output_path) > 0
-        if not ok:
-            logger.error("FFmpeg failed (%s): %s", return_code, " | ".join(stderr_tail[-8:]))
-        return ok
-    except FileNotFoundError:
-        logger.error("FFmpeg binary not found")
-    except asyncio.CancelledError:
         try:
-            process.terminate()
-            await process.wait()
-        except Exception:
-            pass
-        raise
-    except Exception as exc:
-        logger.exception("FFmpeg compression exception: %s", exc)
-    return False
+            data = json.loads(stdout.decode())
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Failed to parse FFprobe output: {exc}")
+
+        streams = data.get("streams", [])
+        has_video = any(s.get("codec_type") == "video" for s in streams)
+        has_audio = any(s.get("codec_type") == "audio" for s in streams)
+
+        if not has_video and not has_audio:
+            raise ValueError(
+                "This file has no audio or video stream that FFmpeg can decode. "
+                "Ensure the file is a valid media format."
+            )
+
+        video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+        audio_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
+
+        # Extract duration from format or streams
+        format_info = data.get("format", {})
+        duration = float(format_info.get("duration") or 0)
+        if duration == 0 and video_stream:
+            duration = float(video_stream.get("duration") or 0)
+        if duration == 0 and audio_stream:
+            duration = float(audio_stream.get("duration") or 0)
+
+        width = int(video_stream.get("width", 0)) if video_stream else 0
+        height = int(video_stream.get("height", 0)) if video_stream else 0
+
+        return {
+            "has_video": has_video,
+            "has_audio": has_audio,
+            "duration": duration,
+            "width": width,
+            "height": height,
+            "video_stream": video_stream,
+            "audio_stream": audio_stream,
+            "format": format_info,
+            "streams": streams,
+        }
+
+    @classmethod
+    async def compress_video(
+        cls,
+        input_path: Any,
+        output_path: Any,
+        crf: int = 28,
+        preset: str = "veryfast",
+        target_resolution: Optional[str] = None,
+        task_id: Optional[str] = None,
+        progress_callback: Optional[Callable[[float], Any]] = None,
+    ) -> str:
+        """
+        Compresses video safely. Handles video-only files without crashing on missing audio.
+        """
+        clean_input = sanitize_path(input_path)
+        clean_output = sanitize_path(output_path)
+
+        probe_info = await cls.probe_media(clean_input)
+        has_video = probe_info["has_video"]
+        has_audio = probe_info["has_audio"]
+        total_duration = probe_info["duration"]
+
+        cmd = ["ffmpeg", "-y", "-i", clean_input]
+
+        # Video filters & encoding
+        video_filters = []
+        if target_resolution:
+            # e.g., "1280:720" or "854:480"
+            video_filters.append(f"scale={target_resolution}:force_original_aspect_ratio=decrease,pad={target_resolution}:(ow-iw)/2:(oh-ih)/2")
+
+        if has_video:
+            cmd.extend(["-c:v", "libx264", "-crf", str(crf), "-preset", preset])
+            if video_filters:
+                cmd.extend(["-vf", ",".join(video_filters)])
+            cmd.extend(["-map", "0:v:0"])
+        else:
+            cmd.extend(["-vn"])
+
+        if has_audio:
+            # Map first audio stream and encode to AAC
+            cmd.extend(["-map", "0:a:0", "-c:a", "aac", "-b:a", "128k"])
+        else:
+            # Explicitly disable audio mapping if no audio stream exists to avoid FFmpeg errors
+            cmd.append("-an")
+
+        # Copy any existing subtitle tracks optionally without failing if none exist
+        cmd.extend(["-map", "0:s?", "-c:s", "copy"])
+
+        # Web optimization flag
+        cmd.extend(["-movflags", "+faststart", clean_output])
+
+        logger.info(f"Executing compression: {' '.join(cmd)}")
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        if task_id:
+            task_manager.set_subprocess(task_id, process)
+
+        time_pattern = re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
+
+        async def read_stderr():
+            while True:
+                line = await process.stderr.readline()
+                if not line:
+                    break
+                decoded_line = line.decode("utf-8", errors="ignore")
+                match = time_pattern.search(decoded_line)
+                if match and total_duration > 0 and progress_callback:
+                    hours, minutes, seconds = map(float, match.groups())
+                    elapsed = hours * 3600 + minutes * 60 + seconds
+                    percent = min(100.0, (elapsed / total_duration) * 100.0)
+                    try:
+                        if asyncio.iscoroutinefunction(progress_callback):
+                            await progress_callback(percent)
+                        else:
+                            progress_callback(percent)
+                    except Exception as e:
+                        logger.debug(f"Progress callback exception: {e}")
+
+        await asyncio.gather(read_stderr(), process.wait())
+
+        if process.returncode != 0:
+            if os.path.exists(clean_output):
+                os.remove(clean_output)
+            raise RuntimeError(f"FFmpeg process returned non-zero exit code: {process.returncode}")
+
+        if not os.path.exists(clean_output) or os.path.getsize(clean_output) == 0:
+            raise RuntimeError("Compressed output file was not created or is empty.")
+
+        return clean_output
+
+
+ffmpeg_service = FFmpegService()
