@@ -1,0 +1,36 @@
+# Handlers package
+from . import (
+    start,
+    callbacks,
+    rename,
+    compressor,
+    streamer,
+    thumbnail,
+    caption,
+    autodelete,
+    session,
+    cleaner,
+    approve,
+    channel,
+    admin,
+    cancel,
+    extra,
+)
+
+__all__ = [
+    "start",
+    "callbacks",
+    "rename",
+    "compressor",
+    "streamer",
+    "thumbnail",
+    "caption",
+    "autodelete",
+    "session",
+    "cleaner",
+    "approve",
+    "channel",
+    "admin",
+    "cancel",
+    "extra",
+]
