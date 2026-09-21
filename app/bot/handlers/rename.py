@@ -110,7 +110,7 @@ async def rename_cmd_handler(client: Client, message: Message):
         return await message.reply_text(f"📝 **{to_smallcaps('ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ɴᴇᴡ ғɪʟᴇ ɴᴀᴍᴇ')}**\nExample: `/rename sample.mp4`{format_watermark()}")
     new_name = sanitize_filename(message.text.split(None, 1)[1])
     old_name = getattr(media, "file_name", None) or "file.bin"
-    new_name = preserve_extension(new_name, old_name)
+    new_name, _ = preserve_extension(new_name, old_name)
     await cache.set(f"rename_name_{message.from_user.id}_{target.id}", new_name, ttl=600)
     await show_rename_options(message, target.id, new_name, is_video)
 
@@ -153,7 +153,7 @@ async def reply_force_rename_collector(client: Client, message: Message):
     if getattr(media, "file_size", 0) > Config.MAX_TELEGRAM_UPLOAD_BYTES:
         return await message.reply_text(_too_large_text())
     old_name = getattr(media, "file_name", None) or "file.bin"
-    new_name = preserve_extension(sanitize_filename(message.text.strip()), old_name)
+    new_name, _ = preserve_extension(sanitize_filename(message.text.strip()), old_name)
     await cache.set(f"rename_name_{message.from_user.id}_{msg_id}", new_name, ttl=600)
     await show_rename_options(message, int(msg_id), new_name, is_video)
 
@@ -195,7 +195,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
             u = await user_repo.get_or_create(user_id, query.from_user.first_name or "User", query.from_user.username)
             prefix = u.get("prefix") or ""
             suffix = u.get("suffix") or ""
-            new_name = preserve_extension(sanitize_filename(new_name), getattr(media, "file_name", None) or "file.bin")
+            new_name, _ = preserve_extension(sanitize_filename(new_name), getattr(media, "file_name", None) or "file.bin")
             base, ext = os.path.splitext(new_name)
             final_name = sanitize_filename(f"{prefix}{base}{suffix}{ext}")
             if not ext:

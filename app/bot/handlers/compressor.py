@@ -106,8 +106,9 @@ async def execute_compression(client: Client, query: CallbackQuery):
                 attrs = await get_media_attributes(input_path)
                 if not attrs.get("has_video") and not attrs.get("has_audio"):
                     return await status.edit_text(
-                        f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n\n"
-                        f"{to_smallcaps('ᴛʜɪs ғɪʟᴇ ʜᴀs ɴᴏ ᴀᴜᴅɪᴏ ᴏʀ ᴠɪᴅᴇᴏ sᴛʀᴇᴀᴍ ᴛʜᴀᴛ ғғᴍᴘᴇɢ ᴄᴀɴ ᴅᴇᴄᴏᴅᴇ.')}"
+                        f"⚠️ **{to_smallcaps('ᴜɴsᴜᴘᴘᴏʀᴛᴇᴅ ғɪʟᴇ ғᴏʀ ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ')}**\n\n"
+                        f"{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴀɴ ᴄᴏᴍᴘʀᴇss ᴀᴜᴅɪᴏ ᴀɴᴅ ᴠɪᴅᴇᴏ sᴛʀᴇᴀᴍs. ᴛʜɪs ғɪʟᴇ ʜᴀs ɴᴏ ᴅᴇᴄᴏᴅᴀʙʟᴇ ᴀᴜᴅɪᴏ/ᴠɪᴅᴇᴏ sᴛʀᴇᴀᴍ, sᴏ ɪᴛ ᴄᴀɴɴᴏᴛ ʙᴇ ʀᴇ-ᴇɴᴄᴏᴅᴇᴅ.')}"
+                        f"{to_smallcaps('ᴜsᴇ ᴠɪᴅᴇᴏ/ᴀᴜᴅɪᴏ ғɪʟᴇs ғᴏʀ ᴄᴏᴍᴘʀᴇssɪᴏɴ.')}"
                     )
                 is_video = bool(attrs.get("has_video"))
                 if is_video:
