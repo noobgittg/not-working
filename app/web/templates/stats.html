@@ -194,9 +194,9 @@
                 <div class="spec-item"><span class="label">Framework:</span> <span class="val">Python 3.10 / Pyrofork</span></div>
                 <div class="spec-item"><span class="label">Web Engine:</span> <span class="val">FastAPI + Uvicorn</span></div>
                 <div class="spec-item"><span class="label">Stream Protocol:</span> <span class="val">HTTP 206 Partial Content</span></div>
-                <div class="spec-item"><span class="label">Database:</span> <span class="val">MongoDB Motor + Indexing</span></div>
+                <div class="spec-item"><span class="label">Database:</span> <span class="val">PyMongo Async + Indexing</span></div>
                 <div class="spec-item"><span class="label">Video Encoder:</span> <span class="val">FFmpeg (YUV420p Lanczos)</span></div>
-                <div class="spec-item"><span class="label">Keep-Alive:</span> <span class="val">6 Types Every 6s</span></div>
+                <div class="spec-item"><span class="label">Keep-Alive:</span> <span class="val">Keep-alive worker</span></div>
             </div>
         </div>
 
@@ -204,12 +204,12 @@
             <a href="/" class="btn btn-secondary">🏠 ʜᴏᴍᴇ</a>
             <a href="/search" class="btn btn-secondary">🔍 sᴇᴀʀᴄʜ ғɪʟᴇs</a>
             <a href="/help" class="btn btn-secondary">📖 ᴅᴏᴄᴜᴍᴇɴᴛᴀᴛɪᴏɴ</a>
-            <a href="https://{{ watermark }}" class="btn btn-primary" target="_blank">📢 ᴛᴇʟᴇɢʀᴀᴍ ᴄʜᴀɴɴᴇʟ</a>
+            <a href="{{ watermark_url }}" class="btn btn-primary" target="_blank">📢 ᴛᴇʟᴇɢʀᴀᴍ ᴄʜᴀɴɴᴇʟ</a>
         </div>
     </div>
 
     <footer>
-        <p>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a></p>
+        <p>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="{{ watermark_url }}" target="_blank">{{ watermark }}</a></p>
     </footer>
 </body>
 </html>

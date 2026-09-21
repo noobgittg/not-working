@@ -144,7 +144,7 @@
 <body>
     <div class="container">
         <header class="header">
-            <a href="https://{{ watermark }}" class="brand" target="_blank">⚡ {{ watermark }}</a>
+            <a href="{{ watermark_url }}" class="brand" target="_blank">⚡ {{ watermark }}</a>
             <span class="tag">✦ ᴜʟᴛʀᴀ-ғᴀsᴛ sᴛʀᴇᴀᴍ ✦</span>
         </header>
 
@@ -159,22 +159,20 @@
             <div class="meta-tags">
                 <div class="meta-tag-item">📦 <span>sɪᴢᴇ : <b>{{ file_size }}</b></span></div>
                 <div class="meta-tag-item">🏷️ <span>ᴛʏᴘᴇ : <b>{{ mime_type }}</b></span></div>
-                <div class="meta-tag-item">⚡ <span>ᴘᴏᴡᴇʀᴇᴅ ʙʏ : <a href="https://{{ watermark }}" target="_blank" style="color: var(--accent); text-decoration: none;"><b>{{ watermark }}</b></a></span></div>
+                <div class="meta-tag-item">⚡ <span>ᴘᴏᴡᴇʀᴇᴅ ʙʏ : <a href="{{ watermark_url }}" target="_blank" style="color: var(--accent); text-decoration: none;"><b>{{ watermark }}</b></a></span></div>
             </div>
         </div>
 
         <div class="grid-buttons">
             <a href="{{ download_url }}" class="btn btn-primary">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇ</a>
-            <a href="intent:{{ stream_url }}#Intent;package=org.videolan.vlc;type=video/*;end" class="btn btn-secondary">▶️ ᴠʟᴄ ᴘʟᴀʏᴇʀ</a>
-            <a href="intent:{{ stream_url }}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end" class="btn btn-secondary">▶️ ᴍx ᴘʟᴀʏᴇʀ</a>
-            <a href="playit://playvp/video?url={{ stream_url }}" class="btn btn-secondary">▶️ ᴘʟᴀʏɪᴛ</a>
-            <a href="kmplayer://{{ stream_url }}" class="btn btn-secondary">▶️ ᴋᴍᴘʟᴀʏᴇʀ</a>
+            <a href="{{ stream_url }}" class="btn btn-secondary" target="_blank" rel="noopener">▶️ ᴏᴘᴇɴ sᴛʀᴇᴀᴍ</a>
+            <a href="{{ download_url }}" class="btn btn-secondary">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ</a>
             <button onclick="copyStreamLink()" class="btn btn-secondary" id="copyBtn">📋 ᴄᴏᴘʏ ʟɪɴᴋ</button>
         </div>
     </div>
 
     <footer>
-        <p>⚡ ᴍᴍᴡ sᴜᴘᴇʀ sᴏɴɪᴄ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a></p>
+        <p>⚡ ᴍᴍᴡ sᴜᴘᴇʀ sᴏɴɪᴄ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="{{ watermark_url }}" target="_blank">{{ watermark }}</a></p>
     </footer>
 
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>

@@ -101,12 +101,12 @@
         <p class="meta-info">📦 <b>ғɪʟᴇ sɪᴢᴇ</b> : {{ file_size }}</p>
         
         <div class="btn-group">
-            <a href="{{ stream_url }}" class="btn btn-primary" download="{{ file_name }}">⚡ ᴅᴏᴡɴʟᴏᴀᴅ ɴᴏᴡ</a>
+            <a href="{{ direct_url or stream_url }}" class="btn btn-primary" download="{{ file_name }}">⚡ ᴅᴏᴡɴʟᴏᴀᴅ ɴᴏᴡ</a>
             <a href="/watch/{{ file_id }}" class="btn btn-secondary">🎬 ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ</a>
         </div>
 
         <div class="footer">
-            ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a>
+            ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="{{ watermark_url }}" target="_blank">{{ watermark }}</a>
         </div>
     </div>
 </body>
