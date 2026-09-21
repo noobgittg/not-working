@@ -1,0 +1,17 @@
+name: mmw-pro-bot
+type: web
+ports:
+  - port: 8080
+    path: /
+routes:
+  - path: /
+    port: 8080
+health_checks:
+  - http:
+      path: /health
+      port: 8080
+    initial_delay: 15
+    interval: 30
+    timeout: 5
+    unhealthy_threshold: 3
+    healthy_threshold: 1
