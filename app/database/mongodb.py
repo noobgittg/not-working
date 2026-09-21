@@ -1,40 +1,64 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+import asyncio
+from typing import Optional
+
+from pymongo import AsyncMongoClient
 from config import Config
 from app.utils.logger import logger
 
+
 class MongoManager:
     def __init__(self):
-        self.client: AsyncIOMotorClient = None
+        self.client: Optional[AsyncMongoClient] = None
         self.db = None
+        self._connect_lock = asyncio.Lock()
 
     async def connect(self):
-        if not self.client:
+        if self.client is not None and self.db is not None:
+            return self.db
+
+        async with self._connect_lock:
+            if self.client is not None and self.db is not None:
+                return self.db
+
+            client = AsyncMongoClient(
+                Config.MONGO_URI,
+                maxPoolSize=100,
+                minPoolSize=5,
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                retryWrites=True,
+                appname="MMW-ProBot",
+            )
             try:
-                self.client = AsyncIOMotorClient(
-                    Config.MONGO_URI,
-                    maxPoolSize=50,
-                    minPoolSize=10,
-                    serverSelectionTimeoutMS=5000
-                )
-                self.db = self.client[Config.DATABASE_NAME]
+                await client.admin.command("ping")
+                db = client[Config.DATABASE_NAME]
+                self.client = client
+                self.db = db
                 await self._init_indexes()
-                logger.info(f"MongoDB Connected successfully: {Config.DATABASE_NAME}")
-            except Exception as e:
-                logger.error(f"MongoDB Connection Failed: {e}")
+                logger.info(f"MongoDB connected successfully: {Config.DATABASE_NAME}")
+                return db
+            except Exception:
+                await client.close()
                 raise
 
     async def _init_indexes(self):
-        try:
-            await self.db.users.create_index("user_id", unique=True)
-            await self.db.chats.create_index("chat_id", unique=True)
-            await self.db.files.create_index("file_id", unique=True)
-            await self.db.auto_delete.create_index("delete_at")
-        except Exception as e:
-            logger.warning(f"Error creating indexes: {e}")
+        await self.db.users.create_index("user_id", unique=True, name="user_id_1")
+        await self.db.chats.create_index("chat_id", unique=True, name="chat_id_1")
+        await self.db.files.create_index("file_id", unique=True, name="file_id_1")
+        await self.db.files.create_index([("file_name", 1), ("created_at", -1)], name="file_name_created_at")
+        await self.db.auto_delete.create_index("delete_at", name="delete_at_1")
+        await self.db.auto_delete.create_index(
+            [("chat_id", 1), ("message_id", 1)],
+            unique=True,
+            name="chat_message_unique",
+        )
 
     async def close(self):
         if self.client:
-            self.client.close()
-            logger.info("MongoDB Connection closed.")
+            await self.client.close()
+            self.client = None
+            self.db = None
+            logger.info("MongoDB connection closed.")
+
 
 mongo = MongoManager()
