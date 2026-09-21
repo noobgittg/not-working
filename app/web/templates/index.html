@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✦ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ ✦ - {{ watermark }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0f141c;
+            --surface-card: #141a24;
+            --border: #1e2636;
+            --border-glow: #2d3748;
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --success: #34d399;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            background-image: radial-gradient(circle at top, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+        }
+        .container {
+            max-width: 760px;
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 48px 40px;
+            box-shadow: 0 25px 60px -15px var(--accent-glow);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--accent-gradient);
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            color: var(--accent);
+            padding: 6px 18px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            margin-bottom: 24px;
+        }
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+        }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin-bottom: 36px;
+        }
+        .grid-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 36px;
+            text-align: left;
+        }
+        .card-feature {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: all 0.2s ease;
+        }
+        .card-feature:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px var(--accent-glow);
+        }
+        .card-feature span.emoji { font-size: 1.4rem; }
+        .card-feature .title { font-weight: 600; font-size: 0.92rem; }
+        .card-feature .sub { font-size: 0.78rem; color: var(--text-secondary); }
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--accent-gradient);
+            color: #07090e;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 14px 32px;
+            border-radius: 16px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 30px -5px var(--accent-glow);
+        }
+        .btn-primary:hover { transform: translateY(-2px); opacity: 0.92; }
+        footer {
+            margin-top: 40px;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+        footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="status-badge"><span class="pulse-dot"></span> ✦ ᴜʟᴛʀᴀ-ғᴀsᴛ ᴇɴɢɪɴᴇ ᴏɴʟɪɴᴇ ✦</span>
+        <h1>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ</h1>
+        <p class="subtitle">Next-Generation Telegram Media Processing, FFmpeg Encoding & Super Sonic Stream Engine</p>
+        
+        <div class="grid-features">
+            <div class="card-feature">
+                <span class="emoji">✏️</span>
+                <div>
+                    <div class="title">ᴜʟᴛʀᴀ-ғᴀsᴛ ʀᴇɴᴀᴍᴇʀ</div>
+                    <div class="sub">Custom prefix, suffix & mode</div>
+                </div>
+            </div>
+            <div class="card-feature">
+                <span class="emoji">🗜️</span>
+                <div>
+                    <div class="title">ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssᴏʀ</div>
+                    <div class="sub">H.264 YUV420p & CRF presets</div>
+                </div>
+            </div>
+            <div class="card-feature">
+                <span class="emoji">⚡</span>
+                <div>
+                    <div class="title">ʜᴛᴛᴘ 𝟸𝟶𝟼 sᴛʀᴇᴀᴍᴇʀ</div>
+                    <div class="sub">Zero-lag range seek & web player</div>
+                </div>
+            </div>
+            <div class="card-feature">
+                <span class="emoji">🖼️</span>
+                <div>
+                    <div class="title">sᴍᴀʀᴛ ᴛʜᴜᴍʙɴᴀɪʟs</div>
+                    <div class="sub">Custom photo + THAM_URL cache</div>
+                </div>
+            </div>
+            <div class="card-feature">
+                <span class="emoji">⏱️</span>
+                <div>
+                    <div class="title">ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ sᴄʜᴇᴅᴜʟᴇʀ</div>
+                    <div class="sub">Batched sweeper & flood protection</div>
+                </div>
+            </div>
+            <div class="card-feature">
+                <span class="emoji">🤝</span>
+                <div>
+                    <div class="title">ᴀᴜᴛᴏ-ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴs</div>
+                    <div class="sub">Instant approval for channels & groups</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="https://{{ watermark }}" class="btn-primary" target="_blank">
+                📢 ᴏғғɪᴄɪᴀʟ ᴛᴇʟᴇɢʀᴀᴍ ᴄʜᴀɴɴᴇʟ
+            </a>
+        </div>
+
+        <footer>
+            ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a>
+        </footer>
+    </div>
+</body>
+</html>

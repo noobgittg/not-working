@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⬇️ {{ file_name }} - {{ watermark }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0f141c;
+            --border: #1e2636;
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            background-image: radial-gradient(circle at top, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 44px 36px;
+            max-width: 540px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 60px -15px var(--accent-glow);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--accent-gradient);
+        }
+        .icon { font-size: 3.8rem; margin-bottom: 20px; }
+        h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        .meta-info {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 32px;
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 15px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #07090e;
+            box-shadow: 0 10px 25px -5px var(--accent-glow);
+        }
+        .btn-primary:hover { transform: translateY(-2px); opacity: 0.92; }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--accent); }
+        .footer { margin-top: 32px; font-size: 0.88rem; color: var(--text-secondary); }
+        .footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">📦</div>
+        <h1>{{ file_name }}</h1>
+        <p class="meta-info">📦 <b>ғɪʟᴇ sɪᴢᴇ</b> : {{ file_size }}</p>
+        
+        <div class="btn-group">
+            <a href="{{ stream_url }}" class="btn btn-primary" download="{{ file_name }}">⚡ ᴅᴏᴡɴʟᴏᴀᴅ ɴᴏᴡ</a>
+            <a href="/watch/{{ file_id }}" class="btn btn-secondary">🎬 ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ</a>
+        </div>
+
+        <div class="footer">
+            ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a>
+        </div>
+    </div>
+</body>
+</html>

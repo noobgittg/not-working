@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 ʟɪᴠᴇ sʏsᴛᴇᴍ sᴛᴀᴛs - {{ watermark }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0f141c;
+            --surface-card: #141a24;
+            --border: #1e2636;
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --success: #34d399;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 16px;
+            background-image: radial-gradient(circle at top, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+        }
+        .container {
+            max-width: 860px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 20px 28px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+        .brand {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(52, 211, 153, 0.12);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            color: var(--success);
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: 0.2s ease;
+        }
+        .stat-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .stat-icon {
+            font-size: 2.2rem;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 12px;
+            border-radius: 16px;
+        }
+        .stat-val {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-lbl {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+        .system-specs {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+        }
+        .system-specs h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .specs-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .spec-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--surface-card);
+            border-radius: 12px;
+            font-size: 0.92rem;
+        }
+        .spec-item span.label { color: var(--text-secondary); }
+        .spec-item span.val { font-weight: 600; color: var(--accent); }
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+            transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent-gradient); color: #07090e; }
+        .btn-secondary { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); }
+        footer { margin-top: auto; padding: 24px; font-size: 0.88rem; color: var(--text-secondary); text-align: center; }
+        footer a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="/" class="brand">⚡ {{ watermark }}</a>
+            <span class="status-badge"><span class="pulse-dot"></span> ✦ sʏsᴛᴇᴍ ᴏɴʟɪɴᴇ ✦</span>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div>
+                    <div class="stat-val">{{ total_users }}</div>
+                    <div class="stat-lbl">ᴛᴏᴛᴀʟ ʀᴇɢɪsᴛᴇʀᴇᴅ ᴜsᴇʀs</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📁</div>
+                <div>
+                    <div class="stat-val">{{ total_files }}</div>
+                    <div class="stat-lbl">ɪɴᴅᴇxᴇᴅ sᴛʀᴇᴀᴍ ғɪʟᴇs</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📢</div>
+                <div>
+                    <div class="stat-val">{{ total_chats }}</div>
+                    <div class="stat-lbl">ᴄᴏɴɴᴇᴄᴛᴇᴅ ᴄʜᴀᴛs</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div>
+                    <div class="stat-val" style="font-size: 1.3rem;">{{ uptime }}</div>
+                    <div class="stat-lbl">sᴇʀᴠɪᴄᴇ ᴜᴘᴛɪᴍᴇ</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="system-specs">
+            <h2>⚙️ ᴇɴɢɪɴᴇ ᴀʀᴄʜɪᴛᴇᴄᴛᴜʀᴇ & sᴘᴇᴄɪғɪᴄᴀᴛɪᴏɴs</h2>
+            <div class="specs-list">
+                <div class="spec-item"><span class="label">Framework:</span> <span class="val">Python 3.10 / Pyrofork</span></div>
+                <div class="spec-item"><span class="label">Web Engine:</span> <span class="val">FastAPI + Uvicorn</span></div>
+                <div class="spec-item"><span class="label">Stream Protocol:</span> <span class="val">HTTP 206 Partial Content</span></div>
+                <div class="spec-item"><span class="label">Database:</span> <span class="val">MongoDB Motor + Indexing</span></div>
+                <div class="spec-item"><span class="label">Video Encoder:</span> <span class="val">FFmpeg (YUV420p Lanczos)</span></div>
+                <div class="spec-item"><span class="label">Keep-Alive:</span> <span class="val">6 Types Every 6s</span></div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/" class="btn btn-secondary">🏠 ʜᴏᴍᴇ</a>
+            <a href="/search" class="btn btn-secondary">🔍 sᴇᴀʀᴄʜ ғɪʟᴇs</a>
+            <a href="/help" class="btn btn-secondary">📖 ᴅᴏᴄᴜᴍᴇɴᴛᴀᴛɪᴏɴ</a>
+            <a href="https://{{ watermark }}" class="btn btn-primary" target="_blank">📢 ᴛᴇʟᴇɢʀᴀᴍ ᴄʜᴀɴɴᴇʟ</a>
+        </div>
+    </div>
+
+    <footer>
+        <p>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a></p>
+    </footer>
+</body>
+</html>

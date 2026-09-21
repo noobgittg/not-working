@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 sᴇᴀʀᴄʜ ғɪʟᴇs - {{ watermark }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07090e;
+            --surface: #0f141c;
+            --surface-card: #141a24;
+            --border: #1e2636;
+            --accent: #38bdf8;
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --accent-glow: rgba(56, 189, 248, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 16px;
+            background-image: radial-gradient(circle at top, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+        }
+        .container {
+            max-width: 860px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 20px 28px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+        .brand {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            background: var(--surface);
+            padding: 8px 12px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .search-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 1rem;
+            padding: 8px 12px;
+        }
+        .search-bar button {
+            background: var(--accent-gradient);
+            border: none;
+            color: #07090e;
+            font-weight: 700;
+            padding: 10px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .results-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            gap: 16px;
+        }
+        .result-item:last-child { border-bottom: none; }
+        .result-info .name { font-weight: 600; margin-bottom: 4px; word-break: break-all; }
+        .result-info .sub { font-size: 0.82rem; color: var(--text-secondary); }
+        .btn-group { display: flex; gap: 8px; flex-shrink: 0; }
+        .btn-action {
+            padding: 8px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .btn-watch { background: var(--accent); color: #07090e; }
+        .btn-dl { background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--border); }
+        footer { margin-top: auto; padding: 24px; font-size: 0.88rem; color: var(--text-secondary); text-align: center; }
+        footer a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="/" class="brand">⚡ {{ watermark }}</a>
+            <span style="font-size: 0.88rem; color: var(--accent); font-weight: 600;">✦ ғɪʟᴇ sᴇᴀʀᴄʜ ✦</span>
+        </header>
+
+        <form action="/search" method="get" class="search-bar">
+            <input type="text" name="q" placeholder="Enter keyword to search media..." value="{{ query }}" required>
+            <button type="submit">🔍 sᴇᴀʀᴄʜ</button>
+        </form>
+
+        <div class="results-card">
+            {% if query %}
+                <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Search results for: <span style="color: var(--accent);">{{ query }}</span></h3>
+                {% if results %}
+                    {% for r in results %}
+                        <div class="result-item">
+                            <div class="result-info">
+                                <div class="name">📁 {{ r.file_name }}</div>
+                                <div class="sub">📦 Size: {{ r.file_size }} | 🏷️ Type: {{ r.mime_type }}</div>
+                            </div>
+                            <div class="btn-group">
+                                <a href="{{ r.watch_url }}" class="btn-action btn-watch">🎬 Watch</a>
+                                <a href="{{ r.download_url }}" class="btn-action btn-dl">⬇️ DL</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-secondary);">No indexed files match your query.</p>
+                {% endif %}
+            {% else %}
+                <p style="color: var(--text-secondary);">Type a filename above and press Search to find stream files.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <footer>
+        <p>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a></p>
+    </footer>
+</body>
+</html>
