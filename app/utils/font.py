@@ -33,6 +33,10 @@ def field(emoji: str, label: str, value: str) -> str:
     """Formats a clean key-value field line."""
     return f"• {emoji} **{to_smallcaps(label)}** : `{value}`"
 
+def format_watermark() -> str:
+    """Returns official bot watermark footer link."""
+    return f"\n\n⚡ **{to_smallcaps('ᴘᴏᴡᴇʀᴇᴅ ʙʏ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
+
 def style_text(title: str, items: dict = None) -> str:
     """Formats a stylized card with header, key-value items, and watermark."""
     out = f"✦ **{to_smallcaps(title)}** ✦\n\n"
@@ -42,7 +46,3 @@ def style_text(title: str, items: dict = None) -> str:
         out += "\n"
     out += format_watermark()
     return out
-
-def format_watermark() -> str:
-    """Returns official bot watermark footer link."""
-    return f"\n\n⚡ **{to_smallcaps('ᴘᴏᴡᴇʀᴇᴅ ʙʏ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
