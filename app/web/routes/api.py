@@ -37,7 +37,7 @@ async def api_stats():
         "total_chats": chats_count,
         "total_files": files_count,
         "banned_users": banned_count,
-        "keepalive_frequency": "6s",
+        "keepalive_frequency": "10s",
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL,
         "version": "2.5.0"
@@ -56,7 +56,7 @@ async def api_file_info(file_id: str):
         "mime_type": file_doc.get("mime_type"),
         "stream_url": f"{Config.BASE_URL}/stream/{file_id}",
         "watch_url": f"{Config.BASE_URL}/watch/{file_id}",
-        "download_url": f"{Config.BASE_URL}/download/{file_id}",
+        "download_url": f"{Config.BASE_URL}/file/{file_id}",
         "embed_url": f"{Config.BASE_URL}/embed/{file_id}",
         "watermark": Config.WATERMARK
     }
@@ -75,7 +75,7 @@ async def api_search(q: str = Query(..., min_length=1)):
             "mime_type": f.get("mime_type"),
             "watch_url": f"{Config.BASE_URL}/watch/{fid}",
             "stream_url": f"{Config.BASE_URL}/stream/{fid}",
-            "download_url": f"{Config.BASE_URL}/download/{fid}"
+            "download_url": f"{Config.BASE_URL}/file/{fid}"
         })
     return {
         "query": q,

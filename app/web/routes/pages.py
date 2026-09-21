@@ -66,7 +66,7 @@ async def watch_page(request: Request, file_id: str):
         raise HTTPException(status_code=404, detail="File Not Found")
 
     stream_url = f"{Config.BASE_URL}/stream/{file_id}"
-    download_url = f"{Config.BASE_URL}/download/{file_id}"
+    download_url = f"{Config.BASE_URL}/file/{file_id}"
     embed_url = f"{Config.BASE_URL}/embed/{file_id}"
 
     return render_template(
@@ -109,6 +109,7 @@ async def download_page(request: Request, file_id: str):
         raise HTTPException(status_code=404, detail="File Not Found")
 
     stream_url = f"{Config.BASE_URL}/stream/{file_id}"
+    direct_url = f"{Config.BASE_URL}/file/{file_id}"
     return render_template(
         templates, request, "dl.html",
         {
@@ -116,6 +117,7 @@ async def download_page(request: Request, file_id: str):
             "file_name": file_doc.get("file_name", "File"),
             "file_size": humanbytes(file_doc.get("file_size", 0)),
             "stream_url": stream_url,
+            "direct_url": direct_url,
             "watermark": Config.WATERMARK,
             "watermark_url": Config.WATERMARK_URL
         }
@@ -162,7 +164,7 @@ async def search_web_page(request: Request, q: str = Query(None)):
                 "file_size": humanbytes(r.get("file_size", 0)),
                 "mime_type": r.get("mime_type", "video/mp4"),
                 "watch_url": f"{Config.BASE_URL}/watch/{r.get('file_id')}",
-                "download_url": f"{Config.BASE_URL}/download/{r.get('file_id')}"
+                "download_url": f"{Config.BASE_URL}/file/{r.get('file_id')}"
             })
 
     return render_template(
