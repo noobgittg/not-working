@@ -1,175 +1,200 @@
 import os
 import time
+import uuid
+
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from config import Config
+from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+
 from app.database.repositories.user_repo import user_repo
-from app.utils.font import to_smallcaps, format_watermark
-from app.utils.helpers import humanbytes, time_formatter, clean_temp_files, sanitize_filename
-from app.utils.progress import progress_for_pyrogram
-from app.services.ffmpeg_service import get_media_attributes, compress_media
-from app.services.thumb_service import resolve_thumbnail
-from app.services.caption_service import format_caption
 from app.services.autodel_service import schedule_deletion
+from app.services.caption_service import format_caption
+from app.services.ffmpeg_service import compress_media, get_media_attributes
+from app.services.thumb_service import resolve_thumbnail
+from app.utils.font import format_watermark, to_smallcaps
+from app.utils.helpers import clean_temp_files, humanbytes, sanitize_filename, split_file_async, time_formatter
+from app.utils.progress import progress_for_pyrogram
+from app.utils.task_manager import operation_slot
+from config import Config
+
 
 @Client.on_message(filters.private & filters.command("compress"))
 async def compress_command_handler(client: Client, message: Message):
     target = message.reply_to_message
-    if not target or not (target.video or target.document):
+    media = (target.video or target.audio or target.document) if target else None
+    if not target or not media:
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴛᴏ ᴄᴏᴍᴘʀᴇss.')}**\n\n"
-            f"• **{to_smallcaps('ᴜsᴀɢᴇ')}**: {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/compress`"
-            f"{format_watermark()}"
+            f"⚠️ **{to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ, ᴀᴜᴅɪᴏ ᴏʀ ғғᴍᴘᴇɢ-ʀᴇᴀᴅᴀʙʟᴇ ᴅᴏᴄᴜᴍᴇɴᴛ.')}**\n"
+            f"`/compress`{format_watermark()}"
         )
     await show_compression_menu(target, message)
 
-@Client.on_callback_query(filters.regex(r"^compress_menu_(\d+)"))
+
+@Client.on_callback_query(filters.regex(r"^compress_menu_(\d+)$"))
 async def compress_menu_callback(client: Client, query: CallbackQuery):
     msg_id = int(query.matches[0].group(1))
-    original_msg = await client.get_messages(query.message.chat.id, msg_id)
-    if not original_msg or not original_msg.media:
+    original = await client.get_messages(query.message.chat.id, msg_id)
+    if not original or not original.media:
         return await query.answer(to_smallcaps("ᴍᴇᴅɪᴀ ɴᴏᴛ ғᴏᴜɴᴅ!"), show_alert=True)
-    await show_compression_menu(original_msg, query.message, is_callback=True)
+    media = original.video or original.audio or original.document
+    if getattr(media, "file_size", 0) > Config.MAX_TELEGRAM_UPLOAD_BYTES:
+        # Downloading large files is supported when Telegram permits it, but the final upload is split if necessary.
+        await query.answer(to_smallcaps("ʟᴀʀɢᴇ ғɪʟᴇ: ᴏᴜᴛᴘᴜᴛ ᴡɪʟʟ ʙᴇ sᴘʟɪᴛ ɪғ ɴᴇᴄᴇssᴀʀʏ."), show_alert=False)
+    await show_compression_menu(original, query.message, is_callback=True)
+
 
 async def show_compression_menu(media_msg: Message, target_msg: Message, is_callback: bool = False):
-    msg_id = media_msg.id
-    media = media_msg.video or media_msg.document
-    file_name = getattr(media, "file_name", "video.mp4")
-    file_size = humanbytes(media.file_size)
-
-    btn = [
+    media = media_msg.video or media_msg.audio or media_msg.document
+    file_name = getattr(media, "file_name", None) or ("audio.m4a" if media_msg.audio else "media.bin")
+    file_size = humanbytes(getattr(media, "file_size", 0) or 0)
+    buttons = [
         [
-            InlineKeyboardButton(f"⚡ 720ᴘ ʜᴅ (sᴜᴘᴇʀ ғᴀsᴛ)", callback_data=f"do_comp_{msg_id}_720_28_superfast"),
-            InlineKeyboardButton(f"🚀 480ᴘ sᴅ (ᴜʟᴛʀᴀ ғᴀsᴛ)", callback_data=f"do_comp_{msg_id}_480_30_ultrafast")
+            InlineKeyboardButton("⚡ 720ᴘ / CRF 28", callback_data=f"do_comp_{media_msg.id}_720_28_superfast"),
+            InlineKeyboardButton("🚀 480ᴘ / CRF 30", callback_data=f"do_comp_{media_msg.id}_480_30_ultrafast"),
         ],
         [
-            InlineKeyboardButton(f"📦 360ᴘ (ᴍᴀx sᴀᴠɪɴɢ)", callback_data=f"do_comp_{msg_id}_360_32_ultrafast"),
-            InlineKeyboardButton(f"🎚️ 1080ᴘ (ғᴜʟʟ ʜᴅ)", callback_data=f"do_comp_{msg_id}_1080_24_veryfast")
+            InlineKeyboardButton("📦 360ᴘ / CRF 32", callback_data=f"do_comp_{media_msg.id}_360_32_ultrafast"),
+            InlineKeyboardButton("🎚️ 1080ᴘ / CRF 24", callback_data=f"do_comp_{media_msg.id}_1080_24_veryfast"),
         ],
         [
-            InlineKeyboardButton(f"⚖️ ᴄʀғ 24 (ʙᴀʟᴀɴᴄᴇᴅ)", callback_data=f"do_comp_{msg_id}_0_24_fast"),
-            InlineKeyboardButton(f"💎 ᴄʀғ 20 (ʜɪɢʜ ǫᴜᴀʟɪᴛʏ)", callback_data=f"do_comp_{msg_id}_0_20_fast")
+            InlineKeyboardButton("⚖️ CRF 24", callback_data=f"do_comp_{media_msg.id}_0_24_fast"),
+            InlineKeyboardButton("💎 CRF 20", callback_data=f"do_comp_{media_msg.id}_0_20_fast"),
         ],
-        [
-            InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")
-        ]
+        [InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")],
     ]
-
     text = (
-        f"✦ **{to_smallcaps('ғғᴍᴘᴇɢ ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssᴏʀ')}** ✦\n\n"
-        f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
-        f"• 📦 **{to_smallcaps('ᴄᴜʀʀᴇɴᴛ sɪᴢᴇ')}** : `{file_size}`\n\n"
-        f"💡 **{to_smallcaps('sᴇʟᴇᴄᴛ ʏᴏᴜʀ ᴅᴇsɪʀᴇᴅ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛ:')}**\n"
-        f"• 720ᴘ ʜᴅ : {to_smallcaps('ʙᴇsᴛ ʙᴀʟᴀɴᴄᴇ ᴏғ ǫᴜᴀʟɪᴛʏ ᴀɴᴅ sɪᴢᴇ')}\n"
-        f"• 480ᴘ sᴅ : {to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ ғᴀsᴛ & ʟᴏᴡ sɪᴢᴇ')}\n"
-        f"• 360ᴘ : {to_smallcaps('ᴍᴀxɪᴍᴜᴍ sɪᴢᴇ ʀᴇᴅᴜᴄᴛɪᴏɴ')}\n"
-        f"• 1080ᴘ : {to_smallcaps('ғᴜʟʟ ʜᴅ ǫᴜᴀʟɪᴛʏ ᴘʀᴇsᴇʀᴠᴀᴛɪᴏɴ')}"
+        f"✦ **{to_smallcaps('ғғᴍᴘᴇɢ ᴍᴇᴅɪᴀ ᴄᴏᴍᴘʀᴇssᴏʀ')}** ✦\n\n"
+        f"• 📁 `{file_name}`\n• 📦 `{file_size}`\n\n"
+        f"{to_smallcaps('ᴠɪᴅᴇᴏ ᴀɴᴅ ᴀᴜᴅɪᴏ ᴍᴇᴅɪᴀ ᴀʀᴇ ʜᴀɴᴅʟᴇᴅ ᴠɪᴀ ғғᴍᴘᴇɢ. ɴᴏɴ-ᴍᴇᴅɪᴀ ғɪʟᴇs ᴀʀᴇ ʀᴇᴊᴇᴄᴛᴇᴅ ᴄʟᴇᴀʀʟʏ.')}"
         f"{format_watermark()}"
     )
     if is_callback:
-        await target_msg.edit_text(text, reply_markup=InlineKeyboardMarkup(btn))
+        await target_msg.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
     else:
-        await target_msg.reply_text(text, reply_markup=InlineKeyboardMarkup(btn))
+        await target_msg.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-@Client.on_callback_query(filters.regex(r"^do_comp_(\d+)_(\d+)_(\d+)_([a-z]+)"))
+
+@Client.on_callback_query(filters.regex(r"^do_comp_(\d+)_(\d+)_(\d+)_([a-z]+)$"))
 async def execute_compression(client: Client, query: CallbackQuery):
     msg_id = int(query.matches[0].group(1))
     scale_h = int(query.matches[0].group(2))
     crf = int(query.matches[0].group(3))
     preset = query.matches[0].group(4)
     user_id = query.from_user.id
-
-    original_msg = await client.get_messages(query.message.chat.id, msg_id)
-    if not original_msg or not original_msg.media:
+    original = await client.get_messages(query.message.chat.id, msg_id)
+    if not original or not original.media:
         return await query.answer(to_smallcaps("ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ɴᴏᴛ ғᴏᴜɴᴅ!"), show_alert=True)
 
-    status = await query.message.edit_text(f"⏳ **{to_smallcaps('ɪɴɪᴛɪᴀʟɪᴢɪɴɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴡᴏʀᴋғʟᴏᴡ...')}**")
-
-    media = original_msg.video or original_msg.document
-    raw_name = getattr(media, "file_name", None) or f"video_{msg_id}.mp4"
-    clean_name = sanitize_filename(raw_name)
-
-    download_dir = f"downloads/{user_id}_comp_{int(time.time())}"
-    os.makedirs(download_dir, exist_ok=True)
-    input_path = os.path.join(download_dir, clean_name)
-    output_path = os.path.join(download_dir, f"compressed_{clean_name}")
-
-    start_dl = time.time()
     try:
-        await original_msg.download(
-            file_name=input_path,
-            progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, start_dl)
-        )
-    except Exception as e:
-        clean_temp_files(input_path, output_path)
-        return await status.edit_text(f"❌ **{to_smallcaps('ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{e}`")
+        async with operation_slot(user_id):
+            status = await query.message.edit_text(f"⏳ **{to_smallcaps('ɪɴɪᴛɪᴀʟɪᴢɪɴɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴡᴏʀᴋғʟᴏᴡ')}...**{format_watermark()}")
+            media = original.video or original.audio or original.document
+            raw_name = getattr(media, "file_name", None) or (f"audio_{msg_id}.m4a" if original.audio else f"media_{msg_id}.bin")
+            clean_name = sanitize_filename(raw_name)
+            workdir = os.path.join(Config.DOWNLOAD_DIR, f"compress_{user_id}_{uuid.uuid4().hex}")
+            os.makedirs(workdir, exist_ok=True)
+            input_path = os.path.join(workdir, clean_name)
+            source_ext = os.path.splitext(clean_name)[1].lower()
+            output_ext = ".mp4"
+            try:
+                await original.download(
+                    file_name=input_path,
+                    progress=progress_for_pyrogram,
+                    progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴇᴅɪᴀ", status, time.time()),
+                )
+                if not os.path.isfile(input_path):
+                    return await status.edit_text(f"❌ {to_smallcaps('ғɪʟᴇ ᴡᴀs ɴᴏᴛ ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ.')}")
+                attrs = await get_media_attributes(input_path)
+                if not attrs.get("has_video") and not attrs.get("has_audio"):
+                    return await status.edit_text(
+                        f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n\n"
+                        f"{to_smallcaps('ᴛʜɪs ғɪʟᴇ ʜᴀs ɴᴏ ᴀᴜᴅɪᴏ ᴏʀ ᴠɪᴅᴇᴏ sᴛʀᴇᴀᴍ ᴛʜᴀᴛ ғғᴍᴘᴇɢ ᴄᴀɴ ᴅᴇᴄᴏᴅᴇ.')}"
+                    )
+                is_video = bool(attrs.get("has_video"))
+                if is_video:
+                    output_name = f"compressed_{os.path.splitext(clean_name)[0]}.mp4"
+                else:
+                    output_ext = ".m4a"
+                    output_name = f"compressed_{os.path.splitext(clean_name)[0]}.m4a"
+                output_path = os.path.join(workdir, sanitize_filename(output_name))
+                await status.edit_text(f"🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪɴɢ ᴍᴇᴅɪᴀ')}...**{format_watermark()}")
+                comp_start = time.time()
+                success = await compress_media(
+                    input_path, output_path, crf=crf, preset=preset, scale_height=scale_h,
+                    progress_message=status, total_duration=attrs.get("duration", 0),
+                )
+                comp_duration = time.time() - comp_start
+                if not success or not os.path.isfile(output_path):
+                    return await status.edit_text(f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n{to_smallcaps('ᴛʀʏ ᴀ ᴅɪғғᴇʀᴇɴᴛ ғɪʟᴇ ᴏʀ ʟᴏᴡᴇʀ ʀᴇsᴏʟᴜᴛɪᴏɴ.')}" )
 
-    if not os.path.exists(input_path):
-        return await status.edit_text(f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴀғᴛᴇʀ ᴅᴏᴡɴʟᴏᴀᴅ!')}**")
+                comp_size = os.path.getsize(output_path)
+                orig_size = os.path.getsize(input_path)
+                savings = round((orig_size - comp_size) / orig_size * 100, 2) if orig_size else 0
+                attrs_out = await get_media_attributes(output_path)
+                base_caption = await format_caption(
+                    user_id=user_id,
+                    file_name=os.path.basename(output_path),
+                    file_size_str=humanbytes(comp_size),
+                    duration_str=time_formatter(seconds=attrs_out.get("duration", 0)),
+                    ext=output_ext.lstrip("."),
+                    file_caption=original.caption or "",
+                )
+                final_caption = base_caption + (
+                    f"\n\n📊 **{to_smallcaps('ᴄᴏᴍᴘʀᴇssɪᴏɴ sᴛᴀᴛɪsᴛɪᴄs')}**\n"
+                    f"• 📦 `{humanbytes(orig_size)}` → `{humanbytes(comp_size)}`\n"
+                    f"• 📉 `{savings}%`\n"
+                    f"• ⏱️ `{time_formatter(seconds=round(comp_duration))}`"
+                )
+                await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴄᴏᴍᴘʀᴇssᴇᴅ ᴍᴇᴅɪᴀ')}...**{format_watermark()}")
 
-    orig_size = os.path.getsize(input_path)
-    await status.edit_text(f"🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ɪɴ ᴘʀᴏɢʀᴇss (ʏᴜᴠ𝟺𝟸𝟶ᴘ)...')}**")
+                # The observed Pyrofork/Telegram Bot API ceiling is 2000 MiB. Split oversized output into safe parts.
+                if comp_size > Config.SAFE_TELEGRAM_PART_BYTES:
+                    parts = await split_file_async(output_path, max_bytes=Config.SAFE_TELEGRAM_PART_BYTES)
+                    if not parts:
+                        return await status.edit_text(f"❌ {to_smallcaps('ᴄᴏᴜʟᴅ ɴᴏᴛ sᴘʟɪᴛ ᴛʜᴇ ᴏᴜᴛᴘᴜᴛ ғɪʟᴇ.')}")
+                    sent_messages = []
+                    total_parts = len(parts)
+                    for index, part in enumerate(parts, 1):
+                        caption = f"{final_caption}\n\n📦 **Part {index}/{total_parts}**"
+                        sent = await client.send_document(
+                            query.message.chat.id, part, caption=caption, force_document=True,
+                            progress=progress_for_pyrogram,
+                            progress_args=(f"📤 Part {index}/{total_parts}", status, time.time()),
+                        )
+                        sent_messages.append(sent)
+                    for part in parts:
+                        clean_temp_files(part)
+                else:
+                    thumb_path = await resolve_thumbnail(client, user_id, workdir, output_path) if attrs_out.get("has_video") else None
+                    try:
+                        if attrs_out.get("has_video"):
+                            sent = await client.send_video(
+                                query.message.chat.id, output_path, caption=final_caption,
+                                duration=attrs_out.get("duration", 0), width=attrs_out.get("width") or 1,
+                                height=attrs_out.get("height") or 1, thumb=thumb_path, supports_streaming=True,
+                                progress=progress_for_pyrogram,
+                                progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time()),
+                            )
+                        else:
+                            sent = await client.send_audio(
+                                query.message.chat.id, output_path, caption=final_caption,
+                                duration=attrs_out.get("duration", 0),
+                                progress=progress_for_pyrogram,
+                                progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, time.time()),
+                            )
+                    finally:
+                        clean_temp_files(thumb_path)
+                    sent_messages = [sent]
+            finally:
+                clean_temp_files(workdir)
+    except RuntimeError as exc:
+        return await query.answer(str(exc), show_alert=True)
+    except Exception as exc:
+        clean_temp_files(locals().get("workdir"))
+        return await query.message.edit_text(f"❌ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n`{str(exc)[:700]}`")
 
-    comp_start = time.time()
-    success = await compress_media(input_path, output_path, crf=crf, preset=preset, scale_height=scale_h)
-    comp_duration = time.time() - comp_start
-
-    if not success or not os.path.exists(output_path):
-        clean_temp_files(input_path, output_path)
-        return await status.edit_text(f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ!')}**")
-
-    comp_size = os.path.getsize(output_path)
-    savings = round(((orig_size - comp_size) / orig_size) * 100, 2) if orig_size > 0 else 0
-
-    thumb_path = await resolve_thumbnail(client, user_id, output_path)
-    attrs = await get_media_attributes(output_path)
-
-    # Format caption with compression metrics
-    orig_caption = original_msg.caption or ""
-    base_caption = await format_caption(
-        user_id=user_id,
-        file_name=f"compressed_{clean_name}",
-        file_size_str=humanbytes(comp_size),
-        duration_str=time_formatter(seconds=attrs["duration"]),
-        ext="mp4",
-        file_caption=orig_caption
-    )
-
-    stats_summary = (
-        f"\n\n📊 **{to_smallcaps('ᴄᴏᴍᴘʀᴇssɪᴏɴ sᴛᴀᴛɪsᴛɪᴄs')}** :\n"
-        f"• 📦 **{to_smallcaps('ᴏʀɪɢɪɴᴀʟ sɪᴢᴇ')}** : `{humanbytes(orig_size)}`\n"
-        f"• 📦 **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴇᴅ sɪᴢᴇ')}** : `{humanbytes(comp_size)}`\n"
-        f"• 📉 **{to_smallcaps('sᴘᴀᴄᴇ sᴀᴠᴇᴅ')}** : `{savings}%`\n"
-        f"• ⏱️ **{to_smallcaps('ᴇɴᴄᴏᴅɪɴɢ ᴛɪᴍᴇ')}** : `{time_formatter(seconds=round(comp_duration))}`"
-    )
-    final_caption = base_caption + stats_summary
-
-    upload_start = time.time()
-    await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴄᴏᴍᴘʀᴇssᴇᴅ ᴠɪᴅᴇᴏ...')}**")
-
-    try:
-        sent_video = await client.send_video(
-            chat_id=query.message.chat.id,
-            video=output_path,
-            caption=final_caption,
-            duration=attrs["duration"],
-            width=attrs["width"],
-            height=attrs["height"],
-            thumb=thumb_path,
-            supports_streaming=True,
-            progress=progress_for_pyrogram,
-            progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, upload_start)
-        )
-    except Exception as e:
-        clean_temp_files(input_path, output_path, thumb_path)
-        return await status.edit_text(f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{e}`")
-
-    clean_temp_files(input_path, output_path, thumb_path)
-    await status.delete()
-
-    # Schedule deletion if user has configured timer
+    await query.message.delete()
     u = await user_repo.get_user(user_id)
     del_time = u.get("auto_delete_time", 0) if u else 0
-    if del_time > 0 and sent_video:
-        await schedule_deletion(sent_video.chat.id, sent_video.id, del_time)
+    for sent in sent_messages:
+        if del_time > 0:
+            await schedule_deletion(sent.chat.id, sent.id, del_time)

@@ -4,6 +4,7 @@ from config import Config
 from app.database.repositories.user_repo import user_repo
 from app.database.repositories.chat_repo import chat_repo
 from app.utils.font import to_smallcaps, format_watermark
+from app.utils.helpers import is_telegram_button_url
 
 @Client.on_callback_query(filters.regex(r"^nav_(home|help|about|status|settings)"))
 async def navigation_callbacks(client: Client, query: CallbackQuery):
@@ -43,9 +44,8 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
         ]
         if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ')}", callback_data="admin_panel_back")])
-        buttons.append([
-            InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)
-        ])
+        if is_telegram_button_url(Config.WATERMARK_URL):
+            buttons.append([InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)])
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
     elif action == "help":
@@ -55,7 +55,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"{to_smallcaps('ᴇxᴘʟᴏʀᴇ ᴏᴜʀ ᴄᴀᴛᴇɢᴏʀɪᴢᴇᴅ ɢᴜɪᴅᴇs ʙᴇʟᴏᴡ ғᴏʀ ᴅᴇᴛᴀɪʟᴇᴅ ɪɴsᴛʀᴜᴄᴛɪᴏɴs ᴀɴᴅ ᴇxᴀᴍᴘʟᴇs:')}\n\n"
             f"• ✏️ **{to_smallcaps('ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ғɪʟᴇ ʀᴇɴᴀᴍɪɴɢ, ᴘʀᴇғɪx, sᴜғғɪx, ᴍᴏᴅᴇ ᴄᴏɴᴠᴇʀsɪᴏɴ')}\n"
             f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛs & ᴄʀғ ᴛᴜɴɪɴɢ')}\n"
-            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ, ʜᴛᴛᴘ 𝟸𝟶𝟼 ʟɪɴᴋs, ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}\n"
+            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ & ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ')}\n"
             f"• 🖼️ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ ᴘʜᴏᴛᴏs & ᴛʜᴀᴍ_ᴜʀʟ ᴄᴀᴄʜɪɴɢ')}\n"
             f"• 📝 **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴛᴇᴍᴘʟᴀᴛᴇs & ᴄᴀᴘ[] ǫᴜᴇᴜᴇ ᴍᴀɴᴀɢᴇʀ')}\n"
             f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ')}** : {to_smallcaps('ᴛɪᴍᴇᴅ ᴍᴇssᴀɢᴇ sᴄʜᴇᴅᴜʟɪɴɢ & ʙᴀᴛᴄʜ ᴄʟᴇᴀɴɪɴɢ')}\n"
@@ -85,11 +85,11 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
                 InlineKeyboardButton(f"🔑 {to_smallcaps('sᴇssɪᴏɴ')}", callback_data="help_session"),
                 InlineKeyboardButton(f"🧹 {to_smallcaps('ᴄʟᴇᴀɴᴇʀ')}", callback_data="help_cleaner")
             ],
-            [
-                InlineKeyboardButton(f"🛠️ {to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}", callback_data="help_tools"),
-                InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=f"{Config.BASE_URL}/stats")
-            ]
+            [InlineKeyboardButton(f"🛠️ {to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}", callback_data="help_tools")]
         ]
+        dashboard_url = f"{Config.BASE_URL.rstrip('/')}/stats"
+        if is_telegram_button_url(dashboard_url):
+            buttons[-1].append(InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=dashboard_url))
         if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ')}", callback_data="help_admin")])
         buttons.append([InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")])
@@ -102,10 +102,10 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"• 🤖 **{to_smallcaps('ʙᴏᴛ ɴᴀᴍᴇ')}** : `MMW All-In-One Pro`\n"
             f"• 💎 **{to_smallcaps('ᴇᴅɪᴛɪᴏɴ')}** : `v2.5.0 God-Mode Release`\n"
             f"• 🐍 **{to_smallcaps('ᴇɴɢɪɴᴇ')}** : `Python 3.10+ / Pyrofork (Non-blocking Async)`\n"
-            f"• 🍃 **{to_smallcaps('ᴅᴀᴛᴀʙᴀsᴇ')}** : `MongoDB Motor with Indexing & Connection Pooling`\n"
+            f"• 🍃 **{to_smallcaps('ᴅᴀᴛᴀʙᴀsᴇ')}** : `PyMongo Async with Indexing & Connection Pooling`\n"
             f"• 🎬 **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : `FastAPI + Plyr.js Engine (Byte-Accurate Range 206)`\n"
             f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : `FFmpeg with YUV420p & Even-Dimension Enforcement`\n"
-            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Concurrent Standard-Lib Pingers (6s Cycle)`\n"
+            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 rotating health checks (10s cycle)`\n"
             f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Automatic Memory Sweeper & Daily Reboot Alerts`\n"
             f"• 🛡️ **{to_smallcaps('sᴇᴄᴜʀɪᴛʏ')}** : `Filename Sanitization & In-Memory Session Gen`"
             f"{format_watermark()}"
@@ -122,7 +122,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"• 📢 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴄʜᴀᴛs')}** : `{chats_count}`\n"
             f"• ⚡ **{to_smallcaps('ᴄᴀᴄʜɪɴɢ')}** : `FastMemoryCache (TTL Active)`\n"
             f"• 🌐 **{to_smallcaps('ᴡᴇʙ sᴇʀᴠᴇʀ')}** : `FastAPI Operational on Koyeb`\n"
-            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Types Every 6s (Active)`\n"
+            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `Keep-alive worker (active)`\n"
             f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
             f"• 🚀 **{to_smallcaps('sᴇʀᴠᴇʀ sᴛᴀᴛᴜs')}** : `Online & Ultra-Fast`"
             f"{format_watermark()}"
@@ -225,8 +225,8 @@ async def help_subpages(client: Client, query: CallbackQuery):
             f"• 🎬 **{to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ ғᴇᴀᴛᴜʀᴇs')}** :\n"
             f"  • {to_smallcaps('ᴘʟʏʀ ᴠ𝟹 ᴘʟᴀʏᴇʀ ᴡɪᴛʜ sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟs, ᴘɪᴘ & ғᴜʟʟsᴄʀᴇᴇɴ.')}\n"
             f"  • {to_smallcaps('ʙʏᴛᴇ-ᴀᴄᴄᴜʀᴀᴛᴇ ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴇᴇᴋɪɴɢ (ɴᴏ ʟᴀɢ/ʙᴜғғᴇʀɪɴɢ).')}\n\n"
-            f"• 📱 **{to_smallcaps('ᴏɴᴇ-ᴄʟɪᴄᴋ ᴀɴᴅʀᴏɪᴅ ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}** :\n"
-            f"  • ᴍx ᴘʟᴀʏᴇʀ, ᴠʟᴄ, ᴘʟᴀʏɪᴛ, ᴋᴍᴘʟᴀʏᴇʀ & ᴊᴜsᴛᴘʟᴀʏᴇʀ."
+            f"• 🌐 **{to_smallcaps('ʜᴛᴛᴘ(s) sᴛʀᴇᴀᴍ ʟɪɴᴋs')}** :\n"
+            f"  • ᴠʟᴄ, ᴍx ᴘʟᴀʏᴇʀ ᴀɴᴅ ᴏᴛʜᴇʀ ʜᴛᴛᴘ-rᴀɴɢᴇ ᴘʟᴀʏᴇʀs ᴄᴀɴ ᴜsᴇ ᴛʜᴇ ɢᴇɴᴇʀᴀᴛᴇᴅ sᴛʀᴇᴀᴍ ᴜʀʟ."
             f"{format_watermark()}"
         )
     elif cat == "thumbnail":
