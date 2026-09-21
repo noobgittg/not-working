@@ -1,24 +1,20 @@
-FROM python:3.12-slim-bookworm
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PORT=8080
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    gcc \
-    libffi-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY requirements.txt .
-RUN python -m pip install --upgrade pip setuptools wheel && \
-    python -m pip install -r requirements.txt
-
-COPY . .
-RUN mkdir -p /app/downloads && chmod +x /app/entrypoint.sh
-
-EXPOSE 8080
-CMD ["./entrypoint.sh"]
+FROM python:3.12-slim
+​ENV PYTHONUNBUFFERED=1 
+DEBIAN_FRONTEND=noninteractive
+​WORKDIR /app
+​Install FFmpeg, FFprobe, and required build tools
+​RUN apt-get update && apt-get install -y --no-install-recommends 
+ffmpeg 
+curl 
+git 
+build-essential 
+&& rm -rf /var/lib/apt/lists/*
+​Install python dependencies
+​COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && 
+pip install --no-cache-dir -r requirements.txt
+​Ensure static binaries are ready as fallback
+​RUN python3 -c "import static_ffmpeg; static_ffmpeg.add_paths()" || true
+​Copy project files
+​COPY . .
+​CMD ["python3", "main.py"]
