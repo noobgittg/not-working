@@ -60,6 +60,7 @@ async def get_media_attributes(file_path: str) -> Dict[str, Any]:
         "audio_codec": audio.get("codec_name") if audio else None,
         "format": fmt.get("format_name", "unknown"),
         "format_long": fmt.get("format_long_name", "Unknown"),
+        "stream_count": len(streams),
     }
 
 
