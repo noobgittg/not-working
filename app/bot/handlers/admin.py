@@ -52,7 +52,7 @@ async def render_admin_dashboard(target_msg: Message, is_edit: bool = False):
         f"• 📁 **{to_smallcaps('sᴛʀᴇᴀᴍ ғɪʟᴇs')}** : `{total_files}`\n"
         f"• 🚫 **{to_smallcaps('ʙᴀɴɴᴇᴅ ᴜsᴇʀs')}** : `{banned_count}`\n"
         f"• ⚡ **{to_smallcaps('ᴄᴀᴄʜᴇ ᴇɴɢɪɴᴇ')}** : `FastMemoryCache (Active)`\n"
-        f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 rotating health checks (10s cycle)`\n"
+        f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Pingers Every 6s (Active)`\n"
         f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
         f"• 🚀 **{to_smallcaps('ᴇxᴇᴄᴜᴛɪᴏɴ')}** : `Production Async Engine`\n\n"
         f"💡 **{to_smallcaps('ᴀᴅᴍɪɴ ǫᴜɪᴄᴋ ᴀᴄᴛɪᴏɴs:')}**"

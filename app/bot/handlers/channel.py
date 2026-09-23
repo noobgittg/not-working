@@ -1,47 +1,35 @@
 import os
-
 from pyrogram import Client, filters
 from pyrogram.types import Message
-
+from config import Config
 from app.database.repositories.chat_repo import chat_repo
-from app.services.autodel_service import schedule_deletion
-from app.services.caption_service import render_caption_template
 from app.utils.font import to_smallcaps
 from app.utils.helpers import humanbytes, time_formatter
-from config import Config
+from app.services.caption_service import format_caption
+from app.services.autodel_service import schedule_deletion
 
-
-@Client.on_message(filters.channel & (filters.document | filters.video | filters.audio))
+@Client.on_message(filters.channel & (filters.document | filters.video))
 async def channel_media_listener(client: Client, message: Message):
-    media = message.video or message.document or message.audio
+    media = message.video or message.document
     if not media:
         return
-    chat_doc = await chat_repo.get_or_create_chat(message.chat.id, message.chat.title or "Channel", "channel")
-    filename = getattr(media, "file_name", None) or "media.bin"
-    file_size_str = humanbytes(getattr(media, "file_size", 0))
-    duration = getattr(media, "duration", 0) or 0
-    duration_str = time_formatter(seconds=duration)
-    _, ext = os.path.splitext(filename)
-    current_caption = message.caption or ""
 
-    if Config.WATERMARK not in current_caption:
-        template = chat_doc.get("auto_caption")
-        if template:
-            new_caption = render_caption_template(
-                template,
-                file_name=filename,
-                file_size_str=file_size_str,
-                duration_str=duration_str,
-                ext=ext.lstrip("."),
-                file_caption=current_caption,
-            )
-        else:
-            new_caption = current_caption + ("\n\n" if current_caption else "") + Config.WATERMARK
+    chat_doc = await chat_repo.get_or_create_chat(message.chat.id, message.chat.title or "Channel", "channel")
+
+    filename = media.file_name or "file.mp4"
+    file_size_str = humanbytes(media.file_size)
+    duration = getattr(media, "duration", 0)
+    duration_str = time_formatter(duration * 1000) if duration else "0s"
+    _, ext = os.path.splitext(filename)
+
+    curr_caption = message.caption or ""
+    if Config.WATERMARK not in curr_caption:
+        new_caption = await format_caption(message.chat.id, filename, file_size_str, duration_str, ext)
         try:
             await message.edit_caption(caption=new_caption)
         except Exception:
             pass
 
-    auto_del = int(chat_doc.get("auto_delete_time", 0) or 0)
+    auto_del = chat_doc.get("auto_delete_time", 0)
     if auto_del > 0:
         await schedule_deletion(message.chat.id, message.id, auto_del)

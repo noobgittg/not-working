@@ -4,7 +4,6 @@ from config import Config
 from app.database.repositories.user_repo import user_repo
 from app.database.repositories.chat_repo import chat_repo
 from app.utils.font import to_smallcaps, format_watermark
-from app.utils.helpers import is_telegram_button_url
 
 @Client.on_message(filters.private & filters.command(["start", "help", "about", "status", "settings"]))
 async def command_start_family(client: Client, message: Message):
@@ -28,10 +27,10 @@ async def command_start_family(client: Client, message: Message):
                 raise Exception()
         except Exception:
             invite_link = Config.FORCE_SUB_CHANNEL if str(Config.FORCE_SUB_CHANNEL).startswith("http") else f"https://t.me/{Config.FORCE_SUB_CHANNEL.replace('@', '')}"
-            btn = []
-            if is_telegram_button_url(invite_link):
-                btn.append([InlineKeyboardButton(f"📢 {to_smallcaps('ᴊᴏɪɴ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=invite_link)])
-            btn.append([InlineKeyboardButton(f"🔄 {to_smallcaps('ᴠᴇʀɪғʏ & ᴄᴏɴᴛɪɴᴜᴇ')}", callback_data="nav_home")])
+            btn = [
+                [InlineKeyboardButton(f"📢 {to_smallcaps('ᴊᴏɪɴ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=invite_link)],
+                [InlineKeyboardButton(f"🔄 {to_smallcaps('ᴠᴇʀɪғʏ & ᴄᴏɴᴛɪɴᴜᴇ')}", callback_data="nav_home")]
+            ]
             return await message.reply_text(
                 f"⚠️ **{to_smallcaps('ᴀᴄᴄᴇss ʀᴇǫᴜɪʀᴇs ᴄʜᴀɴɴᴇʟ ᴍᴇᴍʙᴇʀsʜɪᴘ')}**\n\n"
                 f"👋 **{to_smallcaps('ʜᴇʟʟᴏ')} {user.mention}** !\n"
@@ -75,8 +74,9 @@ async def command_start_family(client: Client, message: Message):
         ]
         if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ')}", callback_data="admin_panel_back")])
-        if is_telegram_button_url(Config.WATERMARK_URL):
-            buttons.append([InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)])
+        buttons.append([
+            InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)
+        ])
 
         await message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
@@ -87,7 +87,7 @@ async def command_start_family(client: Client, message: Message):
             f"{to_smallcaps('ᴇxᴘʟᴏʀᴇ ᴏᴜʀ ᴄᴀᴛᴇɢᴏʀɪᴢᴇᴅ ɢᴜɪᴅᴇs ʙᴇʟᴏᴡ ғᴏʀ ᴅᴇᴛᴀɪʟᴇᴅ ɪɴsᴛʀᴜᴄᴛɪᴏɴs ᴀɴᴅ ᴇxᴀᴍᴘʟᴇs:')}\n\n"
             f"• ✏️ **{to_smallcaps('ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ғɪʟᴇ ʀᴇɴᴀᴍɪɴɢ, ᴘʀᴇғɪx, sᴜғғɪx, ᴍᴏᴅᴇ ᴄᴏɴᴠᴇʀsɪᴏɴ')}\n"
             f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛs & ᴄʀғ ᴛᴜɴɪɴɢ')}\n"
-            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ & ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ')}\n"
+            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ, ʜᴛᴛᴘ 𝟸𝟶𝟼 ʟɪɴᴋs, ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}\n"
             f"• 🖼️ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ ᴘʜᴏᴛᴏs & ᴛʜᴀᴍ_ᴜʀʟ ᴄᴀᴄʜɪɴɢ')}\n"
             f"• 📝 **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴛᴇᴍᴘʟᴀᴛᴇs & ᴄᴀᴘ[] ǫᴜᴇᴜᴇ ᴍᴀɴᴀɢᴇʀ')}\n"
             f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ')}** : {to_smallcaps('ᴛɪᴍᴇᴅ ᴍᴇssᴀɢᴇ sᴄʜᴇᴅᴜʟɪɴɢ & ʙᴀᴛᴄʜ ᴄʟᴇᴀɴɪɴɢ')}\n"
@@ -117,11 +117,11 @@ async def command_start_family(client: Client, message: Message):
                 InlineKeyboardButton(f"🔑 {to_smallcaps('sᴇssɪᴏɴ')}", callback_data="help_session"),
                 InlineKeyboardButton(f"🧹 {to_smallcaps('ᴄʟᴇᴀɴᴇʀ')}", callback_data="help_cleaner")
             ],
-            [InlineKeyboardButton(f"🛠️ {to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}", callback_data="help_tools")]
+            [
+                InlineKeyboardButton(f"🛠️ {to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}", callback_data="help_tools"),
+                InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=f"{Config.BASE_URL}/stats")
+            ]
         ]
-        dashboard_url = f"{Config.BASE_URL.rstrip('/')}/stats"
-        if is_telegram_button_url(dashboard_url):
-            buttons[-1].append(InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=dashboard_url))
         if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ')}", callback_data="help_admin")])
         buttons.append([InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")])
@@ -175,7 +175,7 @@ async def command_start_family(client: Client, message: Message):
             f"• 👥 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴜsᴇʀs')}** : `{users_count}`\n"
             f"• 📢 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴄʜᴀᴛs')}** : `{chats_count}`\n"
             f"• ⚡ **{to_smallcaps('ᴄᴀᴄʜɪɴɢ')}** : `FastMemoryCache (TTL Active)`\n"
-            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `Keep-alive worker`\n"
+            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Types Every 6s (Active)`\n"
             f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
             f"• 🌐 **{to_smallcaps('ᴡᴇʙ sᴇʀᴠᴇʀ')}** : `FastAPI + Uvicorn (HTTP 206 Ready)`\n"
             f"• 🚀 **{to_smallcaps('sᴇʀᴠᴇʀ ʜᴇᴀʟᴛʜ')}** : `Operational & Ultra-Fast`"
