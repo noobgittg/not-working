@@ -1,7 +1,9 @@
+version: '3.8'
+
 services:
   bot:
     build: .
-    restart: unless-stopped
+    restart: always
     env_file:
       - .env
     ports:
@@ -9,20 +11,15 @@ services:
     volumes:
       - ./downloads:/app/downloads
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
 
   mongo:
-    image: mongo:8
-    restart: unless-stopped
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
 
 volumes:
   mongo_data:

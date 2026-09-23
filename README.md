@@ -9,7 +9,7 @@
 
 ## 🌟 Master Highlights
 
-- ⚡ **Ultra-Fast Engine**: Asynchronous architecture powered by **Python 3.10+**, **Pyrofork**, **FastAPI**, and **PyMongo Async (MongoDB)**.
+- ⚡ **Ultra-Fast Engine**: Asynchronous architecture powered by **Python 3.10+**, **Pyrofork**, **FastAPI**, and **Motor (MongoDB)**.
 - 💾 **Dual-Layer Caching Engine**: `FastMemoryCache` (in-memory TTL cache) minimizes MongoDB round-trip operations for sub-millisecond user preferences and thumbnail resolution.
 - ✏️ **Pro Rename System**: Reply to any media or execute `/rename <filename>`, preserving extensions, custom captions, thumbnails, with real-time download and upload progress updates.
 - 🗜️ **FFmpeg Video Compressor**:
@@ -19,8 +19,8 @@
 - 🎬 **Instant Web Streaming & Player**:
   - FastAPI server with HTTP 206 Partial Content (Range requests) for instant seeking.
   - Embedded modern Plyr v3 dark mode web player.
-  - HTTP(S) stream links that can be opened by VLC, MX Player, browser players, and other clients supporting byte-range requests.
-  - Direct file download route (`/file/<file_id>`) plus a human-friendly download page (`/download/<file_id>`).
+  - One-click launch buttons for external mobile video players (**VLC**, **MX Player**, **PlayIt**, **KMPlayer**).
+  - Direct fast file download route (`/download/<built-in function id>`).
 - 🖼️ **Smart Automatic Thumbnail Changer**:
   - Mode A: Reply to a photo with `/setthumb` to set custom user thumbnail.
   - Mode B: Global or dynamic `THAM_URL` (configured via env or `/setthumb <URL>`) automatically applied to files.
@@ -65,7 +65,7 @@ MMW-BOT-PRO/
 │   │       ├── session.py      # /session string generator
 │   │       └── channel.py      # Channel post automation
 │   ├── database/
-│   │   ├── mongodb.py          # PyMongo Async client with pooling & indexes
+│   │   ├── mongodb.py          # Motor AsyncIOMotorClient with pooling & indexes
 │   │   ├── models.py           # Typed schema models
 │   │   └── repositories/
 │   │       ├── user_repo.py    # User settings repository
@@ -81,12 +81,12 @@ MMW-BOT-PRO/
 │   │   ├── app.py              # FastAPI app factory
 │   │   ├── web_support.py      # Dedicated Koyeb web server support module
 │   │   ├── routes/
-│   │   │   ├── pages.py        # /, /health, /status, /watch/<file_id>, /download/<file_id>
-│   │   │   ├── stream.py       # /stream/<file_id>, /file/<file_id> (HTTP 206 Partial Content)
-│   │   │   └── api.py          # /api/status, /api/info/<file_id>, /api/search
+│   │   │   ├── pages.py        # /, /health, /status, /watch/<built-in function id>, /download/<built-in function id>
+│   │   │   ├── stream.py       # /stream/<built-in function id>, /file/<built-in function id> (HTTP 206 Partial Content)
+│   │   │   └── api.py          # /api/status, /api/info/<built-in function id>
 │   │   └── templates/
 │   │       ├── index.html      # Modern dashboard landing page
-│   │       ├── watch.html      # Plyr v3 web player with standard HTTP(S) player URLs
+│   │       ├── watch.html      # Plyr v3 web player with app intents
 │   │       └── dl.html         # Direct fast download card
 │   └── utils/
 │       ├── logger.py           # Structured logging
@@ -97,7 +97,7 @@ MMW-BOT-PRO/
 ├── config.py                   # Centralized configuration & environment loader
 ├── main.py                     # Unified entry point (Pyrofork + FastAPI concurrent runner)
 ├── requirements.txt            # Python dependencies
-├── runtime.txt                 # python-3.12.10
+├── runtime.txt                 # python-3.10.13
 ├── Dockerfile                  # Production container definition with FFmpeg
 ├── docker-compose.yml          # Bot + MongoDB docker compose setup
 ├── Procfile                    # Koyeb / Heroku process definition
@@ -115,15 +115,15 @@ MMW-BOT-PRO/
 | `API_ID` | Telegram API ID from [my.telegram.org](https://my.telegram.org) | Required |
 | `API_HASH` | Telegram API Hash from [my.telegram.org](https://my.telegram.org) | Required |
 | `BOT_TOKEN` | Telegram Bot Token from [@BotFather](https://t.me/BotFather) | Required |
-| `OWNER_ID` | Telegram User ID of the primary owner | empty |
-| `ADMINS` | Space-separated User IDs of authorized admins | empty |
+| `OWNER_ID` | Telegram User ID of the primary owner | `1892771262` |
+| `ADMINS` | Space-separated User IDs of authorized admins | `1892771262` |
 | `MONGO_URI` | MongoDB Connection URI (`mongodb+srv://...`) | Required |
 | `DATABASE_NAME` | MongoDB database name | `MMW_ProBot` |
-| `BIN_CHANNEL` | Telegram Channel ID used for storing streaming media | `0` (uses source chat when unset) |
+| `BIN_CHANNEL` | Telegram Channel ID used for storing streaming media | Required |
 | `LOG_CHANNEL` | Telegram Channel ID for logs | Optional |
-| `BASE_URL` | Public Web URL used in generated links | local fallback URL when unset |
+| `BASE_URL` | Public Web URL of the bot (e.g., `https://mybot.koyeb.app`) | `http://localhost:8080` |
 | `PORT` | FastAPI web server port | `8080` |
-| `THAM_URL` | Optional automatic fallback thumbnail URL | empty |
+| `THAM_URL` | Automatic fallback thumbnail URL | Default URL |
 | `AUTO_DELETE_TIME` | Default message auto-delete period in seconds (0 = disabled) | `0` |
 | `FORCE_SUB_CHANNEL` | Update channel username or link to enforce | Optional |
 | `WORKERS` | Pyrofork concurrent worker threads | `50` |
@@ -163,8 +163,6 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Docker Compose keeps MongoDB on the internal compose network; it is not published on host port 27017. For Compose, set `MONGO_URI=mongodb://mongo:27017`.
-
 ### 3. Koyeb Deployment
 
 1. Connect your repository to Koyeb.
@@ -178,12 +176,3 @@ Docker Compose keeps MongoDB on the internal compose network; it is not publishe
 
 Every message, video player title, file caption, and landing page is embedded with:
 **[t.me/mallumovieworldmain2](https://t.me/mallumovieworldmain2)**
-## Runtime notes
-
-`THAM_URL` is optional and empty by default. When configured, the thumbnail downloader accepts only public HTTP(S) image URLs and limits the downloaded image size. FFmpeg/ffprobe are required for media compression and deep mediainfo.
-
-## Important platform limits
-
-Renaming is deliberately rejected for media larger than 2000 MiB because the Telegram upload path used by the bot cannot upload the result above that ceiling. Compression accepts video/audio that FFmpeg can decode; outputs near or above the Telegram ceiling are split into binary parts for delivery. Files that Telegram itself cannot provide to the bot cannot be compressed locally.
-
-Stream URLs use normal HTTP(S) links and byte-range requests. Telegram inline keyboard buttons use HTTP(S) URLs only; Android application intent/custom URI schemes are excluded because Telegram can reject them as invalid button URLs.
