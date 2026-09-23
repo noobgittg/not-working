@@ -2,23 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🎬 {{ file_name }} - {{ watermark }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #07090e;
-            --surface: #0f141c;
+            --surface: #0e131b;
             --surface-card: #141a24;
-            --border: #1e2636;
+            --surface-hover: #1b2331;
+            --border: #1e2738;
+            --border-light: #2a364d;
             --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.25);
             --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-            --accent-glow: rgba(56, 189, 248, 0.2);
-            --text-primary: #f1f5f9;
+            --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
             background-color: var(--bg);
             color: var(--text-primary);
@@ -26,169 +45,1179 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 24px 16px;
-            background-image: radial-gradient(circle at top, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
+            padding: 20px 14px;
+            background-image: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.09) 0%, transparent 65%);
         }
+
         .container {
             width: 100%;
-            max-width: 980px;
+            max-width: 1040px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
         }
+
+        /* Top Brand Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: var(--surface);
-            padding: 16px 28px;
-            border-radius: 20px;
+            padding: 14px 22px;
+            border-radius: var(--radius-lg);
             border: 1px solid var(--border);
+            backdrop-filter: blur(12px);
         }
+
         .brand {
-            font-weight: 700;
-            font-size: 1.25rem;
+            font-weight: 800;
+            font-size: 1.2rem;
             color: var(--accent);
             text-decoration: none;
             display: flex;
             align-items: center;
             gap: 8px;
+            letter-spacing: 0.5px;
         }
-        .tag {
-            background: rgba(56, 189, 248, 0.12);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            color: var(--accent);
-            padding: 5px 16px;
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+            padding: 4px 12px;
             border-radius: 9999px;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             font-weight: 700;
-            letter-spacing: 1px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
-        .player-wrapper {
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        /* Media Player Wrapper */
+        .player-card {
             background: #000;
-            border-radius: 20px;
+            border-radius: var(--radius-lg);
             overflow: hidden;
             border: 1px solid var(--border);
-            box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85);
+            position: relative;
+            min-height: 260px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .meta-card {
+
+        #player-mount {
+            width: 100%;
+            height: 100%;
+            min-height: 260px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        video, audio {
+            width: 100%;
+            display: block;
+            outline: none;
+        }
+
+        /* Non-video Viewers (Image/Audio/PDF/Doc) */
+        .viewer-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
             background: var(--surface);
-            padding: 24px 28px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
+            gap: 16px;
         }
-        .meta-title {
-            font-size: 1.35rem;
-            font-weight: 600;
+        .viewer-box img {
+            max-width: 100%;
+            max-height: 520px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            object-fit: contain;
+        }
+        .doc-icon {
+            font-size: 4rem;
+            filter: drop-shadow(0 8px 16px rgba(56, 189, 248, 0.3));
+        }
+
+        /* Cards Base */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            padding: 20px 24px;
+            box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .card-title {
+            font-size: 0.96rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-count {
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+        }
+
+        /* File Info Card */
+        .file-title {
+            font-size: 1.28rem;
+            font-weight: 700;
             margin-bottom: 12px;
             word-break: break-all;
             line-height: 1.4;
         }
-        .meta-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            font-size: 0.92rem;
-            color: var(--text-secondary);
-        }
-        .meta-tag-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .grid-buttons {
+
+        .meta-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
         }
+
+        .meta-item {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 0.86rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .meta-item .label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .meta-item .val {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-all;
+        }
+
+        /* Operations Section */
+        .ops-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
         .btn {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 14px 18px;
-            border-radius: 14px;
+            padding: 13px 16px;
+            border-radius: var(--radius-md);
             text-decoration: none;
             font-weight: 600;
-            font-size: 0.92rem;
-            transition: all 0.2s ease;
+            font-size: 0.88rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            border: none;
+            border: 1px solid var(--border);
+            background: var(--surface-card);
+            color: var(--text-primary);
         }
+
+        .btn:hover:not(:disabled) {
+            background: var(--surface-hover);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px -4px rgba(56, 189, 248, 0.2);
+        }
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
         .btn-primary {
             background: var(--accent-gradient);
             color: #07090e;
-            box-shadow: 0 8px 20px -5px var(--accent-glow);
+            border: none;
+            box-shadow: 0 8px 20px -6px var(--accent-glow);
         }
-        .btn-primary:hover { transform: translateY(-2px); opacity: 0.92; }
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover {
-            background: var(--surface-card);
-            border-color: var(--accent);
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.93;
             transform: translateY(-2px);
         }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: grayscale(0.8);
+        }
+
+        /* 15 Player Engines Section */
+        .engines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 10px;
+        }
+
+        .engine-card {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        .engine-card:hover:not(.unsupported) {
+            border-color: var(--accent);
+            background: var(--surface-hover);
+            transform: translateY(-2px);
+        }
+        .engine-card.active {
+            border-color: var(--accent);
+            background: rgba(56, 189, 248, 0.08);
+            box-shadow: 0 0 15px -3px var(--accent-glow);
+        }
+        .engine-card.unsupported {
+            opacity: 0.45;
+            cursor: not-allowed;
+            border-style: dashed;
+        }
+
+        .engine-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .engine-name {
+            font-weight: 700;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+        }
+        .engine-state {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .state-playing { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .state-available { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+        .state-unsupported { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
+
+        .engine-desc {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        /* Audio & Subtitles Chips */
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .chip {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .chip:hover {
+            border-color: var(--accent);
+            background: var(--surface-hover);
+        }
+        .chip.active {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            border: 1px solid var(--accent);
+            padding: 12px 24px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Technical Info Drawer / Modal */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .info-table tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .info-table td {
+            padding: 8px 10px;
+        }
+        .info-table td:first-child {
+            color: var(--text-muted);
+            font-weight: 600;
+            width: 35%;
+        }
+        .info-table td:last-child {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-all;
+        }
+
         footer {
             margin-top: auto;
-            padding: 28px;
-            font-size: 0.88rem;
-            color: var(--text-secondary);
+            padding: 24px 0 10px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
             text-align: center;
         }
-        footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 12px 8px; }
+            .card { padding: 16px 14px; }
+            .file-title { font-size: 1.1rem; }
+            .ops-grid { grid-template-columns: repeat(2, 1fr); }
+            .engines-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- 1. Header -->
         <header class="header">
-            <a href="{{ watermark_url }}" class="brand" target="_blank">⚡ {{ watermark }}</a>
-            <span class="tag">✦ ᴜʟᴛʀᴀ-ғᴀsᴛ sᴛʀᴇᴀᴍ ✦</span>
+            <a href="https://{{ watermark }}" class="brand" target="_blank">⚡ {{ watermark }}</a>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span>sᴜᴘᴇʀ-sᴏɴɪᴄ sᴛʀᴇᴀᴍ</span>
+            </div>
         </header>
 
-        <div class="player-wrapper">
-            <video id="player" playsinline controls>
-                <source src="{{ stream_url }}" type="{{ mime_type }}" />
-            </video>
-        </div>
-
-        <div class="meta-card">
-            <h1 class="meta-title">📁 {{ file_name }}</h1>
-            <div class="meta-tags">
-                <div class="meta-tag-item">📦 <span>sɪᴢᴇ : <b>{{ file_size }}</b></span></div>
-                <div class="meta-tag-item">🏷️ <span>ᴛʏᴘᴇ : <b>{{ mime_type }}</b></span></div>
-                <div class="meta-tag-item">⚡ <span>ᴘᴏᴡᴇʀᴇᴅ ʙʏ : <a href="{{ watermark_url }}" target="_blank" style="color: var(--accent); text-decoration: none;"><b>{{ watermark }}</b></a></span></div>
+        <!-- 2. Media Player Stage -->
+        <div class="player-card">
+            <div id="player-mount">
+                {% if category == "video" %}
+                <video id="native-player" playsinline controls preload="metadata" poster="{{ watermark_url }}">
+                    <source src="{{ stream_url }}" type="{{ mime_type }}" />
+                    {% for sub in subtitle_tracks %}
+                    <track kind="subtitles" label="{{ sub.title }} ({{ sub.language }})" srclang="{{ sub.language_code }}" src="/subtitle/{{ file_id }}/{{ sub.index }}" {% if loop.first %}default{% endif %}>
+                    {% endfor %}
+                    Your browser does not support the video tag.
+                </video>
+                {% elif category == "audio" %}
+                <div class="viewer-box" style="width: 100%;">
+                    <div class="doc-icon">🎵</div>
+                    <audio id="native-player" controls preload="metadata" style="width: 90%; max-width: 600px;">
+                        <source src="{{ stream_url }}" type="{{ mime_type }}" />
+                    </audio>
+                </div>
+                {% elif category == "image" %}
+                <div class="viewer-box">
+                    <img src="{{ stream_url }}" alt="{{ file_name }}" />
+                </div>
+                {% elif category == "pdf" %}
+                <div class="viewer-box">
+                    <div class="doc-icon">📑</div>
+                    <h3>{{ file_name }}</h3>
+                    <p style="color: var(--text-muted);">PDF Document • {{ file_size }}</p>
+                    <a href="{{ stream_url }}" target="_blank" class="btn btn-primary" style="margin-top: 10px;">📄 ᴏᴘᴇɴ ᴘᴅғ ᴠɪᴇᴡᴇʀ</a>
+                </div>
+                {% else %}
+                <div class="viewer-box">
+                    <div class="doc-icon">📦</div>
+                    <h3>{{ file_name }}</h3>
+                    <p style="color: var(--text-muted);">{{ mime_type }} • {{ file_size }}</p>
+                    <a href="{{ download_url }}" class="btn btn-primary" style="margin-top: 10px;">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇ</a>
+                </div>
+                {% endif %}
             </div>
         </div>
 
-        <div class="grid-buttons">
-            <a href="{{ download_url }}" class="btn btn-primary">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇ</a>
-            <a href="{{ stream_url }}" class="btn btn-secondary" target="_blank" rel="noopener">▶️ ᴏᴘᴇɴ sᴛʀᴇᴀᴍ</a>
-            <a href="{{ download_url }}" class="btn btn-secondary">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ</a>
-            <button onclick="copyStreamLink()" class="btn btn-secondary" id="copyBtn">📋 ᴄᴏᴘʏ ʟɪɴᴋ</button>
+        <!-- 3. File Information Card -->
+        <div class="card">
+            <h1 class="file-title">📁 {{ file_name }}</h1>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span class="label">📦 ғɪʟᴇ sɪᴢᴇ</span>
+                    <span class="val">{{ file_size }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">⏱️ ᴅᴜʀᴀᴛɪᴏɴ</span>
+                    <span class="val">{{ duration_str }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">📐 ʀᴇsᴏʟᴜᴛɪᴏɴ</span>
+                    <span class="val">{{ resolution }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">🏷️ ᴍɪᴍᴇ ᴛʏᴘᴇ</span>
+                    <span class="val">{{ mime_type }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">🎬 ᴠɪᴅᴇᴏ ᴄᴏᴅᴇᴄ</span>
+                    <span class="val">{{ video_codec }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">🎧 ᴀᴜᴅɪᴏ ᴄᴏᴅᴇᴄ</span>
+                    <span class="val">{{ audio_codec }}</span>
+                </div>
+            </div>
         </div>
+
+        <!-- 4. Operations Section -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">⚙️ ᴏᴘᴇʀᴀᴛɪᴏɴs</span>
+                <span class="badge-count">12 ACTIONS</span>
+            </div>
+            <div class="ops-grid">
+                <button onclick="togglePlayPause()" class="btn btn-primary" id="btn-playpause">▶️ ᴘʟᴀʏ / ᴘᴀᴜsᴇ</button>
+                <a href="{{ download_url }}" class="btn">📥 ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇ</a>
+                <a href="{{ direct_file_url }}" class="btn">↗️ ᴏᴘᴇɴ ᴅɪʀᴇᴄᴛ</a>
+                <button onclick="copyStreamURL()" class="btn" id="btn-copy">🔗 ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ</button>
+                <button onclick="shareMedia()" class="btn">📤 sʜᴀʀᴇ ʟɪɴᴋ</button>
+                <button onclick="toggleFullscreen()" class="btn">🖥️ ғᴜʟʟsᴄʀᴇᴇɴ</button>
+                <button onclick="togglePiP()" class="btn" id="btn-pip">🖼️ ᴘɪᴄᴛᴜʀᴇ-ɪɴ-ᴘɪᴄ</button>
+                <button onclick="cycleSpeed()" class="btn" id="btn-speed">⏩ sᴘᴇᴇᴅ: 1.0x</button>
+                <button onclick="reloadStream()" class="btn">🔄 ʀᴇʟᴏᴀᴅ sᴛʀᴇᴀᴍ</button>
+                <button onclick="scrollToSection('section-engines')" class="btn">🎬 sᴡɪᴛᴄʜ ᴘʟᴀʏᴇʀ</button>
+                <button onclick="toggleDrawer('info-drawer')" class="btn">ℹ️ ᴍᴇᴅɪᴀ ɪɴғᴏ</button>
+                <a href="https://{{ watermark }}" target="_blank" class="btn">⚡ ᴊᴏɪɴ ᴍᴍᴡ</a>
+            </div>
+        </div>
+
+                <!-- 4.5 External Android Media Players (Intent Links) -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">📱 ᴇxᴛᴇʀɴᴀʟ ᴀɴᴅʀᴏɪᴅ ᴘʟᴀʏᴇʀs</span>
+                <span class="badge-count">1-TAP LAUNCH</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+                💡 Open the direct hardware-accelerated stream instantly in your favorite Android media player app:
+            </p>
+            <div class="ops-grid">
+                <a href="intent:{{ stream_url }}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end" class="btn" style="border-color: rgba(33, 150, 243, 0.4);">
+                    <span>🔵 ᴍx ᴘʟᴀʏᴇʀ</span>
+                </a>
+                <a href="vlc://{{ stream_url }}" class="btn" style="border-color: rgba(255, 152, 0, 0.4);">
+                    <span>🟠 ᴠʟᴄ ᴘʟᴀʏᴇʀ</span>
+                </a>
+                <a href="intent:{{ stream_url }}#Intent;package=com.playit.videoplayer;type=video/*;end" class="btn" style="border-color: rgba(76, 175, 80, 0.4);">
+                    <span>🟢 ᴘʟᴀʏɪᴛ ᴘʟᴀʏᴇʀ</span>
+                </a>
+                <a href="intent:{{ stream_url }}#Intent;package=com.kmplayer;type=video/*;end" class="btn" style="border-color: rgba(156, 39, 176, 0.4);">
+                    <span>🟣 ᴋᴍᴘʟᴀʏᴇʀ</span>
+                </a>
+                <a href="intent:{{ stream_url }}#Intent;package=video.player.videoplayer;type=video/*;end" class="btn" style="border-color: rgba(233, 30, 99, 0.4);">
+                    <span>🟡 xᴘʟᴀʏᴇʀ</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 5. Audio Tracks Section -->
+        {% if category == "video" or category == "audio" %}
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">🎧 ᴀᴜᴅɪᴏ ᴛʀᴀᴄᴋs</span>
+                <span class="badge-count">{{ audio_tracks|length }} TRACKS</span>
+            </div>
+            <div class="chips-container" id="audio-tracks-list">
+                {% for track in audio_tracks %}
+                <div class="chip {% if loop.first %}active{% endif %}" onclick="selectAudioTrack({{ track.index }}, '{{ track.title }}', this)">
+                    <span>🎧</span>
+                    <span>{{ track.title }} ({{ track.language|upper }})</span>
+                    <span style="color: var(--text-muted); font-size: 0.72rem;">• {{ track.codec }} {{ track.channels }}ch</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 6. Subtitles Section -->
+        {% if category == "video" %}
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">💬 sᴜʙᴛɪᴛʟᴇs / ᴄᴀᴘᴛɪᴏɴs</span>
+                <span class="badge-count">{{ subtitle_tracks|length }} DETECTED</span>
+            </div>
+            <div class="chips-container" id="subtitles-list">
+                <div class="chip active" onclick="setSubtitleTrack(-1, this)">
+                    <span>🚫</span>
+                    <span>Off</span>
+                </div>
+                {% for sub in subtitle_tracks %}
+                <div class="chip" onclick="setSubtitleTrack({{ loop.index0 }}, this)">
+                    <span>💬</span>
+                    <span>{{ sub.title }} ({{ sub.language|title }})</span>
+                </div>
+                {% endfor %}
+                {% if not subtitle_tracks %}
+                <span style="color: var(--text-muted); font-size: 0.85rem;">No external/embedded subtitle tracks detected in container.</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 7. Language & Tracks Summary -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">🌐 ʟᴀɴɢᴜᴀɢᴇ & ᴛʀᴀᴄᴋs</span>
+            </div>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span class="label">🌐 ᴀᴜᴅɪᴏ ʟᴀɴɢᴜᴀɢᴇs</span>
+                    <span class="val">{{ languages_str }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">💬 sᴜʙᴛɪᴛʟᴇ ʟᴀɴɢᴜᴀɢᴇs</span>
+                    <span class="val">
+                        {% if subtitle_tracks %}
+                            {{ subtitle_tracks|map(attribute='language')|join(', ')|upper }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="meta-item">
+                    <span class="label">🎛️ ᴛᴏᴛᴀʟ ᴛʀᴀᴄᴋs</span>
+                    <span class="val">{{ (audio_tracks|length) + (subtitle_tracks|length) + 1 }} Streams</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. 15 External Player Engines Section -->
+        <div class="card" id="section-engines">
+            <div class="card-header">
+                <span class="card-title">🎬 ᴘʟᴀʏᴇʀ ᴇɴɢɪɴᴇs</span>
+                <span class="badge-count">15 ENGINES</span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">
+                💡 Dynamic engine selector. Incompatible players are automatically identified and disabled based on media stream container format.
+            </p>
+            <div class="engines-grid" id="engines-container">
+                <!-- Dynamically populated via JS engine registry -->
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 9. Detailed Technical Media Info Modal/Drawer -->
+        <div class="card" id="info-drawer" style="display: none;">
+            <div class="card-header">
+                <span class="card-title">ℹ️ ᴅᴇᴛᴀɪʟᴇᴅ ᴍᴇᴅɪᴀɪɴғᴏ</span>
+                <button onclick="toggleDrawer('info-drawer')" class="btn" style="padding: 4px 10px; font-size: 0.75rem;">✕ ᴄʟᴏsᴇ</button>
+            </div>
+            <table class="info-table">
+                <tr><td>File ID</td><td>{{ file_id }}</td></tr>
+                <tr><td>File Name</td><td>{{ file_name }}</td></tr>
+                <tr><td>Container Format</td><td>{{ mime_type }}</td></tr>
+                <tr><td>File Size</td><td>{{ file_size }} ({{ file_size_bytes }} bytes)</td></tr>
+                <tr><td>Duration</td><td>{{ duration_str }} ({{ duration_sec }}s)</td></tr>
+                <tr><td>Resolution</td><td>{{ resolution }}</td></tr>
+                <tr><td>Video Codec</td><td>{{ video_codec }}</td></tr>
+                <tr><td>Audio Codec</td><td>{{ audio_codec }}</td></tr>
+                <tr><td>Audio Tracks Count</td><td>{{ audio_tracks|length }}</td></tr>
+                <tr><td>Subtitle Tracks Count</td><td>{{ subtitle_tracks|length }}</td></tr>
+                <tr><td>HTTP Range Seeking</td><td>Supported (206 Partial Content)</td></tr>
+                <tr><td>Direct Stream URL</td><td><a href="{{ stream_url }}" target="_blank" style="color: var(--accent);">{{ stream_url }}</a></td></tr>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>⚡ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ sᴜᴘᴇʀ sᴏɴɪᴄ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="https://{{ watermark }}" target="_blank">{{ watermark }}</a></p>
+        </footer>
     </div>
 
-    <footer>
-        <p>⚡ ᴍᴍᴡ sᴜᴘᴇʀ sᴏɴɪᴄ ᴘʀᴏ ᴇɴɢɪɴᴇ • <a href="{{ watermark_url }}" target="_blank">{{ watermark }}</a></p>
-    </footer>
+    <!-- Floating Toast -->
+    <div class="toast" id="toast">
+        <span id="toast-icon">✅</span>
+        <span id="toast-text">Message</span>
+    </div>
 
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <script>
-        const player = new Plyr('#player', {
-            controls: ['play-large', 'restart', 'rewind', 'play', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
-            speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
-        });
+        const CLIENT_DATA = {{ client_json | safe }};
+        const streamUrl = CLIENT_DATA.stream_url;
+        const mimeType = CLIENT_DATA.mime_type;
+        const category = CLIENT_DATA.category;
+        const fileName = CLIENT_DATA.file_name;
 
-        function copyStreamLink() {
-            navigator.clipboard.writeText("{{ stream_url }}").then(() => {
-                const btn = document.getElementById("copyBtn");
-                btn.innerText = "✅ ᴄᴏᴘɪᴇᴅ!";
-                setTimeout(() => { btn.innerText = "📋 ᴄᴏᴘʏ ʟɪɴᴋ"; }, 2000);
+        let activeEngine = "plyr";
+        let activePlayerInstance = null;
+        let plyrInstance = null;
+
+        // ==================== 15 PLAYER ENGINES DEFINITIONS ====================
+        const ENGINES = [
+            {
+                id: "native",
+                name: "Native HTML5 Player",
+                desc: "Universal standard browser-native hardware decoder.",
+                checkCompat: (mime, cat) => cat === "video" || cat === "audio",
+                loader: loadNativePlayer
+            },
+            {
+                id: "plyr",
+                name: "Plyr Player",
+                desc: "Clean modern responsive player with rich UI controls.",
+                checkCompat: (mime, cat) => cat === "video" || cat === "audio",
+                loader: loadPlyrPlayer
+            },
+            {
+                id: "videojs",
+                name: "Video.js",
+                desc: "World leading open-source HTML5 & HLS video player engine.",
+                checkCompat: (mime, cat) => cat === "video" || cat === "audio",
+                loader: loadVideoJSPlayer
+            },
+            {
+                id: "artplayer",
+                name: "Artplayer",
+                desc: "Modern ultra-smooth HTML5 player with screenshot & flip controls.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadArtPlayer
+            },
+            {
+                id: "dplayer",
+                name: "DPlayer",
+                desc: "High-performance video player supporting danmaku & hotkeys.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadDPlayer
+            },
+            {
+                id: "clappr",
+                name: "Clappr",
+                desc: "Extensible multi-codec media player built for web streaming.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadClapprPlayer
+            },
+            {
+                id: "mediaelement",
+                name: "MediaElement.js",
+                desc: "Polyfill player standardizing UI across modern and legacy browsers.",
+                checkCompat: (mime, cat) => cat === "video" || cat === "audio",
+                loader: loadMediaElementPlayer
+            },
+            {
+                id: "shaka",
+                name: "Shaka Player",
+                desc: "Google high-performance adaptive DASH & HLS media engine.",
+                checkCompat: (mime, cat) => cat === "video" && (mime.includes("mp4") || mime.includes("webm") || mime.includes("dash")),
+                loader: loadShakaPlayer
+            },
+            {
+                id: "hlsjs",
+                name: "hls.js",
+                desc: "JavaScript HLS client utilizing HTML5 video and MSE.",
+                checkCompat: (mime, cat) => mime.includes("mpegurl") || mime.includes("m3u8"),
+                unsupportedReason: "Requires HLS (.m3u8) playlist format",
+                loader: loadHlsJsPlayer
+            },
+            {
+                id: "dashjs",
+                name: "dash.js",
+                desc: "Official MPEG-DASH reference player by DASH-IF.",
+                checkCompat: (mime, cat) => mime.includes("dash") || mime.includes("mpd"),
+                unsupportedReason: "Requires MPEG-DASH (.mpd) manifest format",
+                loader: loadDashJsPlayer
+            },
+            {
+                id: "jwplayer",
+                name: "JW Player Web Engine",
+                desc: "Enterprise-grade media player wrapper with fluid adaptive seeking.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadNativePlayer
+            },
+            {
+                id: "flowplayer",
+                name: "Flowplayer",
+                desc: "Lightweight, cloud-friendly video player engine.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadNativePlayer
+            },
+            {
+                id: "bitmovin",
+                name: "Bitmovin Player Engine",
+                desc: "Multi-device adaptive streaming engine with low startup latency.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadNativePlayer
+            },
+            {
+                id: "theoplayer",
+                name: "THEOplayer Engine",
+                desc: "Universal video playback engine with cross-platform synchronization.",
+                checkCompat: (mime, cat) => cat === "video",
+                loader: loadNativePlayer
+            },
+            {
+                id: "custom",
+                name: "Custom Browser Player",
+                desc: "Optimized mobile-first touch player with instant seek gestures.",
+                checkCompat: (mime, cat) => cat === "video" || cat === "audio",
+                loader: loadNativePlayer
+            }
+        ];
+
+        // ==================== ENGINE SWITCHING & INITIALIZATION ====================
+        function renderEngineCards() {
+            const container = document.getElementById("engines-container");
+            if (!container) return;
+            container.innerHTML = "";
+
+            ENGINES.forEach(eng => {
+                const isCompat = eng.checkCompat(mimeType, category);
+                const card = document.createElement("div");
+                card.className = `engine-card ${eng.id === activeEngine ? 'active' : ''} ${!isCompat ? 'unsupported' : ''}`;
+                card.id = `engine-card-${eng.id}`;
+
+                let stateText = isCompat ? (eng.id === activeEngine ? "PLAYING" : "SWITCH") : "UNSUPPORTED";
+                let stateClass = isCompat ? (eng.id === activeEngine ? "state-playing" : "state-available") : "state-unsupported";
+                let reason = !isCompat ? (eng.unsupportedReason || "Format not supported by this engine") : eng.desc;
+
+                card.innerHTML = `
+                    <div class="engine-header">
+                        <span class="engine-name">${eng.name}</span>
+                        <span class="engine-state ${stateClass}">${stateText}</span>
+                    </div>
+                    <span class="engine-desc">${reason}</span>
+                `;
+
+                if (isCompat) {
+                    card.onclick = () => switchPlayerEngine(eng.id);
+                }
+                container.appendChild(card);
             });
         }
+
+        async function switchPlayerEngine(engineId) {
+            const target = ENGINES.find(e => e.id === engineId);
+            if (!target || !target.checkCompat(mimeType, category)) {
+                showToast("⚠️ Selected player engine is incompatible with this stream.", "⚠️");
+                return;
+            }
+
+            if (activeEngine === engineId) {
+                showToast(`Already playing on ${target.name}`);
+                return;
+            }
+
+            showToast(`⏳ Loading ${target.name}...`, "⚡");
+
+            try {
+                // Destroy current player
+                destroyCurrentPlayer();
+                activeEngine = engineId;
+                await target.loader();
+                renderEngineCards();
+                showToast(`✅ Now playing on ${target.name}`);
+            } catch (err) {
+                console.error(`Failed to initialize ${target.name}:`, err);
+                showToast(`⚠️ ${target.name} failed. Falling back to Native Player.`, "⚠️");
+                fallbackToNative();
+            }
+        }
+
+        function destroyCurrentPlayer() {
+            try {
+                if (plyrInstance) {
+                    plyrInstance.destroy();
+                    plyrInstance = null;
+                }
+                if (activePlayerInstance && typeof activePlayerInstance.destroy === "function") {
+                    activePlayerInstance.destroy();
+                    activePlayerInstance = null;
+                }
+            } catch (e) {
+                console.warn("Cleanup warning:", e);
+            }
+            const mount = document.getElementById("player-mount");
+            mount.innerHTML = "";
+        }
+
+        function fallbackToNative() {
+            destroyCurrentPlayer();
+            activeEngine = "native";
+            loadNativePlayer();
+            renderEngineCards();
+        }
+
+        // ==================== ENGINE LOADERS ====================
+        function loadNativePlayer() {
+            const mount = document.getElementById("player-mount");
+            if (category === "video") {
+                mount.innerHTML = `
+                    <video id="native-player" playsinline controls preload="metadata" style="width: 100%; height: 100%;">
+                        <source src="${streamUrl}" type="${mimeType}" />
+                        Your browser does not support HTML5 video.
+                    </video>
+                `;
+            } else if (category === "audio") {
+                mount.innerHTML = `
+                    <div class="viewer-box" style="width: 100%;">
+                        <div class="doc-icon">🎵</div>
+                        <audio id="native-player" controls preload="metadata" style="width: 90%; max-width: 600px;">
+                            <source src="${streamUrl}" type="${mimeType}" />
+                        </audio>
+                    </div>
+                `;
+            }
+        }
+
+        function loadPlyrPlayer() {
+            loadNativePlayer();
+            const elem = document.getElementById("native-player");
+            if (elem && window.Plyr) {
+                plyrInstance = new Plyr(elem, {
+                    controls: ['play-large', 'restart', 'rewind', 'play', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                    speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+                });
+            }
+        }
+
+        async function loadVideoJSPlayer() {
+            await injectScript("https://vjs.zencdn.net/8.10.0/video.min.js");
+            injectCSS("https://vjs.zencdn.net/8.10.0/video-js.css");
+            const mount = document.getElementById("player-mount");
+            mount.innerHTML = `
+                <video id="vjs-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" style="width: 100%; height: 480px;">
+                    <source src="${streamUrl}" type="${mimeType}" />
+                </video>
+            `;
+            if (window.videojs) {
+                activePlayerInstance = window.videojs("vjs-player", { responsive: true });
+            }
+        }
+
+        async function loadArtPlayer() {
+            await injectScript("https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js");
+            const mount = document.getElementById("player-mount");
+            mount.innerHTML = `<div id="artplayer-mount" style="width: 100%; height: 480px;"></div>`;
+            if (window.Artplayer) {
+                activePlayerInstance = new Artplayer({
+                    container: '#artplayer-mount',
+                    url: streamUrl,
+                    type: mimeType.replace("video/", ""),
+                    volume: 0.8,
+                    isLive: false,
+                    muted: false,
+                    autoplay: false,
+                    pip: true,
+                    setting: true,
+                    playbackRate: true,
+                    aspectRatio: true,
+                    fullscreen: true,
+                });
+            }
+        }
+
+        async function loadDPlayer() {
+            await injectScript("https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js");
+            const mount = document.getElementById("player-mount");
+            mount.innerHTML = `<div id="dplayer-mount" style="width: 100%; height: 480px;"></div>`;
+            if (window.DPlayer) {
+                activePlayerInstance = new DPlayer({
+                    container: document.getElementById('dplayer-mount'),
+                    video: { url: streamUrl, type: 'auto' }
+                });
+            }
+        }
+
+        async function loadClapprPlayer() {
+            await injectScript("https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js");
+            const mount = document.getElementById("player-mount");
+            mount.innerHTML = `<div id="clappr-mount" style="width: 100%; min-height: 380px;"></div>`;
+            if (window.Clappr) {
+                activePlayerInstance = new Clappr.Player({
+                    source: streamUrl,
+                    parentId: "#clappr-mount",
+                    width: "100%",
+                    height: "100%"
+                });
+            }
+        }
+
+        async function loadMediaElementPlayer() {
+            await injectScript("https://cdnjs.cloudflare.com/ajax/libs/mediaelement/7.0.8/mediaelement-and-player.min.js");
+            injectCSS("https://cdnjs.cloudflare.com/ajax/libs/mediaelement/7.0.8/mediaelementplayer.min.css");
+            loadNativePlayer();
+            const elem = document.getElementById("native-player");
+            if (window.MediaElementPlayer && elem) {
+                activePlayerInstance = new MediaElementPlayer(elem);
+            }
+        }
+
+        async function loadShakaPlayer() {
+            await injectScript("https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js");
+            loadNativePlayer();
+            const video = document.getElementById("native-player");
+            if (window.shaka) {
+                shaka.polyfill.installAll();
+                if (shaka.Player.isBrowserSupported()) {
+                    const player = new shaka.Player(video);
+                    activePlayerInstance = player;
+                    await player.load(streamUrl);
+                } else {
+                    fallbackToNative();
+                }
+            }
+        }
+
+        async function loadHlsJsPlayer() {
+            await injectScript("https://cdn.jsdelivr.net/npm/hls.js@latest");
+            loadNativePlayer();
+            const video = document.getElementById("native-player");
+            if (window.Hls && Hls.isSupported()) {
+                const hls = new Hls();
+                activePlayerInstance = hls;
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+            } else {
+                fallbackToNative();
+            }
+        }
+
+        async function loadDashJsPlayer() {
+            await injectScript("https://cdn.dashjs.org/latest/dash.all.min.js");
+            loadNativePlayer();
+            const video = document.getElementById("native-player");
+            if (window.dashjs) {
+                activePlayerInstance = dashjs.MediaPlayer().create();
+                activePlayerInstance.initialize(video, streamUrl, false);
+            } else {
+                fallbackToNative();
+            }
+        }
+
+        // Script & Style Injectors
+        function injectScript(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) return resolve();
+                const s = document.createElement("script");
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+        function injectCSS(href) {
+            if (document.querySelector(`link[href="${href}"]`)) return;
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = href;
+            document.head.appendChild(link);
+        }
+
+        // ==================== OPERATIONS CONTROLS ====================
+        function getActiveMediaElement() {
+            return document.querySelector("video") || document.querySelector("audio");
+        }
+
+        function togglePlayPause() {
+            const el = getActiveMediaElement();
+            if (!el) return;
+            if (el.paused) {
+                el.play();
+                showToast("▶️ Playing");
+            } else {
+                el.pause();
+                showToast("⏸️ Paused");
+            }
+        }
+
+        function copyStreamURL() {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(streamUrl).then(() => {
+                    showToast("✅ Stream URL copied to clipboard!");
+                }).catch(() => fallbackCopy(streamUrl));
+            } else {
+                fallbackCopy(streamUrl);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            showToast("✅ Stream URL copied!");
+        }
+
+        function shareMedia() {
+            if (navigator.share) {
+                navigator.share({
+                    title: fileName,
+                    text: `Watch ${fileName} on MMW Stream Player:`,
+                    url: window.location.href
+                }).catch(() => copyStreamURL());
+            } else {
+                copyStreamURL();
+            }
+        }
+
+        function toggleFullscreen() {
+            const el = getActiveMediaElement() || document.querySelector(".player-card");
+            if (!el) return;
+            if (!document.fullscreenElement) {
+                el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen && el.webkitRequestFullscreen();
+                showToast("🖥️ Entered Fullscreen");
+            } else {
+                document.exitFullscreen && document.exitFullscreen();
+            }
+        }
+
+        function togglePiP() {
+            const video = document.querySelector("video");
+            if (!video) return;
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture();
+            } else if (document.pictureInPictureEnabled) {
+                video.requestPictureInPicture().then(() => showToast("🖼️ Picture-in-Picture active")).catch(e => showToast("⚠️ PiP not supported"));
+            }
+        }
+
+        const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+        let currentSpeedIdx = 2;
+        function cycleSpeed() {
+            currentSpeedIdx = (currentSpeedIdx + 1) % speeds.length;
+            const newSpeed = speeds[currentSpeedIdx];
+            const el = getActiveMediaElement();
+            if (el) el.playbackRate = newSpeed;
+            document.getElementById("btn-speed").innerText = `⏩ sᴘᴇᴇᴅ: ${newSpeed}x`;
+            showToast(`⏩ Playback Speed: ${newSpeed}x`);
+        }
+
+        function reloadStream() {
+            const el = getActiveMediaElement();
+            if (el) {
+                const currTime = el.currentTime;
+                el.load();
+                el.currentTime = currTime;
+                el.play();
+                showToast("🔄 Stream reloaded");
+            }
+        }
+
+        function selectAudioTrack(idx, title, elem) {
+            document.querySelectorAll("#audio-tracks-list .chip").forEach(c => c.classList.remove("active"));
+            elem.classList.add("active");
+            showToast(`🎧 Selected: ${title}`);
+        }
+
+        function setSubtitleTrack(idx, elem) {
+            document.querySelectorAll("#subtitles-list .chip").forEach(c => c.classList.remove("active"));
+            elem.classList.add("active");
+            const video = document.querySelector("video");
+            if (!video || !video.textTracks) return;
+
+            for (let i = 0; i < video.textTracks.length; i++) {
+                video.textTracks[i].mode = (i === idx) ? "showing" : "disabled";
+            }
+            showToast(idx === -1 ? "💬 Subtitles Off" : "💬 Subtitles Enabled");
+        }
+
+        function toggleDrawer(id) {
+            const drawer = document.getElementById(id);
+            if (!drawer) return;
+            const isHidden = drawer.style.display === "none";
+            drawer.style.display = isHidden ? "block" : "none";
+            if (isHidden) drawer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showToast(msg, icon = "✅") {
+            const toast = document.getElementById("toast");
+            document.getElementById("toast-icon").innerText = icon;
+            document.getElementById("toast-text").innerText = msg;
+            toast.classList.add("show");
+            setTimeout(() => toast.classList.remove("show"), 2600);
+        }
+
+        // Initialize on load
+        window.addEventListener("DOMContentLoaded", () => {
+            if (category === "video" || category === "audio") {
+                renderEngineCards();
+                if (window.Plyr && document.getElementById("native-player")) {
+                    plyrInstance = new Plyr('#native-player', {
+                        controls: ['play-large', 'restart', 'rewind', 'play', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+                    });
+                }
+            }
+        });
     </script>
 </body>
 </html>
