@@ -1,98 +1,72 @@
-import asyncio
 import os
-from typing import Optional
-
-import aiofiles
 import aiohttp
+import aiofiles
+from typing import Optional
 from pyrogram import Client
-
-from app.database.repositories.user_repo import user_repo
-from app.services.ffmpeg_service import extract_frame_screenshot
-from app.utils.helpers import is_safe_public_url
-from app.utils.logger import logger
 from config import Config
-
-MAX_THUMBNAIL_BYTES = 8 * 1024 * 1024
-
+from app.database.repositories.user_repo import user_repo
+from app.utils.logger import logger
+from app.utils.helpers import is_valid_url
+from .ffmpeg_service import extract_frame_screenshot
 
 async def download_thumbnail_url(url: str, target_path: str) -> Optional[str]:
-    """Download only small, public image URLs; avoids common SSRF and memory issues."""
-    if not is_safe_public_url(url):
+    if not url or not is_valid_url(url):
         return None
-    os.makedirs(os.path.dirname(target_path) or ".", exist_ok=True)
     try:
-        timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
-        headers = {"User-Agent": "MMW-ProBot/1.0"}
-        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-            async with session.get(url, allow_redirects=False) as resp:
-                if resp.status not in {200, 301, 302, 307, 308}:
-                    return None
-                if resp.status != 200:
-                    location = resp.headers.get("Location")
-                    if not location or not is_safe_public_url(location):
-                        return None
-                    async with session.get(location, allow_redirects=False) as redirected:
-                        if redirected.status != 200:
-                            return None
-                        return await _save_response_image(redirected, target_path)
-                return await _save_response_image(resp, target_path)
-    except Exception as exc:
-        logger.warning("Thumbnail URL download failed: %s", exc)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status == 200:
+                    async with aiofiles.open(target_path, "wb") as f:
+                        await f.write(await resp.read())
+                    return target_path
+    except Exception as e:
+        logger.warning(f"Failed to download thumbnail from URL {url}: {e}")
     return None
-
-
-async def _save_response_image(resp: aiohttp.ClientResponse, target_path: str) -> Optional[str]:
-    ctype = (resp.headers.get("Content-Type") or "").lower().split(";", 1)[0]
-    if not ctype.startswith("image/"):
-        return None
-    declared = resp.headers.get("Content-Length")
-    if declared and declared.isdigit() and int(declared) > MAX_THUMBNAIL_BYTES:
-        return None
-    total = 0
-    async with aiofiles.open(target_path, "wb") as file_obj:
-        async for chunk in resp.content.iter_chunked(64 * 1024):
-            total += len(chunk)
-            if total > MAX_THUMBNAIL_BYTES:
-                return None
-            await file_obj.write(chunk)
-    return target_path if os.path.isfile(target_path) and total else None
-
 
 async def resolve_thumbnail(
     client: Client,
     user_id: int,
-    workdir: str,
+    temp_dir: str,
     video_path: Optional[str] = None,
-    duration: int = 0,
+    duration: int = 0
 ) -> Optional[str]:
-    """Resolve custom thumb -> configured URL -> generated video frame."""
-    os.makedirs(workdir, exist_ok=True)
+    """
+    Resolves the best available thumbnail for a media file:
+    1. Custom user thumbnail stored in DB
+    2. Fallback URL thumbnail (THAM_URL)
+    3. Auto-extracted video frame screenshot using FFmpeg
+    Guaranteed to return a valid string path or None. Never returns a tuple.
+    """
+    if os.path.isfile(temp_dir):
+        target_dir = os.path.dirname(temp_dir)
+    else:
+        target_dir = temp_dir
+    os.makedirs(target_dir, exist_ok=True)
+
     user = await user_repo.get_user(user_id)
 
+    # 1. Custom user thumbnail
     if user and user.get("thumb_id"):
         try:
-            custom_path = os.path.join(workdir, "custom_thumb.jpg")
-            result = await client.download_media(user["thumb_id"], file_name=custom_path)
-            if result and os.path.isfile(result):
-                return result
-        except Exception as exc:
-            logger.warning("Error fetching custom thumbnail: %s", exc)
+            custom_path = os.path.join(target_dir, "custom_thumb.jpg")
+            res = await client.download_media(user["thumb_id"], file_name=custom_path)
+            if res and isinstance(res, str) and os.path.exists(res):
+                return res
+        except Exception as e:
+            logger.warning(f"Error fetching user custom thumbnail: {e}")
 
+    # 2. Tham URL thumbnail
     tham_url = (user.get("tham_url") if user else None) or Config.THAM_URL
     if tham_url:
-        cached_thumb = os.path.join(workdir, "tham_url.jpg")
+        cached_thumb = os.path.join(target_dir, "tham_url.jpg")
         downloaded = await download_thumbnail_url(tham_url, cached_thumb)
-        if downloaded:
+        if downloaded and isinstance(downloaded, str) and os.path.exists(downloaded):
             return downloaded
 
-    if video_path and os.path.isfile(video_path):
-        attrs_duration = duration
-        if not attrs_duration:
-            try:
-                from app.services.ffmpeg_service import get_media_attributes
-                attrs = await get_media_attributes(video_path)
-                attrs_duration = attrs.get("duration", 0)
-            except Exception:
-                attrs_duration = 0
-        return await extract_frame_screenshot(video_path, workdir, attrs_duration)
+    # 3. Screenshot extraction from video
+    if video_path and os.path.exists(video_path):
+        screen_thumb = await extract_frame_screenshot(video_path, target_dir, duration)
+        if screen_thumb and isinstance(screen_thumb, str) and os.path.exists(screen_thumb):
+            return screen_thumb
+
     return None
