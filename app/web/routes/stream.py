@@ -57,9 +57,17 @@ async def stream_media_endpoint(request: Request, file_id: str):
 
             async def range_streamer():
                 nonlocal bytes_remaining
-                async for chunk in client.stream_media(message, offset=start // (1024 * 1024)):
+                chunk_size = 1024 * 1024
+                skip = start % chunk_size
+                async for chunk in client.stream_media(message, offset=start // chunk_size):
                     if not chunk or bytes_remaining <= 0:
                         break
+                    if skip:
+                        if len(chunk) <= skip:
+                            skip -= len(chunk)
+                            continue
+                        chunk = chunk[skip:]
+                        skip = 0
                     if len(chunk) > bytes_remaining:
                         chunk = chunk[:bytes_remaining]
                     bytes_remaining -= len(chunk)
@@ -177,22 +185,3 @@ async def get_file_metadata_json(file_id: str):
         "watermark": Config.WATERMARK
     }
 
-@router.get("/subtitle/{file_id}/{track}")
-async def get_subtitle_track(request: Request, file_id: str, track: int):
-    """Returns WebVTT formatted subtitle for dynamic HTML5 video track injection."""
-    vtt_content = (
-        "WEBVTT\n\n"
-        "00:00:01.000 --> 00:00:05.000\n"
-        f"⚡ Streaming from {Config.WATERMARK}\n"
-    )
-    headers = {
-        "Content-Type": "text/vtt; charset=utf-8",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600"
-    }
-    return Response(content=vtt_content, media_type="text/vtt", headers=headers)
-
-@router.get("/audio/{file_id}/{track}")
-async def get_audio_track(request: Request, file_id: str, track: int):
-    """Streams audio track or redirects to main stream if browser handles multi-audio."""
-    return Response(status_code=200, content="Audio track endpoint operational", media_type="text/plain")

@@ -1,5 +1,5 @@
 import os
-import time
+import time as time_module
 import json
 import inspect
 from fastapi import APIRouter, Request, HTTPException, Query
@@ -14,7 +14,7 @@ from app.utils.helpers import humanbytes, time_formatter
 router = APIRouter()
 templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 templates = Jinja2Templates(directory=templates_dir)
-PAGE_START_TIME = time.time()
+PAGE_START_TIME = time_module.time()
 
 def render_template(templates: Jinja2Templates, request: Request, name: str, context: dict = None) -> HTMLResponse:
     ctx = dict(context or {})
@@ -102,8 +102,8 @@ async def watch_page(request: Request, file_id: str):
             {"index": 1, "language": "Default", "language_code": "und", "title": "Audio Track 1", "codec": "AAC", "channels": 2}
         ]
 
-    # Subtitles
-    subtitle_tracks = raw_meta.get("subtitle_streams", [])
+    # Subtitle metadata is informational only; no fake subtitle endpoint is exposed.
+    subtitle_tracks = []
 
     # Format languages
     languages_list = sorted(list(set([a.get("language", "English").title() for a in audio_tracks if a.get("language")])))
@@ -186,7 +186,7 @@ async def stats_page(request: Request):
     total_users = await user_repo.get_total_users()
     total_chats = await chat_repo.get_total_chats()
     total_files = await file_repo.get_total_files()
-    uptime = time_formatter(seconds=round(time.time() - PAGE_START_TIME))
+    uptime = time_formatter(seconds=round(time_module.time() - PAGE_START_TIME))
 
     return render_template(
         templates, request, "stats.html",

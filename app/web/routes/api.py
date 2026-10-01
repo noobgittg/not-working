@@ -1,4 +1,4 @@
-import time
+import time as time_module
 from fastapi import APIRouter, HTTPException, Query
 from config import Config
 from app.database.repositories.file_repo import file_repo
@@ -7,7 +7,7 @@ from app.database.repositories.chat_repo import chat_repo
 from app.utils.helpers import time_formatter, humanbytes
 
 router = APIRouter(prefix="/api")
-API_START_TIME = time.time()
+API_START_TIME = time_module.time()
 
 @router.get("/status")
 async def api_status():
@@ -28,7 +28,7 @@ async def api_stats():
     chats_count = await chat_repo.get_total_chats()
     files_count = await file_repo.get_total_files()
     banned_count = await user_repo.get_banned_users_count()
-    uptime_sec = round(time.time() - API_START_TIME)
+    uptime_sec = round(time_module.time() - API_START_TIME)
 
     return {
         "status": "online",
