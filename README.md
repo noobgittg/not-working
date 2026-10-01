@@ -1,3 +1,5 @@
+# COMMANDS.md
+
 # MMW All-In-One Pro — Commands & Endpoints
 
 ## Public commands
