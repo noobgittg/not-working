@@ -1,6 +1,6 @@
 import os
 import sys
-import time
+import time as time_module
 import socket
 import asyncio
 import urllib.request
@@ -166,7 +166,7 @@ async def schedule_24h_restart(bot, interval: int = 86400):
         try:
             os.makedirs(Config.DOWNLOAD_DIR, exist_ok=True)
             with open(RESTART_MARKER_FILE, "w") as f:
-                f.write(f"{time.time()}")
+                f.write(f"{time_module.time()}")
         except Exception as e:
             logger.error(f"Error writing restart marker: {e}")
 
