@@ -39,9 +39,10 @@ class Config:
     WATERMARK_URL: str = _raw_wm_url
 
     CACHE_TTL: int = int(os.environ.get("CACHE_TTL", "600"))
+    CACHE_MAX_ENTRIES: int = int(os.environ.get("CACHE_MAX_ENTRIES", "2000"))
     DEFAULT_AUTO_DELETE: int = int(os.environ.get("AUTO_DELETE_TIME", "0"))
     FORCE_SUB_CHANNEL: str = os.environ.get("FORCE_SUB_CHANNEL", os.environ.get("FORCE_SUB", ""))
-    WORKERS: int = int(os.environ.get("WORKERS", "100"))
+    WORKERS: int = int(os.environ.get("WORKERS", "32"))
     MAX_CONCURRENT_TASKS: int = int(os.environ.get("MAX_CONCURRENT_TASKS", "100"))
 
     DOWNLOAD_DIR: str = os.path.join(os.getcwd(), "downloads")

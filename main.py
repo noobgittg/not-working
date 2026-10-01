@@ -1,6 +1,6 @@
 import os
 import sys
-import time
+import time as time_module
 import asyncio
 from config import Config
 from app.utils.logger import logger
