@@ -468,8 +468,7 @@
                 <video id="native-player" playsinline controls preload="metadata" poster="{{ watermark_url }}">
                     <source src="{{ stream_url }}" type="{{ mime_type }}" />
                     {% for sub in subtitle_tracks %}
-                    <track kind="subtitles" label="{{ sub.title }} ({{ sub.language }})" srclang="{{ sub.language_code }}" src="/subtitle/{{ file_id }}/{{ sub.index }}" {% if loop.first %}default{% endif %}>
-                    {% endfor %}
+{% endfor %}
                     Your browser does not support the video tag.
                 </video>
                 {% elif category == "audio" %}
@@ -1172,16 +1171,6 @@
             elem.classList.add("active");
             showToast(`🎧 Selected: ${title}`);
         }
-
-        function setSubtitleTrack(idx, elem) {
-            document.querySelectorAll("#subtitles-list .chip").forEach(c => c.classList.remove("active"));
-            elem.classList.add("active");
-            const video = document.querySelector("video");
-            if (!video || !video.textTracks) return;
-
-            for (let i = 0; i < video.textTracks.length; i++) {
-                video.textTracks[i].mode = (i === idx) ? "showing" : "disabled";
-            }
             showToast(idx === -1 ? "💬 Subtitles Off" : "💬 Subtitles Enabled");
         }
 
