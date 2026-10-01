@@ -1,4 +1,4 @@
-import time
+import time as time_module
 import os
 import asyncio
 from pyrogram import Client, filters
@@ -9,7 +9,7 @@ from app.utils.helpers import humanbytes, time_formatter, clean_temp_files
 from app.database.repositories.file_repo import file_repo
 from app.services.ffmpeg_service import get_detailed_mediainfo
 
-BOT_START_TIME = time.time()
+BOT_START_TIME = time_module.time()
 
 @Client.on_message(filters.command(["id", "myid"]))
 async def id_command_handler(client: Client, message: Message):
@@ -91,11 +91,11 @@ async def info_command_handler(client: Client, message: Message):
 
 @Client.on_message(filters.command("ping"))
 async def ping_command_handler(client: Client, message: Message):
-    start = time.time()
+    start = time_module.time()
     reply = await message.reply_text(f"⚡ **{to_smallcaps('ᴘɪɴɢɪɴɢ ᴇɴɢɪɴᴇ...')}**")
-    end = time.time()
+    end = time_module.time()
     latency_ms = round((end - start) * 1000, 2)
-    uptime_str = time_formatter(seconds=round(time.time() - BOT_START_TIME))
+    uptime_str = time_formatter(seconds=round(time_module.time() - BOT_START_TIME))
 
     text = (
         f"✦ **{to_smallcaps('sʏsᴛᴇᴍ ʟᴀᴛᴇɴᴄʏ & ᴜᴘᴛɪᴍᴇ')}** ✦\n\n"
@@ -110,11 +110,11 @@ async def ping_command_handler(client: Client, message: Message):
 
 @Client.on_callback_query(filters.regex(r"^ping_refresh$"))
 async def ping_refresh_callback(client: Client, query: CallbackQuery):
-    start = time.time()
+    start = time_module.time()
     await query.answer(to_smallcaps("ᴘɪɴɢɪɴɢ..."))
-    end = time.time()
+    end = time_module.time()
     latency_ms = round((end - start) * 1000, 2)
-    uptime_str = time_formatter(seconds=round(time.time() - BOT_START_TIME))
+    uptime_str = time_formatter(seconds=round(time_module.time() - BOT_START_TIME))
 
     text = (
         f"✦ **{to_smallcaps('sʏsᴛᴇᴍ ʟᴀᴛᴇɴᴄʏ & ᴜᴘᴛɪᴍᴇ')}** ✦\n\n"
@@ -193,7 +193,7 @@ async def generate_mediainfo_response(client: Client, media_msg: Message, target
 
     status = await target_reply.reply_text(f"🔍 **{to_smallcaps('ᴇxᴛʀᴀᴄᴛɪɴɢ ᴅᴇᴇᴘ ᴍᴇᴅɪᴀɪɴғᴏ ᴡɪᴛʜ ғғᴘʀᴏʙᴇ...')}**")
 
-    temp_dir = f"downloads/probe_{media_msg.id}_{int(time.time())}"
+    temp_dir = f"downloads/probe_{media_msg.id}_{int(time_module.time())}"
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, raw_name)
 

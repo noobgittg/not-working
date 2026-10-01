@@ -1,5 +1,5 @@
 import os
-import time
+import time as time_module
 import secrets
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -105,7 +105,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
     input_path = os.path.join(download_dir, clean_name)
     output_path = os.path.join(download_dir, f"compressed_{clean_name}")
 
-    start_dl = time.time()
+    start_dl = time_module.time()
     try:
         await original_msg.download(
             file_name=input_path,
@@ -137,7 +137,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
     orig_size = os.path.getsize(input_path)
     total_duration = getattr(media, "duration", 0)
 
-    comp_start = time.time()
+    comp_start = time_module.time()
     if has_video:
         await status.edit_text(f"🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ɪɴ ᴘʀᴏɢʀᴇss (ᴜɴɪᴠᴇʀsᴀʟ ʜ.𝟸𝟼𝟺)...')}**")
         success = await compress_media(
@@ -156,7 +156,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
             output_path += ".m4a"
         success = await compress_audio(input_path, output_path)
 
-    comp_duration = time.time() - comp_start
+    comp_duration = time_module.time() - comp_start
 
     if not success or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         clean_temp_files(input_path, output_path, download_dir)
@@ -209,7 +209,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
     )
     final_caption = base_caption + stats_summary
 
-    upload_start = time.time()
+    upload_start = time_module.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴄᴏᴍᴘʀᴇssᴇᴅ ᴍᴇᴅɪᴀ...')}**")
 
     sent_video = None

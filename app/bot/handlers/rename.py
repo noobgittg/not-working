@@ -1,5 +1,5 @@
 import os
-import time
+import time as time_module
 import secrets
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -269,7 +269,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
     os.makedirs(download_dir, exist_ok=True)
     download_path = os.path.join(download_dir, final_name)
 
-    start_time = time.time()
+    start_time = time_module.time()
     try:
         await original_msg.download(
             file_name=download_path,
@@ -314,7 +314,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
         file_id=str(target_id)
     )
 
-    upload_start = time.time()
+    upload_start = time_module.time()
     await status_msg.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ʀᴇɴᴀᴍᴇᴅ ғɪʟᴇ...')}**")
 
     sent_msg = None

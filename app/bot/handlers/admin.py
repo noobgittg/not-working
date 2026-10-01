@@ -1,6 +1,5 @@
 import sys
 import os
-import time
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -10,10 +9,11 @@ from app.database.repositories.chat_repo import chat_repo
 from app.database.repositories.file_repo import file_repo
 from app.utils.cache import cache
 from app.utils.font import to_smallcaps, format_watermark
+from app.utils.auth import is_admin
 
 @Client.on_message(filters.private & filters.command("admin"))
 async def admin_panel_handler(client: Client, message: Message):
-    if message.from_user.id not in Config.ADMINS:
+    if not is_admin(message.from_user.id):
         return await message.reply_text(
             f"🚫 **{to_smallcaps('ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ')}**\n\n"
             f"• {to_smallcaps('ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ʀᴇsᴛʀɪᴄᴛᴇᴅ ᴛᴏ ʙᴏᴛ ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs ᴏɴʟʏ.')}"
@@ -22,7 +22,7 @@ async def admin_panel_handler(client: Client, message: Message):
 
 @Client.on_callback_query(filters.regex(r"^admin_(panel_back|stats|clear_cache|restart)"))
 async def admin_callbacks(client: Client, query: CallbackQuery):
-    if query.from_user.id not in Config.ADMINS:
+    if not is_admin(query.from_user.id):
         return await query.answer(to_smallcaps("ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ!"), show_alert=True)
 
     action = query.matches[0].group(1)
@@ -42,7 +42,6 @@ async def render_admin_dashboard(target_msg: Message, is_edit: bool = False):
     total_users = await user_repo.get_total_users()
     total_chats = await chat_repo.get_total_chats()
     total_files = await file_repo.get_total_files()
-    banned_count = await user_repo.get_banned_users_count()
 
     text = (
         f"✦ **{to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ')}** ✦\n\n"
@@ -50,7 +49,6 @@ async def render_admin_dashboard(target_msg: Message, is_edit: bool = False):
         f"• 👥 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴜsᴇʀs')}** : `{total_users}`\n"
         f"• 📢 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴄʜᴀᴛs')}** : `{total_chats}`\n"
         f"• 📁 **{to_smallcaps('sᴛʀᴇᴀᴍ ғɪʟᴇs')}** : `{total_files}`\n"
-        f"• 🚫 **{to_smallcaps('ʙᴀɴɴᴇᴅ ᴜsᴇʀs')}** : `{banned_count}`\n"
         f"• ⚡ **{to_smallcaps('ᴄᴀᴄʜᴇ ᴇɴɢɪɴᴇ')}** : `FastMemoryCache (Active)`\n"
         f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Pingers Every 6s (Active)`\n"
         f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
@@ -90,7 +88,7 @@ async def admin_broadcast_guide(client: Client, query: CallbackQuery):
 
 @Client.on_message(filters.private & filters.command("broadcast"))
 async def broadcast_command_handler(client: Client, message: Message):
-    if message.from_user.id not in Config.ADMINS:
+    if not is_admin(message.from_user.id):
         return
     if not message.reply_to_message:
         return await message.reply_text(
@@ -120,31 +118,10 @@ async def broadcast_command_handler(client: Client, message: Message):
         f"{format_watermark()}"
     )
 
-@Client.on_message(filters.private & filters.command("ban"))
-async def ban_user_handler(client: Client, message: Message):
-    if message.from_user.id not in Config.ADMINS:
-        return
-    if len(message.command) < 2 or not message.command[1].isdigit():
-        return await message.reply_text(f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/ban <user_id>`")
-
-    target_id = int(message.command[1])
-    await user_repo.ban_user(target_id)
-    await message.reply_text(f"🚫 **{to_smallcaps(f'ᴜsᴇʀ {target_id} ʜᴀs ʙᴇᴇɴ ʙᴀɴɴᴇᴅ!')}**{format_watermark()}")
-
-@Client.on_message(filters.private & filters.command("unban"))
-async def unban_user_handler(client: Client, message: Message):
-    if message.from_user.id not in Config.ADMINS:
-        return
-    if len(message.command) < 2 or not message.command[1].isdigit():
-        return await message.reply_text(f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/unban <user_id>`")
-
-    target_id = int(message.command[1])
-    await user_repo.unban_user(target_id)
-    await message.reply_text(f"✅ **{to_smallcaps(f'ᴜsᴇʀ {target_id} ʜᴀs ʙᴇᴇɴ ᴜɴʙᴀɴɴᴇᴅ!')}**{format_watermark()}")
 
 @Client.on_message(filters.private & filters.command("restart"))
 async def restart_command_handler(client: Client, message: Message):
-    if message.from_user.id not in Config.ADMINS:
+    if not is_admin(message.from_user.id):
         return
     await message.reply_text(f"🔄 **{to_smallcaps('ʙᴏᴛ ɪs ʀᴇsᴛᴀʀᴛɪɴɢ ɴᴏᴡ...')}**")
     os.execl(sys.executable, sys.executable, "main.py")

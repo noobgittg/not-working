@@ -1,5 +1,5 @@
 import os
-import time
+import time as time_module
 import secrets
 from typing import Optional
 from pyrogram import Client, filters
@@ -132,7 +132,7 @@ async def pro_mediainfo_callback(client: Client, query: CallbackQuery):
         await original.download(
             file_name=temp_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʜᴇᴀᴅᴇʀ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʜᴇᴀᴅᴇʀ", status, time_module.time())
         )
     except Exception as e:
         clean_temp_files(temp_path, download_dir)
@@ -235,7 +235,7 @@ async def run_extract_all_audio(client: Client, media_msg: Message, target_msg: 
     os.makedirs(download_dir, exist_ok=True)
     video_path = os.path.join(download_dir, clean_name)
 
-    start_dl = time.time()
+    start_dl = time_module.time()
     try:
         await media_msg.download(
             file_name=video_path,
@@ -323,7 +323,7 @@ async def run_extract_all_sub(client: Client, media_msg: Message, target_msg: Me
     os.makedirs(download_dir, exist_ok=True)
     video_path = os.path.join(download_dir, clean_name)
 
-    start_dl = time.time()
+    start_dl = time_module.time()
     try:
         await media_msg.download(
             file_name=video_path,
@@ -440,12 +440,12 @@ async def execute_add_audio(client: Client, query: CallbackQuery):
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
         )
         await audio_msg.download(
             file_name=a_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, time_module.time())
         )
     except Exception as e:
         clean_temp_files(v_path, a_path, download_dir)
@@ -478,7 +478,7 @@ async def execute_add_audio(client: Client, query: CallbackQuery):
         f"{format_watermark()}"
     )
 
-    upload_start = time.time()
+    upload_start = time_module.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ ᴡɪᴛʜ ɴᴇᴡ ᴀᴜᴅɪᴏ...')}**")
 
     try:
@@ -563,12 +563,12 @@ async def execute_add_subtitle(client: Client, reply_msg: Message, video_id: int
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
         )
         await sub_msg.download(
             file_name=s_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ sᴜʙᴛɪᴛʟᴇ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ sᴜʙᴛɪᴛʟᴇ", status, time_module.time())
         )
     except Exception as e:
         clean_temp_files(download_dir)
@@ -601,7 +601,7 @@ async def execute_add_subtitle(client: Client, reply_msg: Message, video_id: int
         f"{format_watermark()}"
     )
 
-    upload_start = time.time()
+    upload_start = time_module.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ ᴡɪᴛʜ sᴜʙᴛɪᴛʟᴇ...')}**")
 
     try:
@@ -696,7 +696,7 @@ async def execute_trim_video(client: Client, reply_msg: Message, video_id: int, 
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
         )
     except Exception as e:
         clean_temp_files(download_dir)
@@ -729,7 +729,7 @@ async def execute_trim_video(client: Client, reply_msg: Message, video_id: int, 
         f"{format_watermark()}"
     )
 
-    upload_start = time.time()
+    upload_start = time_module.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴛʀɪᴍᴍᴇᴅ ᴠɪᴅᴇᴏ...')}**")
 
     try:

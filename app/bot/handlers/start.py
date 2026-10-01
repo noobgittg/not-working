@@ -96,7 +96,7 @@ async def command_start_family(client: Client, message: Message):
             f"• 🛠️ **{to_smallcaps('ᴛᴏᴏʟs')}** : {to_smallcaps('ɪᴅ, ɪɴғᴏ, ᴘɪɴɢ, sᴘᴇᴇᴅᴛᴇsᴛ, ᴍᴇᴅɪᴀɪɴғᴏ & sᴇᴀʀᴄʜ')}\n"
         )
         if is_admin:
-            help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ʙᴀɴ/ᴜɴʙᴀɴ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
+            help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ᴄᴀᴄʜᴇ ᴄʟᴇᴀʀ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
 
         help_text += f"{format_watermark()}"
 
@@ -157,7 +157,6 @@ async def command_start_family(client: Client, message: Message):
             ],
             [
                 InlineKeyboardButton(f"⏱️ {to_smallcaps('ᴛɪᴍᴇʀ sᴇᴛᴛɪɴɢs')}", callback_data="open_timer_menu"),
-                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇsᴇᴛ ᴀʟʟ')}", callback_data="settings_reset_all")
             ],
             [
                 InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")
