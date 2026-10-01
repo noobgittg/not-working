@@ -1,7 +1,7 @@
 import asyncio
 import os
 import shutil
-import time
+import time as time_module
 import uuid
 from typing import Dict, Optional, Any, Callable
 from app.utils.logger import logger
@@ -25,7 +25,7 @@ class MediaTask:
         self.work_dir = work_dir
         self.asyncio_task = asyncio_task
         self.process = process
-        self.created_at = time.time()
+        self.created_at = time_module.time()
         self.is_cancelled = False
 
 
@@ -42,7 +42,7 @@ class TaskManager:
 
     def generate_task_id(self, user_id: int) -> str:
         """Generates a globally unique task identifier."""
-        return f"{user_id}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        return f"{user_id}_{int(time_module.time())}_{uuid.uuid4().hex[:6]}"
 
     def create_workspace(self, user_id: int, task_id: str) -> str:
         """Creates an isolated working directory for this specific task."""
