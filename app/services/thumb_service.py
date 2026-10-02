@@ -1,13 +1,15 @@
 import os
 import aiohttp
 import aiofiles
-from typing import Optional
+from typing import Optional, Any
 from pyrogram import Client
 from config import Config
 from app.database.repositories.user_repo import user_repo
 from app.utils.logger import logger
 from app.utils.helpers import is_valid_url
 from .ffmpeg_service import extract_frame_screenshot
+
+GLOBAL_THUMB_CACHE = os.path.join(Config.DOWNLOAD_DIR, "global_tham_cache.jpg")
 
 async def download_thumbnail_url(url: str, target_path: str) -> Optional[str]:
     if not url or not is_valid_url(url):
@@ -26,47 +28,54 @@ async def download_thumbnail_url(url: str, target_path: str) -> Optional[str]:
 async def resolve_thumbnail(
     client: Client,
     user_id: int,
-    temp_dir: str,
+    temp_dir_or_thumb_id: Any = None,
     video_path: Optional[str] = None,
     duration: int = 0
 ) -> Optional[str]:
     """
-    Resolves the best available thumbnail for a media file:
-    1. Custom user thumbnail stored in DB
-    2. Fallback URL thumbnail (THAM_URL)
-    3. Auto-extracted video frame screenshot using FFmpeg
-    Guaranteed to return a valid string path or None. Never returns a tuple.
+    Resolves thumbnail prioritizing:
+    1. User custom thumbnail (from Telegram)
+    2. User custom tham_url or Config.THAM_URL
+    3. Video frame screenshot extraction via FFmpeg
     """
-    if os.path.isfile(temp_dir):
-        target_dir = os.path.dirname(temp_dir)
+    # Resolve directory for storing temp thumbnail
+    if isinstance(temp_dir_or_thumb_id, str) and os.path.isdir(temp_dir_or_thumb_id):
+        temp_dir = temp_dir_or_thumb_id
+    elif video_path and os.path.exists(video_path):
+        temp_dir = os.path.dirname(video_path)
     else:
-        target_dir = temp_dir
-    os.makedirs(target_dir, exist_ok=True)
+        temp_dir = os.path.join(Config.DOWNLOAD_DIR, str(user_id))
+    os.makedirs(temp_dir, exist_ok=True)
 
     user = await user_repo.get_user(user_id)
-
-    # 1. Custom user thumbnail
+    thumb_id = None
     if user and user.get("thumb_id"):
+        thumb_id = user["thumb_id"]
+    elif isinstance(temp_dir_or_thumb_id, str) and not os.path.isdir(temp_dir_or_thumb_id):
+        thumb_id = temp_dir_or_thumb_id
+
+    if thumb_id:
         try:
-            custom_path = os.path.join(target_dir, "custom_thumb.jpg")
-            res = await client.download_media(user["thumb_id"], file_name=custom_path)
-            if res and isinstance(res, str) and os.path.exists(res):
-                return res
+            custom_path = os.path.join(temp_dir, "custom_thumb.jpg")
+            return await client.download_media(thumb_id, file_name=custom_path)
         except Exception as e:
             logger.warning(f"Error fetching user custom thumbnail: {e}")
 
-    # 2. Tham URL thumbnail
-    tham_url = (user.get("tham_url") if user else None) or Config.THAM_URL
-    if tham_url:
-        cached_thumb = os.path.join(target_dir, "tham_url.jpg")
-        downloaded = await download_thumbnail_url(tham_url, cached_thumb)
-        if downloaded and isinstance(downloaded, str) and os.path.exists(downloaded):
+    user_tham = user.get("tham_url") if user else None
+    if user_tham:
+        user_thumb_path = os.path.join(temp_dir, "user_tham.jpg")
+        downloaded = await download_thumbnail_url(user_tham, user_thumb_path)
+        if downloaded and os.path.exists(downloaded):
             return downloaded
 
-    # 3. Screenshot extraction from video
+    if Config.THAM_URL:
+        if os.path.exists(GLOBAL_THUMB_CACHE) and os.path.getsize(GLOBAL_THUMB_CACHE) > 0:
+            return GLOBAL_THUMB_CACHE
+        downloaded = await download_thumbnail_url(Config.THAM_URL, GLOBAL_THUMB_CACHE)
+        if downloaded and os.path.exists(downloaded):
+            return downloaded
+
     if video_path and os.path.exists(video_path):
-        screen_thumb = await extract_frame_screenshot(video_path, target_dir, duration)
-        if screen_thumb and isinstance(screen_thumb, str) and os.path.exists(screen_thumb):
-            return screen_thumb
+        return await extract_frame_screenshot(video_path, temp_dir, duration)
 
     return None

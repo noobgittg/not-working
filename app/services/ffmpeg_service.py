@@ -364,7 +364,7 @@ async def compress_media(
             if match and total_duration > 0 and progress_message:
                 hours, minutes, seconds = map(float, match.groups())
                 current_seconds = hours * 3600 + minutes * 60 + seconds
-                now = asyncio.get_event_loop().time()
+                now = float(time.time())
                 if now - last_update > 4:
                     last_update = now
                     pct = min(100.0, (current_seconds / total_duration) * 100)
@@ -750,4 +750,83 @@ async def add_subtitle_to_video(
         return False
     except Exception as e:
         logger.error(f"Subtitle mux error: {e}")
+        return False
+
+async def compress_to_target_size(
+    input_path: str,
+    output_path: str,
+    target_size_mb: float,
+    duration_sec: int,
+    scale_height: int = 720
+) -> bool:
+    """
+    Compresses video to achieve a specific target size in Megabytes by dynamically
+    calculating required video and audio bitrates.
+    """
+    dur = max(1, duration_sec)
+    total_kbits = target_size_mb * 8192
+    audio_bitrate_kb = 96
+    video_bitrate_kb = max(80, int((total_kbits / dur) - audio_bitrate_kb))
+
+    even_h = scale_height if scale_height % 2 == 0 else scale_height - 1
+    if even_h > 0:
+        vf_filter = f"scale=-2:{even_h}:flags=lanczos,setsar=1"
+    else:
+        vf_filter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+
+    cmd = [
+        FFMPEG_BIN, "-y",
+        "-i", input_path,
+        "-map", "0:v:0?",
+        "-map", "0:a?",
+        "-vf", vf_filter,
+        "-c:v", "libx264",
+        "-b:v", f"{video_bitrate_kb}k",
+        "-maxrate", f"{int(video_bitrate_kb * 1.5)}k",
+        "-bufsize", f"{int(video_bitrate_kb * 2)}k",
+        "-pix_fmt", "yuv420p",
+        "-preset", "veryfast",
+        "-c:a", "aac",
+        "-b:a", f"{audio_bitrate_kb}k",
+        "-ac", "2",
+        "-sn",
+        "-movflags", "+faststart",
+        "-max_muxing_queue_size", "9999",
+        output_path
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+        )
+        _, err = await proc.communicate()
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            return True
+        logger.warning(f"Target size compression primary failed: {err.decode('utf-8', errors='ignore')}")
+    except Exception as e:
+        logger.warning(f"Target size compression primary exception: {e}")
+
+    # Fallback with universal filter
+    fb_cmd = [
+        FFMPEG_BIN, "-y",
+        "-i", input_path,
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        "-c:v", "libx264",
+        "-b:v", f"{video_bitrate_kb}k",
+        "-pix_fmt", "yuv420p",
+        "-preset", "ultrafast",
+        "-c:a", "aac",
+        "-b:a", "96k",
+        "-ac", "2",
+        "-sn",
+        "-movflags", "+faststart",
+        output_path
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *fb_cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+        )
+        await proc.communicate()
+        return os.path.exists(output_path) and os.path.getsize(output_path) > 1000
+    except Exception as e:
+        logger.error(f"Target size compression fallback error: {e}")
         return False

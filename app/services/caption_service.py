@@ -1,9 +1,9 @@
-import datetime
 import os
-from typing import Optional, Dict, Any
+import datetime
+from typing import Optional, Dict, Any, Union
 from config import Config
 from app.database.repositories.user_repo import user_repo
-from app.utils.font import to_smallcaps, format_watermark
+from app.utils.font import format_watermark
 from app.utils.helpers import humanbytes, time_formatter
 
 DEFAULT_CAPTION = (
@@ -17,10 +17,10 @@ DEFAULT_CAPTION = (
 )
 
 async def format_caption(
-    user_id: int,
+    user_or_id: Union[int, Dict[str, Any], Any],
     file_name: str,
-    file_size_str: str,
-    duration_str: str = "0s",
+    file_size_str: Any = "0 B",
+    duration_str: Any = "0s",
     ext: str = "",
     file_caption: str = "",
     language: str = "Undetermined",
@@ -34,8 +34,24 @@ async def format_caption(
     """
     Dynamically formats caption based on file metadata:
     File name, File size, Duration, Language, Audio track, Caption, File ID, etc.
+    Guarantees strict safety truncation to under 1024 characters to prevent Telegram MediaCaptionTooLong errors.
     """
-    user = await user_repo.get_user(user_id)
+    user: Optional[Dict[str, Any]] = None
+    if isinstance(user_or_id, dict):
+        user = user_or_id
+    elif isinstance(user_or_id, int):
+        user = await user_repo.get_user(user_or_id)
+    elif user_or_id is not None:
+        uid = getattr(user_or_id, "id", None) or getattr(user_or_id, "user_id", None)
+        if uid:
+            user = await user_repo.get_user(int(uid))
+
+    if isinstance(file_size_str, (int, float)):
+        file_size_str = humanbytes(int(file_size_str))
+
+    if isinstance(duration_str, (int, float)):
+        duration_str = time_formatter(seconds=int(duration_str))
+
     user_custom = user.get("custom_caption") if user else None
     user_caps_list = user.get("captions_list", []) if user else []
 
@@ -75,7 +91,9 @@ async def format_caption(
             if a_streams:
                 audio_codec = a_streams[0].get("codec", "N/A")
 
-    now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_str = now_utc.strftime("%Y-%m-%d %H:%M UTC")
+    time_str = now_utc.strftime("%H:%M:%S UTC")
 
     # Safe formatting dict mapping all user requested metadata tokens
     fmt_dict = {
@@ -100,7 +118,10 @@ async def format_caption(
         "ext": ext,
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL,
-        "date": now_str
+        "date": now_str,
+        "time": time_str,
+        "current_time": time_str,
+        "time_str": time_str
     }
 
     try:
@@ -113,6 +134,12 @@ async def format_caption(
 
     if Config.WATERMARK not in caption:
         caption += format_watermark()
+
+    # Telegram Bot API enforces a hard 1024-character limit on message captions
+    if len(caption) > 1024:
+        wm = format_watermark()
+        avail = 1024 - len(wm) - 4
+        caption = caption[:max(0, avail)] + "...\n" + wm
 
     return caption
 
@@ -138,7 +165,7 @@ async def extract_and_format_caption(
     duration_str = time_formatter(seconds=dur_sec) if dur_sec > 0 else "0s"
 
     return await format_caption(
-        user_id=user_id,
+        user_or_id=user_id,
         file_name=file_name,
         file_size_str=file_size_str,
         duration_str=duration_str,
