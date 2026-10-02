@@ -1,12 +1,8 @@
 import re
-import os
-import asyncio
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import StreamingResponse, Response, JSONResponse, FileResponse
+from fastapi.responses import StreamingResponse, Response
 from config import Config
 from app.database.repositories.file_repo import file_repo
-from app.utils.helpers import humanbytes, time_formatter
-from app.utils.logger import logger
 
 router = APIRouter()
 
@@ -39,7 +35,11 @@ async def stream_media_endpoint(request: Request, file_id: str):
     mime_type = file_doc.get("mime_type", "application/octet-stream")
     file_name = file_doc.get("file_name", "media")
 
-    message = await client.get_messages(chat_id, msg_id)
+    try:
+        message = await client.get_messages(chat_id, msg_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed retrieving media: {e}")
+
     if not message or not message.media:
         raise HTTPException(status_code=404, detail="Media expired or deleted")
 
@@ -54,20 +54,19 @@ async def stream_media_endpoint(request: Request, file_id: str):
 
             chunk_len = end - start + 1
             bytes_remaining = chunk_len
+            skip_bytes = start % (1024 * 1024)
 
             async def range_streamer():
-                nonlocal bytes_remaining
-                chunk_size = 1024 * 1024
-                skip = start % chunk_size
-                async for chunk in client.stream_media(message, offset=start // chunk_size):
+                nonlocal bytes_remaining, skip_bytes
+                async for chunk in client.stream_media(message, offset=start // (1024 * 1024)):
                     if not chunk or bytes_remaining <= 0:
                         break
-                    if skip:
-                        if len(chunk) <= skip:
-                            skip -= len(chunk)
+                    if skip_bytes > 0:
+                        if len(chunk) <= skip_bytes:
+                            skip_bytes -= len(chunk)
                             continue
-                        chunk = chunk[skip:]
-                        skip = 0
+                        chunk = chunk[skip_bytes:]
+                        skip_bytes = 0
                     if len(chunk) > bytes_remaining:
                         chunk = chunk[:bytes_remaining]
                     bytes_remaining -= len(chunk)
@@ -79,8 +78,7 @@ async def stream_media_endpoint(request: Request, file_id: str):
                 "Content-Length": str(chunk_len),
                 "Accept-Ranges": "bytes",
                 "Content-Disposition": f'inline; filename="{file_name}"',
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "public, max-age=3600"
+                "Access-Control-Allow-Origin": "*"
             }
             return StreamingResponse(range_streamer(), status_code=206, headers=headers)
 
@@ -95,14 +93,29 @@ async def stream_media_endpoint(request: Request, file_id: str):
         "Content-Length": str(file_size),
         "Accept-Ranges": "bytes",
         "Content-Disposition": f'inline; filename="{file_name}"',
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600"
+        "Access-Control-Allow-Origin": "*"
     }
     return StreamingResponse(full_streamer(), status_code=200, headers=headers)
 
+@router.head("/file/{file_id}")
+@router.head("/download/file/{file_id}")
+async def direct_file_head(file_id: str):
+    file_doc = await file_repo.get_file(file_id)
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File Not Found")
+    
+    fname = file_doc.get("file_name", "downloaded_file")
+    headers = {
+        "Content-Type": file_doc.get("mime_type", "application/octet-stream"),
+        "Content-Length": str(file_doc["file_size"]),
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": f'attachment; filename="{fname}"',
+        "Access-Control-Allow-Origin": "*"
+    }
+    return Response(status_code=200, headers=headers)
+
 @router.get("/file/{file_id}")
-@router.get("/dl/{file_id}")
-@router.get("/download/{file_id}/file")
+@router.get("/download/file/{file_id}")
 async def direct_file_download(request: Request, file_id: str):
     file_doc = await file_repo.get_file(file_id)
     if not file_doc:
@@ -114,7 +127,11 @@ async def direct_file_download(request: Request, file_id: str):
     file_size = file_doc["file_size"]
     file_name = file_doc.get("file_name", "downloaded_file")
 
-    message = await client.get_messages(chat_id, msg_id)
+    try:
+        message = await client.get_messages(chat_id, msg_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed retrieving file: {e}")
+
     if not message or not message.media:
         raise HTTPException(status_code=404, detail="Media expired")
 
@@ -128,60 +145,7 @@ async def direct_file_download(request: Request, file_id: str):
         "Content-Type": "application/octet-stream",
         "Content-Length": str(file_size),
         "Content-Disposition": f'attachment; filename="{file_name}"',
+        "Accept-Ranges": "bytes",
         "Access-Control-Allow-Origin": "*"
     }
     return StreamingResponse(file_streamer(), status_code=200, headers=headers)
-
-@router.get("/thumb/{file_id}")
-async def get_file_thumbnail(request: Request, file_id: str):
-    """Serves the thumbnail for a file if available, or returns 404."""
-    file_doc = await file_repo.get_file(file_id)
-    if not file_doc:
-        raise HTTPException(status_code=404, detail="File Not Found")
-
-    thumb_id = file_doc.get("thumb_id")
-    if thumb_id:
-        client = request.app.state.bot
-        try:
-            temp_path = f"downloads/thumb_{file_id}.jpg"
-            if not os.path.exists(temp_path):
-                await client.download_media(thumb_id, file_name=temp_path)
-            if os.path.exists(temp_path):
-                return FileResponse(temp_path, media_type="image/jpeg")
-        except Exception as e:
-            logger.warning(f"Error fetching thumbnail: {e}")
-
-    raise HTTPException(status_code=404, detail="Thumbnail Not Available")
-
-@router.get("/metadata/{file_id}")
-@router.get("/info/{file_id}")
-async def get_file_metadata_json(file_id: str):
-    """Returns complete JSON metadata for media detection in browser and external tools."""
-    file_doc = await file_repo.get_file(file_id)
-    if not file_doc:
-        raise HTTPException(status_code=404, detail="File Not Found")
-
-    raw_meta = file_doc.get("metadata", {})
-    return {
-        "file_id": file_id,
-        "file_name": file_doc.get("file_name", "media"),
-        "file_size": file_doc.get("file_size", 0),
-        "file_size_human": humanbytes(file_doc.get("file_size", 0)),
-        "mime_type": file_doc.get("mime_type", "video/mp4"),
-        "duration": raw_meta.get("duration", 0),
-        "duration_human": time_formatter(seconds=raw_meta.get("duration", 0)),
-        "width": raw_meta.get("width", 0),
-        "height": raw_meta.get("height", 0),
-        "resolution": f"{raw_meta.get('width', 0)}x{raw_meta.get('height', 0)}" if raw_meta.get("width") else "N/A",
-        "video_codec": raw_meta.get("video_codec", "H.264"),
-        "audio_codec": raw_meta.get("audio_codec", "AAC"),
-        "container": raw_meta.get("container", os.path.splitext(file_doc.get("file_name", ""))[1].replace(".", "").upper() or "MP4"),
-        "audio_streams": raw_meta.get("audio_streams", [
-            {"index": 1, "language": "Default", "language_code": "und", "title": "Stereo Track", "codec": "AAC", "channels": 2}
-        ]),
-        "subtitle_streams": raw_meta.get("subtitle_streams", []),
-        "stream_url": f"{Config.BASE_URL}/stream/{file_id}",
-        "download_url": f"{Config.BASE_URL}/dl/{file_id}",
-        "watermark": Config.WATERMARK
-    }
-
