@@ -3,7 +3,9 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from config import Config
 from app.database.repositories.user_repo import user_repo
 from app.database.repositories.chat_repo import chat_repo
+from app.database.repositories.file_repo import file_repo
 from app.utils.font import to_smallcaps, format_watermark
+from app.utils.logger import logger
 
 @Client.on_message(filters.private & filters.command(["start", "help", "about", "status", "settings"]))
 async def command_start_family(client: Client, message: Message):
@@ -20,6 +22,7 @@ async def command_start_family(client: Client, message: Message):
 
     await user_repo.get_or_create(user.id, user.first_name, user.username)
 
+    # Force-subscription check
     if Config.FORCE_SUB_CHANNEL:
         try:
             member = await client.get_chat_member(Config.FORCE_SUB_CHANNEL, user.id)
@@ -41,6 +44,36 @@ async def command_start_family(client: Client, message: Message):
                 disable_web_page_preview=True
             )
 
+    # Check for Deep-linking payload: /start file_<file_id> or get_<file_id>
+    if cmd == "start" and len(message.command) > 1:
+        payload = message.command[1].strip()
+        file_id = payload
+        if payload.startswith("file_"):
+            file_id = payload[5:]
+        elif payload.startswith("getfile_"):
+            file_id = payload[8:]
+        elif payload.startswith("get_"):
+            file_id = payload[4:]
+
+        file_doc = await file_repo.get_file(file_id)
+        if file_doc:
+            try:
+                msg = await client.get_messages(file_doc["chat_id"], file_doc["message_id"])
+                if msg and msg.media:
+                    await msg.copy(chat_id=message.chat.id)
+                    return
+                else:
+                    return await message.reply_text(f"❌ **{to_smallcaps('ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ɴᴏ ʟᴏɴɢᴇʀ ᴇxɪsᴛs ɪɴ sᴛᴏʀᴀɢᴇ ᴄʜᴀɴɴᴇʟ!')}**")
+            except Exception as e:
+                logger.error(f"Error copying media file for start payload {file_id}: {e}")
+                return await message.reply_text(f"❌ **{to_smallcaps('ғᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ')}**: `{e}`")
+        else:
+            return await message.reply_text(
+                f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴏʀ sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ ʀᴇᴠᴏᴋᴇᴅ!')}**\n\n"
+                f"💡 {to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ᴍᴀʏ ʜᴀᴠᴇ ᴇxᴘɪʀᴇᴅ ᴏʀ ʙᴇᴇɴ ᴅᴇʟᴇᴛᴇᴅ ʙʏ ᴛʜᴇ ᴜᴘʟᴏᴀᴅᴇʀ.')}"
+                f"{format_watermark()}"
+            )
+
     is_admin = user.id in Config.ADMINS
 
     if cmd == "start":
@@ -50,8 +83,9 @@ async def command_start_family(client: Client, message: Message):
             f"🚀 **{to_smallcaps('ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴜʟᴛʀᴀ-ғᴀsᴛ ᴍᴜʟᴛɪ-ᴘᴜʀᴘᴏsᴇ ᴘʀᴏ ʙᴏᴛ!')}**\n\n"
             f"💎 **{to_smallcaps('ᴇxᴘᴀɴᴅᴇᴅ ғᴇᴀᴛᴜʀᴇ sᴜɪᴛᴇ')}** :\n"
             f"• ✏️ **{to_smallcaps('ᴜʟᴛʀᴀ-ғᴀsᴛ ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ʀᴇɴᴀᴍᴇ ᴡɪᴛʜ ᴄᴜsᴛᴏᴍ ᴘʀᴇғɪx, sᴜғғɪx & ᴛʏᴘᴇ')}\n"
-            f"• 🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('sᴜᴘᴇʀ-ғᴀsᴛ ʜ.𝟸𝟼𝟺 ᴄᴏᴍᴘʀᴇssɪᴏɴ & ᴘʀᴇsᴇᴛs')}\n"
-            f"• ⚡ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴇᴇᴋɪɴɢ & ᴘʟʏʀ ᴡᴇʙ ᴘʟᴀʏᴇʀ')}\n"
+            f"• 🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('sᴜᴘᴇʀ-ғᴀsᴛ ʜ.𝟸𝟼𝟺 ᴄᴏᴍᴘʀᴇssɪᴏɴ, ᴘʀᴇsᴇᴛs & ᴛᴀʀɢᴇᴛ sɪᴢᴇ')}\n"
+            f"• ⚡ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴇᴇᴋɪɴɢ, 𝟷𝟻 ᴘʟᴀʏᴇʀ ᴇɴɢɪɴᴇs & ʀᴇᴠᴏᴋᴇ')}\n"
+            f"• 📥 **{to_smallcaps('ɢᴇᴛ ғɪʟᴇ')}** : {to_smallcaps('ɪɴsᴛᴀɴᴛʟʏ ʀᴇᴛʀɪᴇᴠᴇ sᴛʀᴇᴀᴍᴇᴅ ғɪʟᴇs ʙᴀᴄᴋ ɪɴ ᴛᴇʟᴇɢʀᴀᴍ')}\n"
             f"• 🖼️ **{to_smallcaps('sᴍᴀʀᴛ ᴛʜᴜᴍʙɴᴀɪʟs')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴘʜᴏᴛᴏ + ᴛʜᴀᴍ_ᴜʀʟ ᴀᴜᴛᴏ-ғᴀʟʟʙᴀᴄᴋ')}\n"
             f"• 📝 **{to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ғᴜʟʟ ᴛᴇᴍᴘʟᴀᴛɪɴɢ ({filename}, {filesize}, cap[])')}\n"
             f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ ᴛɪᴍᴇʀ')}** : {to_smallcaps('sᴄʜᴇᴅᴜʟᴇᴅ ʙᴀᴛᴄʜ ᴍᴇssᴀɢᴇ sᴡᴇᴇᴘᴇʀ')}\n"
@@ -86,8 +120,8 @@ async def command_start_family(client: Client, message: Message):
             f"👋 **{to_smallcaps('ʜᴇʟʟᴏ')} {user.mention}** !\n"
             f"{to_smallcaps('ᴇxᴘʟᴏʀᴇ ᴏᴜʀ ᴄᴀᴛᴇɢᴏʀɪᴢᴇᴅ ɢᴜɪᴅᴇs ʙᴇʟᴏᴡ ғᴏʀ ᴅᴇᴛᴀɪʟᴇᴅ ɪɴsᴛʀᴜᴄᴛɪᴏɴs ᴀɴᴅ ᴇxᴀᴍᴘʟᴇs:')}\n\n"
             f"• ✏️ **{to_smallcaps('ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ғɪʟᴇ ʀᴇɴᴀᴍɪɴɢ, ᴘʀᴇғɪx, sᴜғғɪx, ᴍᴏᴅᴇ ᴄᴏɴᴠᴇʀsɪᴏɴ')}\n"
-            f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛs & ᴄʀғ ᴛᴜɴɪɴɢ')}\n"
-            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ, ʜᴛᴛᴘ 𝟸𝟶𝟼 ʟɪɴᴋs, ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}\n"
+            f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛs, ᴛᴀʀɢᴇᴛ sɪᴢᴇ & ᴄʀғ')}\n"
+            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ, ʜᴛᴛᴘ 𝟸𝟶𝟼 ʟɪɴᴋs, ɢᴇᴛ ғɪʟᴇ & ʀᴇᴠᴏᴋᴇ')}\n"
             f"• 🖼️ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ ᴘʜᴏᴛᴏs & ᴛʜᴀᴍ_ᴜʀʟ ᴄᴀᴄʜɪɴɢ')}\n"
             f"• 📝 **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴛᴇᴍᴘʟᴀᴛᴇs & ᴄᴀᴘ[] ǫᴜᴇᴜᴇ ᴍᴀɴᴀɢᴇʀ')}\n"
             f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ')}** : {to_smallcaps('ᴛɪᴍᴇᴅ ᴍᴇssᴀɢᴇ sᴄʜᴇᴅᴜʟɪɴɢ & ʙᴀᴛᴄʜ ᴄʟᴇᴀɴɪɴɢ')}\n"
@@ -96,7 +130,7 @@ async def command_start_family(client: Client, message: Message):
             f"• 🛠️ **{to_smallcaps('ᴛᴏᴏʟs')}** : {to_smallcaps('ɪᴅ, ɪɴғᴏ, ᴘɪɴɢ, sᴘᴇᴇᴅᴛᴇsᴛ, ᴍᴇᴅɪᴀɪɴғᴏ & sᴇᴀʀᴄʜ')}\n"
         )
         if is_admin:
-            help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ᴄᴀᴄʜᴇ ᴄʟᴇᴀʀ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
+            help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ʙᴀɴ/ᴜɴʙᴀɴ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
 
         help_text += f"{format_watermark()}"
 
@@ -157,6 +191,7 @@ async def command_start_family(client: Client, message: Message):
             ],
             [
                 InlineKeyboardButton(f"⏱️ {to_smallcaps('ᴛɪᴍᴇʀ sᴇᴛᴛɪɴɢs')}", callback_data="open_timer_menu"),
+                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇsᴇᴛ ᴀʟʟ')}", callback_data="settings_reset_all")
             ],
             [
                 InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")
@@ -177,7 +212,7 @@ async def command_start_family(client: Client, message: Message):
             f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Types Every 6s (Active)`\n"
             f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
             f"• 🌐 **{to_smallcaps('ᴡᴇʙ sᴇʀᴠᴇʀ')}** : `FastAPI + Uvicorn (HTTP 206 Ready)`\n"
-            f"• 🚀 **{to_smallcaps('sᴇʀᴠᴇʀ ʜᴇᴀʟᴛʜ')}** : `Operational & Ultra-Fast`"
+            f"• 🚀 **{to_smallcaps('sᴇʀᴠᴇʀ ʜᴇᴀʟᴛʜ')}** : `Operational & Ultra-Fast`\n"
             f"{format_watermark()}"
         )
         buttons = [

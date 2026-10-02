@@ -1,5 +1,5 @@
 import os
-import time as time_module
+import time
 import secrets
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -19,13 +19,15 @@ from app.services.ffmpeg_service import get_media_attributes
 from app.services.thumb_service import resolve_thumbnail
 from app.services.caption_service import extract_and_format_caption
 from app.services.autodel_service import schedule_deletion
+from app.utils.logger import logger
 
 MAX_BOT_FILE_SIZE = 2000 * 1024 * 1024  # 2000 MiB (2GB Telegram Bot API Limit)
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def incoming_file_entry(client: Client, message: Message):
     media = message.document or message.video or message.audio
-    file_name = getattr(media, "file_name", None) or "Unknown_File"
+    raw_file_name = getattr(media, "file_name", None) or "Unknown_File"
+    file_name = raw_file_name.replace("`", "'")
     file_size_bytes = getattr(media, "file_size", 0)
     file_size = humanbytes(file_size_bytes)
     mime_type = getattr(media, "mime_type", "unknown")
@@ -156,8 +158,15 @@ async def rename_cmd_handler(client: Client, message: Message):
             f"{format_watermark()}"
         )
 
-    new_name = message.text.split(None, 1)[1]
-    new_name = sanitize_filename(new_name)
+    raw_input_name = message.text.split(None, 1)[1]
+    new_name = sanitize_filename(raw_input_name)
+
+    # Auto-preserve extension if omitted by user
+    orig_name = getattr(media, "file_name", "") or ""
+    orig_ext = os.path.splitext(orig_name)[1]
+    if not os.path.splitext(new_name)[1] and orig_ext:
+        new_name = f"{new_name}{orig_ext}"
+
     await cache.set(f"rename_name_{message.from_user.id}_{target.id}", new_name, ttl=600)
     await show_rename_options(message, target.id, new_name)
 
@@ -186,7 +195,7 @@ async def rename_callback_ask(client: Client, query: CallbackQuery):
         text=(
             f"✏️ **{to_smallcaps('ᴇɴᴛᴇʀ ɴᴇᴡ ғɪʟᴇ ɴᴀᴍᴇ')}**\n\n"
             f"• 📁 **{to_smallcaps('ᴄᴜʀʀᴇɴᴛ')}** : `{old_name}`\n\n"
-            f"💬 {to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴛʜɪs ᴍᴇssᴀɢᴇ ᴡɪᴛʜ ʏᴏᴜʀ ɴᴇᴡ ғɪʟᴇɴᴀᴍᴇ (ɪɴᴄʟᴜᴅɪɴɢ ᴇxᴛᴇɴsɪᴏɴ).')}\n"
+            f"💬 {to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴛʜɪs ᴍᴇssᴀɢᴇ ᴏʀ sᴇɴᴅ ʏᴏᴜʀ ɴᴇᴡ ғɪʟᴇɴᴀᴍᴇ.')}\n"
             f"💡 {to_smallcaps('sᴇɴᴅ')} `/cancel` {to_smallcaps('ᴛᴏ ᴀʙᴏʀᴛ.')}"
             f"{format_watermark()}"
         ),
@@ -194,19 +203,38 @@ async def rename_callback_ask(client: Client, query: CallbackQuery):
     )
     await cache.set(f"waiting_rename_{query.from_user.id}", msg_id, ttl=300)
 
-@Client.on_message(filters.private & filters.reply)
+@Client.on_message(filters.private & filters.text & ~filters.command(["start", "help", "cancel", "rename", "compress", "stream", "pro", "setprefix", "setsuffix", "delprefix", "delsuffix"]))
 async def reply_force_rename_collector(client: Client, message: Message):
-    if not message.reply_to_message or not message.reply_to_message.reply_markup:
-        return
-    if not isinstance(message.reply_to_message.reply_markup, ForceReply):
-        return
+    # Support both explicit ForceReply quotes AND direct text messages from user
+    is_reply_to_force = bool(
+        message.reply_to_message and
+        message.reply_to_message.reply_markup and
+        isinstance(message.reply_to_message.reply_markup, ForceReply)
+    )
 
     msg_id = await cache.get(f"waiting_rename_{message.from_user.id}")
     if not msg_id:
         return
 
+    # If it's not a reply to ForceReply and not waiting, skip
+    if not is_reply_to_force and not msg_id:
+        return
+
     await cache.delete(f"waiting_rename_{message.from_user.id}")
     new_name = sanitize_filename(message.text.strip())
+
+    # Auto-preserve extension from original media if not supplied by user
+    try:
+        orig_msg = await client.get_messages(message.chat.id, msg_id)
+        if orig_msg and orig_msg.media:
+            orig_media = orig_msg.document or orig_msg.video or orig_msg.audio
+            orig_file_name = getattr(orig_media, "file_name", "") or ""
+            orig_ext = os.path.splitext(orig_file_name)[1]
+            if not os.path.splitext(new_name)[1] and orig_ext:
+                new_name = f"{new_name}{orig_ext}"
+    except Exception as e:
+        logger.debug(f"Could not inspect original extension: {e}")
+
     await cache.set(f"rename_name_{message.from_user.id}_{msg_id}", new_name, ttl=600)
     await show_rename_options(message, msg_id, new_name)
 
@@ -261,6 +289,12 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
     base_name = name_parts[0]
     ext = name_parts[1]
 
+    # Auto-preserve extension from original media if missing
+    if not ext:
+        orig_file_name = getattr(media, "file_name", "") or ""
+        orig_ext = os.path.splitext(orig_file_name)[1]
+        ext = orig_ext
+
     final_name = sanitize_filename(f"{prefix}{base_name}{suffix}{ext}")
 
     # Isolated directory with random token for unlimited concurrent operations
@@ -269,7 +303,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
     os.makedirs(download_dir, exist_ok=True)
     download_path = os.path.join(download_dir, final_name)
 
-    start_time = time_module.time()
+    start_time = time.time()
     try:
         await original_msg.download(
             file_name=download_path,
@@ -277,6 +311,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
             progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ғɪʟᴇ", status_msg, start_time)
         )
     except Exception as e:
+        logger.error(f"Download error in rename for user {user_id}: {e}", exc_info=True)
         clean_temp_files(download_path, download_dir)
         return await status_msg.edit_text(f"❌ **{to_smallcaps('ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{e}`")
 
@@ -294,7 +329,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
         )
 
     attrs = await get_media_attributes(download_path)
-    dur = int(attrs["duration"])
+    dur = int(attrs.get("duration", 0))
     thumb_path = await resolve_thumbnail(
         client=client,
         user_id=user_id,
@@ -314,26 +349,38 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
         file_id=str(target_id)
     )
 
-    upload_start = time_module.time()
+    upload_start = time.time()
     await status_msg.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ʀᴇɴᴀᴍᴇᴅ ғɪʟᴇ...')}**")
 
     sent_msg = None
     try:
         if upload_type == "vid":
-            w = int(attrs["width"])
-            h = int(attrs["height"])
-            sent_msg = await client.send_video(
-                chat_id=query.message.chat.id,
-                video=download_path,
-                caption=final_caption,
-                duration=dur,
-                width=w,
-                height=h,
-                thumb=thumb_path,
-                supports_streaming=True,
-                progress=progress_for_pyrogram,
-                progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status_msg, upload_start)
-            )
+            w = int(attrs.get("width", 1280)) or 1280
+            h = int(attrs.get("height", 720)) or 720
+            try:
+                sent_msg = await client.send_video(
+                    chat_id=query.message.chat.id,
+                    video=download_path,
+                    caption=final_caption,
+                    duration=dur,
+                    width=w,
+                    height=h,
+                    thumb=thumb_path,
+                    supports_streaming=True,
+                    progress=progress_for_pyrogram,
+                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status_msg, upload_start)
+                )
+            except Exception as vid_err:
+                logger.warning(f"send_video failed for {download_path}, falling back to send_document: {vid_err}")
+                sent_msg = await client.send_document(
+                    chat_id=query.message.chat.id,
+                    document=download_path,
+                    caption=final_caption,
+                    thumb=thumb_path,
+                    force_document=True,
+                    progress=progress_for_pyrogram,
+                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴅᴏᴄᴜᴍᴇɴᴛ", status_msg, upload_start)
+                )
         else:
             sent_msg = await client.send_document(
                 chat_id=query.message.chat.id,
@@ -345,6 +392,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
                 progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴅᴏᴄᴜᴍᴇɴᴛ", status_msg, upload_start)
             )
     except Exception as e:
+        logger.error(f"Upload error in rename for user {user_id}: {e}", exc_info=True)
         clean_temp_files(download_path, thumb_path, download_dir)
         err_text = str(e)
         if "2000" in err_text or "bigger than" in err_text.lower():

@@ -1,5 +1,5 @@
 import os
-import time as time_module
+import time
 import secrets
 from typing import Optional
 from pyrogram import Client, filters
@@ -132,7 +132,7 @@ async def pro_mediainfo_callback(client: Client, query: CallbackQuery):
         await original.download(
             file_name=temp_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʜᴇᴀᴅᴇʀ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ʜᴇᴀᴅᴇʀ", status, time.time())
         )
     except Exception as e:
         clean_temp_files(temp_path, download_dir)
@@ -235,7 +235,7 @@ async def run_extract_all_audio(client: Client, media_msg: Message, target_msg: 
     os.makedirs(download_dir, exist_ok=True)
     video_path = os.path.join(download_dir, clean_name)
 
-    start_dl = time_module.time()
+    start_dl = time.time()
     try:
         await media_msg.download(
             file_name=video_path,
@@ -272,7 +272,7 @@ async def run_extract_all_audio(client: Client, media_msg: Message, target_msg: 
             await client.send_audio(
                 chat_id=target_msg.chat.id,
                 audio=track_path,
-                caption=caption,
+                caption=caption[:1020] + "..." if len(caption) > 1024 else caption,
                 duration=t["duration"],
                 title=f"{t['title']} ({t['language'].upper()})",
                 performer=Config.WATERMARK
@@ -323,7 +323,7 @@ async def run_extract_all_sub(client: Client, media_msg: Message, target_msg: Me
     os.makedirs(download_dir, exist_ok=True)
     video_path = os.path.join(download_dir, clean_name)
 
-    start_dl = time_module.time()
+    start_dl = time.time()
     try:
         await media_msg.download(
             file_name=video_path,
@@ -359,7 +359,7 @@ async def run_extract_all_sub(client: Client, media_msg: Message, target_msg: Me
             await client.send_document(
                 chat_id=target_msg.chat.id,
                 document=sub_path,
-                caption=caption,
+                caption=caption[:1020] + "..." if len(caption) > 1024 else caption,
                 file_name=os.path.basename(sub_path)
             )
         except Exception as e:
@@ -440,12 +440,12 @@ async def execute_add_audio(client: Client, query: CallbackQuery):
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
         )
         await audio_msg.download(
             file_name=a_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, time.time())
         )
     except Exception as e:
         clean_temp_files(v_path, a_path, download_dir)
@@ -478,17 +478,17 @@ async def execute_add_audio(client: Client, query: CallbackQuery):
         f"{format_watermark()}"
     )
 
-    upload_start = time_module.time()
+    upload_start = time.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ ᴡɪᴛʜ ɴᴇᴡ ᴀᴜᴅɪᴏ...')}**")
 
     try:
         sent = await client.send_video(
             chat_id=query.message.chat.id,
             video=out_path,
-            caption=caption,
+            caption=caption[:1020] + "..." if len(caption) > 1024 else caption,
             duration=dur,
-            width=int(attrs["width"]),
-            height=int(attrs["height"]),
+            width=int(attrs.get("width", 1280)) or 1280,
+            height=int(attrs.get("height", 720)) or 720,
             thumb=thumb_path,
             supports_streaming=True,
             progress=progress_for_pyrogram,
@@ -563,12 +563,12 @@ async def execute_add_subtitle(client: Client, reply_msg: Message, video_id: int
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
         )
         await sub_msg.download(
             file_name=s_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ sᴜʙᴛɪᴛʟᴇ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ sᴜʙᴛɪᴛʟᴇ", status, time.time())
         )
     except Exception as e:
         clean_temp_files(download_dir)
@@ -601,17 +601,17 @@ async def execute_add_subtitle(client: Client, reply_msg: Message, video_id: int
         f"{format_watermark()}"
     )
 
-    upload_start = time_module.time()
+    upload_start = time.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ ᴡɪᴛʜ sᴜʙᴛɪᴛʟᴇ...')}**")
 
     try:
         sent = await client.send_video(
             chat_id=reply_msg.chat.id,
             video=out_path,
-            caption=caption,
+            caption=caption[:1020] + "..." if len(caption) > 1024 else caption,
             duration=dur,
-            width=int(attrs["width"]),
-            height=int(attrs["height"]),
+            width=int(attrs.get("width", 1280)) or 1280,
+            height=int(attrs.get("height", 720)) or 720,
             thumb=thumb_path,
             supports_streaming=True,
             progress=progress_for_pyrogram,
@@ -696,7 +696,7 @@ async def execute_trim_video(client: Client, reply_msg: Message, video_id: int, 
         await video_msg.download(
             file_name=v_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time_module.time())
+            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, time.time())
         )
     except Exception as e:
         clean_temp_files(download_dir)
@@ -729,17 +729,17 @@ async def execute_trim_video(client: Client, reply_msg: Message, video_id: int, 
         f"{format_watermark()}"
     )
 
-    upload_start = time_module.time()
+    upload_start = time.time()
     await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴛʀɪᴍᴍᴇᴅ ᴠɪᴅᴇᴏ...')}**")
 
     try:
         sent = await client.send_video(
             chat_id=reply_msg.chat.id,
             video=out_path,
-            caption=caption,
+            caption=caption[:1020] + "..." if len(caption) > 1024 else caption,
             duration=dur,
-            width=int(attrs["width"]),
-            height=int(attrs["height"]),
+            width=int(attrs.get("width", 1280)) or 1280,
+            height=int(attrs.get("height", 720)) or 720,
             thumb=thumb_path,
             supports_streaming=True,
             progress=progress_for_pyrogram,

@@ -4,14 +4,12 @@ from config import Config
 from app.database.repositories.user_repo import user_repo
 from app.database.repositories.chat_repo import chat_repo
 from app.utils.font import to_smallcaps, format_watermark
-from app.utils.auth import is_admin
 
 @Client.on_callback_query(filters.regex(r"^nav_(home|help|about|status|settings)"))
 async def navigation_callbacks(client: Client, query: CallbackQuery):
     action = query.matches[0].group(1)
     user = query.from_user
-    admin_user = is_admin(user.id)
-    await query.answer()
+    is_admin = user.id in Config.ADMINS
 
     if action == "home":
         text = (
@@ -43,7 +41,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
                 InlineKeyboardButton(f"ℹ️ {to_smallcaps('ᴀʙᴏᴜᴛ ʙᴏᴛ')}", callback_data="nav_about")
             ]
         ]
-        if admin_user:
+        if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ')}", callback_data="admin_panel_back")])
         buttons.append([
             InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)
@@ -65,7 +63,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"• 🧹 **{to_smallcaps('ᴄʟᴇᴀɴᴇʀ')}** : {to_smallcaps('ɢʀᴏᴜᴘ sᴇʀᴠɪᴄᴇ ᴍᴇssᴀɢᴇs ᴘᴜʀɢᴇʀ')}\n"
             f"• 🛠️ **{to_smallcaps('ᴛᴏᴏʟs')}** : {to_smallcaps('ɪᴅ, ɪɴғᴏ, ᴘɪɴɢ, sᴘᴇᴇᴅᴛᴇsᴛ & ᴍᴇᴅɪᴀɪɴғᴏ')}\n"
         )
-        if admin_user:
+        if is_admin:
             help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ʙᴀɴ/ᴜɴʙᴀɴ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
 
         help_text += f"{format_watermark()}"
@@ -95,7 +93,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
                 InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=f"{Config.BASE_URL}/stats")
             ]
         ]
-        if admin_user:
+        if is_admin:
             buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ')}", callback_data="help_admin")])
         buttons.append([InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")])
 
@@ -169,7 +167,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             ],
             [
                 InlineKeyboardButton(f"⏱️ {to_smallcaps('ᴛɪᴍᴇʀ sᴇᴛᴛɪɴɢs')}", callback_data="open_timer_menu"),
-                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇsᴇᴛ ᴀʟʟ')}", callback_data="nav_settings")
+                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇsᴇᴛ ᴀʟʟ')}", callback_data="settings_reset_all")
             ],
             [
                 InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")
@@ -180,10 +178,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
 # Categorized Help Subpages
 @Client.on_callback_query(filters.regex(r"^help_(renamer|compressor|streamer|thumbnail|caption|autodelete|session|cleaner|admin|tools|filepro)"))
 async def help_subpages(client: Client, query: CallbackQuery):
-    await query.answer()
     cat = query.matches[0].group(1)
-    if cat == 'admin' and not is_admin(query.from_user.id):
-        return await query.answer(to_smallcaps('ᴀᴅᴍɪɴ ᴀᴄᴄᴇss ʀᴇǫᴜɪʀᴇᴅ'), show_alert=True)
     buttons = [
         [
             InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴇʟᴘ')}", callback_data="nav_help"),
@@ -345,6 +340,8 @@ async def help_subpages(client: Client, query: CallbackQuery):
             f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴɪsᴛʀᴀᴛɪᴠᴇ ᴄᴏᴍᴍᴀɴᴅs')}** :\n"
             f"  • `/admin` : {to_smallcaps('ᴏᴘᴇɴ ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ ᴡɪᴛʜ ʟɪᴠᴇ ᴍᴇᴛʀɪᴄs.')}\n"
             f"  • `/broadcast` : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇs ᴛᴏ ᴀʟʟ ʀᴇɢɪsᴛᴇʀᴇᴅ ᴜsᴇʀs.')}\n"
+            f"  • `/ban <user_id>` : {to_smallcaps('ʙᴀɴ ᴀ ᴜsᴇʀ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜᴇ ʙᴏᴛ.')}\n"
+            f"  • `/unban <user_id>` : {to_smallcaps('ᴜɴʙᴀɴ ᴀ ᴘʀᴇᴠɪᴏᴜsʟʏ ʙᴀɴɴᴇᴅ ᴜsᴇʀ.')}\n"
             f"  • `/restart` : {to_smallcaps('sᴀғᴇʟʏ ʀᴇʙᴏᴏᴛ ᴛʜᴇ ʙᴏᴛ ᴘʀᴏᴄᴇss.')}"
             f"{format_watermark()}"
         )
@@ -352,9 +349,8 @@ async def help_subpages(client: Client, query: CallbackQuery):
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
 # Settings View & Actions
-@Client.on_callback_query(filters.regex(r"^settings_(view_thumb|view_caption)"))
+@Client.on_callback_query(filters.regex(r"^settings_(view_thumb|view_caption|reset_all)"))
 async def settings_actions(client: Client, query: CallbackQuery):
-    await query.answer()
     action = query.matches[0].group(1)
     user_id = query.from_user.id
     buttons = [[InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ sᴇᴛᴛɪɴɢs')}", callback_data="nav_settings")]]
