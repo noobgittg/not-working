@@ -1,6 +1,4 @@
 import os
-import sys
-import time as time_module
 import asyncio
 from config import Config
 from app.utils.logger import logger
@@ -65,4 +63,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Application stopped.")
+        logger.info("Application stopped gracefully.")
