@@ -7,7 +7,7 @@ from app.utils.cache import cache
 class ChatRepository:
     """
     Production-ready MongoDB repository for chats and channels with in-memory caching.
-    Full CRUD implementation: create_chat, get_chat, update_chat, delete_chat.
+    Full CRUD implementation: create_data (create_chat), get_data (get_chat), update_data (update_chat), delete_data (delete_chat).
     """
     @property
     def col(self):
@@ -25,6 +25,10 @@ class ChatRepository:
         await cache.set(f"chat_{chat_id}", chat_data, ttl=600)
         await cache.delete("stats_total_chats")
         return chat_data
+
+    async def create_data(self, *args, **kwargs) -> Dict[str, Any]:
+        """Explicit standard CRUD alias for create_chat."""
+        return await self.create_chat(*args, **kwargs)
 
     async def get_or_create_chat(self, chat_id: int, title: str, chat_type: str) -> Dict[str, Any]:
         """Fetches chat from cache/DB or creates a new entry if not existing."""
@@ -52,6 +56,10 @@ class ChatRepository:
             await cache.set(cache_key, chat, ttl=600)
         return chat
 
+    async def get_data(self, chat_id: int) -> Optional[Dict[str, Any]]:
+        """Explicit standard CRUD alias for get_chat."""
+        return await self.get_chat(chat_id)
+
     async def get_all_chats(self) -> List[Dict[str, Any]]:
         """READ: Retrieves all registered chats (chat_id projection)."""
         cursor = self.col.find({}, {"chat_id": 1, "_id": 0})
@@ -74,6 +82,10 @@ class ChatRepository:
         await cache.delete(f"chat_{chat_id}")
         return res.acknowledged
 
+    async def update_data(self, chat_id: int, data: Dict[str, Any]) -> bool:
+        """Explicit standard CRUD alias for update_chat."""
+        return await self.update_chat(chat_id, data)
+
     # --- DELETE ---
     async def delete_chat(self, chat_id: int) -> bool:
         """DELETE: Deletes a chat document from database."""
@@ -81,6 +93,10 @@ class ChatRepository:
         await cache.delete(f"chat_{chat_id}")
         await cache.delete("stats_total_chats")
         return res.deleted_count > 0
+
+    async def delete_data(self, chat_id: int) -> bool:
+        """Explicit standard CRUD alias for delete_chat."""
+        return await self.delete_chat(chat_id)
 
     # --- AUTO-DELETE TASKS (CRUD) ---
     async def create_auto_delete_task(self, chat_id: int, message_id: int, delete_at: float):

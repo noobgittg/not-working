@@ -7,7 +7,7 @@ from app.utils.cache import cache
 class UserRepository:
     """
     Production-ready MongoDB repository for user data with dual-layer caching.
-    Full CRUD implementation: create_user, get_user, update_user, delete_user.
+    Full CRUD implementation: create_data (create_user), get_data (get_user), update_data (update_user), delete_data (delete_user).
     """
     @property
     def col(self):
@@ -21,6 +21,10 @@ class UserRepository:
         await cache.set(f"user_{user_id}", user_data, ttl=600)
         await cache.delete("stats_total_users")
         return user_data
+
+    async def create_data(self, *args, **kwargs) -> Dict[str, Any]:
+        """Explicit standard CRUD alias for create_user."""
+        return await self.create_user(*args, **kwargs)
 
     async def get_or_create(self, user_id: int, first_name: str, username: Optional[str] = None) -> Dict[str, Any]:
         """Fetches existing user from cache/DB or creates a new user if not found."""
@@ -49,6 +53,10 @@ class UserRepository:
         if user:
             await cache.set(cache_key, user, ttl=600)
         return user
+
+    async def get_data(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Explicit standard CRUD alias for get_user."""
+        return await self.get_user(user_id)
 
     async def get_all_users(self) -> List[Dict[str, Any]]:
         """READ: Retrieves all registered users (ID projection for efficient memory)."""
@@ -96,6 +104,10 @@ class UserRepository:
         res = await self.col.update_one({"user_id": user_id}, {"$set": data}, upsert=True)
         await cache.delete(f"user_{user_id}")
         return res.acknowledged
+
+    async def update_data(self, user_id: int, data: Dict[str, Any]) -> bool:
+        """Explicit standard CRUD alias for update_user."""
+        return await self.update_user(user_id, data)
 
     async def ban_user(self, user_id: int):
         """UPDATE: Sets banned status to True."""
@@ -145,5 +157,9 @@ class UserRepository:
         await cache.delete("stats_total_users")
         await cache.delete("stats_banned_users")
         return res.deleted_count > 0
+
+    async def delete_data(self, user_id: int) -> bool:
+        """Explicit standard CRUD alias for delete_user."""
+        return await self.delete_user(user_id)
 
 user_repo = UserRepository()
