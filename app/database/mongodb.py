@@ -24,6 +24,8 @@ class MongoManager:
                 raise
 
     async def _init_indexes(self):
+        if self.db is None:
+            return
         try:
             await self.db.users.create_index("user_id", unique=True)
             await self.db.chats.create_index("chat_id", unique=True)
@@ -32,9 +34,15 @@ class MongoManager:
         except Exception as e:
             logger.warning(f"Error creating indexes: {e}")
 
+    @property
+    def is_connected(self) -> bool:
+        return self.client is not None and self.db is not None
+
     async def close(self):
         if self.client:
             self.client.close()
+            self.client = None
+            self.db = None
             logger.info("MongoDB Connection closed.")
 
 mongo = MongoManager()
