@@ -44,7 +44,10 @@ def new_file_dict(
     message_id: int,
     file_name: str,
     file_size: int,
-    mime_type: str
+    mime_type: str,
+    user_id: int = 0,
+    metadata: Optional[Dict[str, Any]] = None,
+    thumb_id: Optional[str] = None
 ) -> Dict[str, Any]:
     now_ts = float(time.time())
     return {
@@ -54,6 +57,10 @@ def new_file_dict(
         "file_name": file_name,
         "file_size": file_size,
         "mime_type": mime_type,
+        "user_id": user_id,
+        "metadata": metadata or {},
+        "thumb_id": thumb_id,
+        "is_revoked": False,
         "created_at": now_ts,
         "updated_at": now_ts
     }

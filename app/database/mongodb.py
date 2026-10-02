@@ -28,9 +28,15 @@ class MongoManager:
             return
         try:
             await self.db.users.create_index("user_id", unique=True)
+            await self.db.users.create_index([("created_at", -1)])
+            await self.db.users.create_index("is_banned")
             await self.db.chats.create_index("chat_id", unique=True)
+            await self.db.chats.create_index([("created_at", -1)])
             await self.db.files.create_index("file_id", unique=True)
+            await self.db.files.create_index([("created_at", -1)])
+            await self.db.files.create_index("file_name")
             await self.db.auto_delete.create_index("delete_at")
+            logger.info("MongoDB Indexes verified and initialized.")
         except Exception as e:
             logger.warning(f"Error creating indexes: {e}")
 
