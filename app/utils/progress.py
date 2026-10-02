@@ -1,49 +1,56 @@
+import time
 import math
-import time as time_module
-
-from .font import to_smallcaps, format_watermark
-from .helpers import humanbytes, time_formatter
-
+from typing import Any, Optional
+from config import Config
+from app.utils.font import to_smallcaps
+from app.utils.helpers import humanbytes, time_formatter
 
 async def progress_for_pyrogram(
     current: int,
     total: int,
     ud_type: str,
-    message,
-    start_time: float,
+    message: Any,
+    start_time: Any = None
 ):
-    """Pyrogram/Pyrofork progress callback with clock-collision and flood protection."""
-    now = time_module.monotonic()
-    start = float(start_time) if isinstance(start_time, (int, float)) else now
-    diff = max(0.001, now - start)
+    """
+    Real-time progress callback for Pyrogram upload / download with throttle and safe speed calculation.
+    Defensively handles any start_time type (float, int, callable, or missing) without attribute errors.
+    """
+    now_ts = float(time.time())
 
-    last_update = getattr(message, "_mmw_progress_time", 0.0)
-    if current != total and now - last_update < 2.5:
-        return
-    try:
-        message._mmw_progress_time = now
-    except Exception:
-        pass
+    # Safely resolve start_time
+    if callable(start_time):
+        try:
+            start_ts = float(start_time())
+        except Exception:
+            start_ts = now_ts
+    elif isinstance(start_time, (int, float)):
+        start_ts = float(start_time)
+    else:
+        start_ts = now_ts
 
-    percentage = (current * 100 / total) if total > 0 else 0.0
-    speed = current / diff
-    eta_ms = int(((total - current) / speed) * 1000) if speed > 0 else 0
-    elapsed_ms = int(diff * 1000)
+    diff = max(0.001, now_ts - start_ts)
+    if round(diff % 4.00) == 0 or current == total:
+        percentage = (current * 100 / total) if total > 0 else 0
+        speed = (current / diff) if diff > 0 else 0
+        time_to_completion = round((total - current) / speed) * 1000 if speed > 0 else 0
 
-    filled = min(10, max(0, math.floor(percentage / 10)))
-    progress_bar = "▰" * filled + "▱" * (10 - filled)
-    emoji = "📥" if "down" in ud_type.lower() else "📤"
+        filled_blocks = min(10, max(0, math.floor(percentage / 10)))
+        progress = "[{0}{1}] `{2}%`\n".format(
+            "".join(["▰" for _ in range(filled_blocks)]),
+            "".join(["▱" for _ in range(10 - filled_blocks)]),
+            round(percentage, 2)
+        )
 
-    text = (
-        f"{emoji} **{to_smallcaps(ud_type)}**...\n\n"
-        f"[{progress_bar}] `{percentage:.1f}%`\n\n"
-        f"• 📦 **{to_smallcaps('ᴘʀᴏᴄᴇssᴇᴅ')}** : `{humanbytes(current)}` / `{humanbytes(total)}`\n"
-        f"• 🚀 **{to_smallcaps('sᴘᴇᴇᴅ')}** : `{humanbytes(speed)}/s`\n"
-        f"• ⏳ **{to_smallcaps('ᴇᴛᴀ')}** : `{time_formatter(milliseconds=eta_ms)}`\n"
-        f"• ⏱️ **{to_smallcaps('ᴇʟᴀᴘsᴇᴅ')}** : `{time_formatter(milliseconds=elapsed_ms)}`"
-        f"{format_watermark()}"
-    )
-    try:
-        await message.edit_text(text=text)
-    except Exception:
-        pass
+        tmp = (
+            f"⚡ **{to_smallcaps(ud_type)}**...\n\n"
+            f"{progress}"
+            f"🚀 **{to_smallcaps('SPEED')}** : `{humanbytes(speed)}/s`\n"
+            f"📦 **{to_smallcaps('DONE')}** : `{humanbytes(current)} / {humanbytes(total)}`\n"
+            f"⏳ **{to_smallcaps('ETA')}** : `{time_formatter(milliseconds=time_to_completion)}`\n\n"
+            f"⚡ **{to_smallcaps('POWERED BY')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
+        )
+        try:
+            await message.edit_text(text=tmp)
+        except Exception:
+            pass

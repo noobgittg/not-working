@@ -12,37 +12,18 @@ SMALLCAPS_MAP = {
 }
 
 def to_smallcaps(text: str) -> str:
-    """Converts alphabetic characters to stylish smallcaps while preserving symbols, numbers, and tags."""
     if not text:
         return ""
     return "".join(SMALLCAPS_MAP.get(c, c) for c in str(text))
 
-def badge(text: str) -> str:
-    """Formats a stylish smallcaps badge."""
-    return f"✦ **{to_smallcaps(text)}** ✦"
-
-def btn_text(emoji: str, text: str) -> str:
-    """Formats an inline button label with short emoji and smallcaps text."""
-    return f"{emoji} {to_smallcaps(text)}"
-
-def header(emoji: str, text: str) -> str:
-    """Formats a section header with emoji and bold smallcaps text."""
-    return f"{emoji} **{to_smallcaps(text)}**"
-
-def field(emoji: str, label: str, value: str) -> str:
-    """Formats a clean key-value field line."""
-    return f"• {emoji} **{to_smallcaps(label)}** : `{value}`"
-
-def format_watermark() -> str:
-    """Returns official bot watermark footer link."""
-    return f"\n\n⚡ **{to_smallcaps('ᴘᴏᴡᴇʀᴇᴅ ʙʏ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
-
-def style_text(title: str, items: dict = None) -> str:
-    """Formats a stylized card with header, key-value items, and watermark."""
-    out = f"✦ **{to_smallcaps(title)}** ✦\n\n"
+def style_text(header: str, items: dict = None) -> str:
+    out = f"✦ **{to_smallcaps(header)}** ✦\n\n"
     if items:
         for k, v in items.items():
             out += f"• **{to_smallcaps(k)}** : `{v}`\n"
         out += "\n"
-    out += format_watermark()
+    out += f"⚡ **{to_smallcaps('ᴘᴏᴡᴇʀᴇᴅ ʙʏ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
     return out
+
+def format_watermark() -> str:
+    return f"\n\n📢 **{to_smallcaps('ᴊᴏɪɴ')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"

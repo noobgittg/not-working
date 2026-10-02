@@ -1,29 +1,85 @@
 import os
 import re
+import time
+import shutil
 from urllib.parse import urlparse
-from typing import Optional
+from typing import Optional, Any, Tuple
+from config import Config
+from app.utils.font import to_smallcaps
+
+DEVIL_MODE_ACTIVE: bool = False
+
+def is_devil_mode_active() -> bool:
+    """Returns True if developer / devil mode is currently enabled."""
+    global DEVIL_MODE_ACTIVE
+    return DEVIL_MODE_ACTIVE
+
+def set_devil_mode(state: bool) -> bool:
+    """Sets developer / devil mode state."""
+    global DEVIL_MODE_ACTIVE
+    DEVIL_MODE_ACTIVE = bool(state)
+    return DEVIL_MODE_ACTIVE
+
+def get_current_timestamp() -> float:
+    """Safely returns current unix timestamp in seconds."""
+    return float(time.time())
+
+async def is_admin(*args, **kwargs) -> bool:
+    """
+    Reusable admin-check function verifying if user_id is in ADMINS.
+    Supports both is_admin(user_id: int) and is_admin(client, user_id: int).
+    Returns True if user is an administrator or owner, False otherwise.
+    """
+    user_id = kwargs.get("user_id")
+    if user_id is None and args:
+        user_id = args[-1]
+    if not user_id:
+        return False
+    try:
+        return int(user_id) in Config.ADMINS
+    except (ValueError, TypeError):
+        return False
+
+async def check_admin(client: Any, message: Any) -> bool:
+    """
+    Reusable admin gatekeeper for command handlers.
+    Returns True if user is admin; otherwise sends safe rejection message and returns False.
+    """
+    user_id = message.from_user.id if message.from_user else 0
+    if not await is_admin(client, user_id):
+        await message.reply_text(
+            f"🚫 **{to_smallcaps('ACCESS DENIED!')}**\n\n"
+            f"{to_smallcaps('This command is restricted to Bot Administrators only.')}\n\n"
+            f"⚡ **{to_smallcaps('POWERED BY')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
+        )
+        return False
+    return True
 
 def humanbytes(size: Optional[int]) -> str:
-    """Formats a byte count into a human-readable size string (e.g. 12.50 MB)."""
-    if not size:
+    """Formats byte counts into human-readable strings (B, KB, MB, GB, TB)."""
+    if not size or size <= 0:
         return "0 B"
+    num_size = float(size)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1024.0:
+        if num_size < 1024.0:
             break
-        size /= 1024.0
-    return f"{size:.2f} {unit}"
+        num_size /= 1024.0
+    return f"{num_size:.2f} {unit}"
 
-def time_formatter(milliseconds: int = 0, seconds: int = 0) -> str:
+def time_formatter(milliseconds: int = 0, seconds: Optional[int] = None) -> str:
     """
-    Formats a duration given in either milliseconds or seconds into a human-readable string:
-    e.g. '1d 2h 30m 15s' or '45s'.
-    Supports positional argument as milliseconds.
+    Formats duration given in either milliseconds or seconds into a human-readable string.
+    Supports both positional and keyword calls safely.
+    Examples: '1d 2h 30m 15s', '45s', '0s'.
     """
-    if seconds:
+    if seconds is not None:
         total_seconds = int(seconds)
     elif milliseconds:
         total_seconds = int(milliseconds / 1000)
     else:
+        total_seconds = 0
+
+    if total_seconds < 0:
         total_seconds = 0
 
     minutes, secs = divmod(total_seconds, 60)
@@ -40,17 +96,26 @@ def time_formatter(milliseconds: int = 0, seconds: int = 0) -> str:
     return res.strip() or "0s"
 
 def is_valid_url(url: str) -> bool:
-    """Validates whether a string is a well-formed http or https URL."""
+    """Checks if a string is a valid HTTP or HTTPS URL."""
     try:
         result = urlparse(url)
         return all([result.scheme in ["http", "https"], result.netloc])
     except Exception:
         return False
 
+def sanitize_filename(name: str) -> str:
+    """Sanitizes filename removing illegal characters and path traversal patterns."""
+    if not name:
+        return "file.mp4"
+    name = os.path.basename(name)
+    cleaned = re.sub(r'[\\/*?:"<>|\x00-\x1f\x7f]', "_", str(name))
+    cleaned = cleaned.strip(". ")
+    return cleaned or "file.mp4"
+
 def clean_temp_files(*files):
     """
     Safely cleans up temporary files or directories from disk.
-    Handles nested lists or tuples gracefully to prevent PathLike TypeErrors.
+    Handles nested lists, tuples, or non-existent files gracefully.
     """
     for f in files:
         if isinstance(f, (list, tuple, set)):
@@ -61,22 +126,8 @@ def clean_temp_files(*files):
             try:
                 if os.path.exists(f):
                     if os.path.isdir(f):
-                        import shutil
                         shutil.rmtree(f, ignore_errors=True)
                     else:
                         os.remove(f)
             except Exception:
                 pass
-
-def sanitize_filename(name: str) -> str:
-    """
-    Sanitizes a file name by removing directory traversal patterns, illegal
-    characters, and control characters to prevent filesystem security issues.
-    """
-    if not name:
-        return "file.bin"
-    name = os.path.basename(name)
-    name = re.sub(r'[\\/*?:"<>|]', "", name)
-    name = re.sub(r'[\x00-\x1f\x7f]', "", name)
-    name = name.strip(" .")
-    return name or "file.bin"
