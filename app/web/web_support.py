@@ -1,5 +1,4 @@
-import time as time_module
-import asyncio
+import time
 import uvicorn
 from config import Config
 from app.utils.logger import logger
@@ -8,8 +7,9 @@ from app.web.app import create_app
 class WebSupport:
     def __init__(self, bot):
         self.bot = bot
+        self.start_time = float(time.time())
         self.app = create_app(bot)
-        self.start_time = time_module.time()
+        self.app.state.start_time = self.start_time
         self.server = None
 
     def get_server(self) -> uvicorn.Server:
