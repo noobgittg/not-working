@@ -22,9 +22,10 @@ async def index_page(request: Request):
     uptime_sec = int(float(time.time()) - start_time)
 
     return templates.TemplateResponse(
+        request,                    # ← request first
         "index.html",
         {
-            "request": request,
+            "request": request,     # still useful for templates, but optional in new Starlette
             "watermark": Config.WATERMARK,
             "watermark_url": Config.WATERMARK_URL,
             "users_count": users_count,
@@ -57,6 +58,7 @@ async def watch_page(request: Request, file_id: str):
     is_audio = mime.startswith("audio/")
 
     return templates.TemplateResponse(
+        request,                    # ← request first
         "watch.html",
         {
             "request": request,
@@ -82,6 +84,7 @@ async def download_page(request: Request, file_id: str):
     stream_url = f"{Config.BASE_URL}/stream/{file_id}"
     watch_url = f"{Config.BASE_URL}/watch/{file_id}"
     return templates.TemplateResponse(
+        request,                    # ← request first
         "dl.html",
         {
             "request": request,
