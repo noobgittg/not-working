@@ -1,149 +1,93 @@
-import asyncio
+"""
+Pages Route Module
+Handles rendering of watch pages, download pages, and index/home pages.
+Supports asynchronous web frameworks (Quart / FastAPI pattern) and Flask fallback.
+"""
+
 import os
-import time
-from typing import Any, Dict
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 
-from config import Config
-from app.database.repositories.chat_repo import chat_repo
-from app.database.repositories.file_repo import file_repo
-from app.database.repositories.user_repo import user_repo
-from app.utils.helpers import humanbytes
+try:
+    from quart import Blueprint, render_template, abort, request
+    using_quart = True
+except ImportError:
+    using_quart = False
 
-router = APIRouter()
+if not using_quart:
+    from flask import Blueprint, render_template, abort, request, current_app
 
-# Locate templates directory robustly
-templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-templates = Jinja2Templates(directory=templates_dir)
+from app.database.repositories.file_repo import FileRepository
 
-# Default branding constants
-BRAND_WATERMARK: str = getattr(Config, "WATERMARK", "MMW BOTZ")
-BRAND_WATERMARK_URL: str = getattr(
-    Config, "WATERMARK_URL", "https://t.me/mallumovieworldmain2"
-)
+pages_bp = Blueprint("pages", __name__)
 
+@pages_bp.route("/")
+async def index():
+    """Home / Index page route."""
+    if using_quart:
+        return await render_template("index.html")
+    return render_template("index.html")
 
-@router.get("/", response_class=HTMLResponse)
-async def index_page(request: Request):
+@pages_bp.route("/watch/<file_id>")
+async def watch_page(file_id):
     """
-    Optimized homepage rendering with parallel repository execution.
+    Renders the cinematic video player watch page for a given file ID / hash.
+    Validates file existence in MongoDB and supplies stream & download URLs.
     """
-    # Fetch database stats concurrently for sub-millisecond response latency
-    users_count, chats_count, files_count = await asyncio.gather(
-        user_repo.get_total_users(),
-        chat_repo.get_total_chats(),
-        file_repo.get_total_files(),
-        return_exceptions=True,
-    )
+    try:
+        # Fetch file metadata from repository
+        file_doc = await FileRepository.get_file_by_id(file_id)
+        if not file_doc:
+            abort(404, description="Stream link expired or file not found.")
 
-    # Fallbacks in case of non-fatal connection glitches
-    users_val = users_count if isinstance(users_count, int) else 0
-    chats_val = chats_count if isinstance(chats_count, int) else 0
-    files_val = files_count if isinstance(files_count, int) else 0
+        file_name = file_doc.get("file_name") or file_doc.get("name") or "Media Stream"
+        file_size = file_doc.get("file_size") or file_doc.get("size", 0)
 
-    start_time = getattr(request.app.state, "start_time", float(time.time()))
-    uptime_sec = int(float(time.time()) - start_time)
+        # Construct stream and download URLs dynamically from request host
+        base_url = request.host_url.rstrip("/")
+        stream_url = f"{base_url}/stream/{file_id}"
+        download_url = f"{base_url}/download/{file_id}"
 
-    context: Dict[str, Any] = {
-        "request": request,
-        "watermark": BRAND_WATERMARK,
-        "watermark_url": BRAND_WATERMARK_URL,
-        "users_count": users_val,
-        "chats_count": chats_val,
-        "files_count": files_val,
-        "uptime_sec": uptime_sec,
-        "base_url": Config.BASE_URL.rstrip("/"),
-    }
+        template_data = {
+            "file_id": file_id,
+            "file_name": file_name,
+            "file_size": file_size,
+            "stream_url": stream_url,
+            "download_url": download_url
+        }
 
-    response = templates.TemplateResponse(
-        request=request, name="index.html", context=context
-    )
-    # Enable aggressive client cache for shell assets
-    response.headers["Cache-Control"] = "public, max-age=60"
-    return response
+        if using_quart:
+            return await render_template("watch.html", **template_data)
+        return render_template("watch.html", **template_data)
 
-
-@router.get("/health", response_class=JSONResponse)
-async def health_check():
-    """
-    Health check probe endpoint.
-    """
-    return {
-        "status": "healthy",
-        "service": "MMW-BOTZ-PRO",
-        "engine": "Turbo-Stream 5MB/s Dual-Core",
-        "timestamp": float(time.time()),
-        "watermark": BRAND_WATERMARK,
-        "watermark_url": BRAND_WATERMARK_URL,
-    }
+    except Exception as e:
+        if using_quart:
+            print(f"Error loading watch page for {file_id}: {e}")
+        else:
+            current_app.logger.error(f"Error loading watch page for {file_id}: {e}")
+        abort(500, description="Internal Server Error while generating watch page.")
 
 
-@router.get("/watch/{file_id}", response_class=HTMLResponse)
-async def watch_page(request: Request, file_id: str):
-    """
-    High-speed video / audio stream playback interface.
-    """
-    file_doc = await file_repo.get_file(file_id)
-    if not file_doc:
-        raise HTTPException(status_code=404, detail="File Not Found")
+@pages_bp.route("/dl/<file_id>")
+async def download_page(file_id):
+    """Renders the dedicated download redirect page."""
+    try:
+        file_doc = await FileRepository.get_file_by_id(file_id)
+        if not file_doc:
+            abort(404, description="File not found or link expired.")
 
-    base_url = Config.BASE_URL.rstrip("/")
-    stream_url = f"{base_url}/stream/{file_id}"
-    download_url = f"{base_url}/download/{file_id}"
+        file_name = file_doc.get("file_name", "download")
+        base_url = request.host_url.rstrip("/")
+        download_url = f"{base_url}/download/{file_id}"
 
-    mime_type = file_doc.get("mime_type", "video/mp4") or "video/mp4"
-    is_audio = mime_type.startswith("audio/")
-    file_size_raw = file_doc.get("file_size", 0)
+        template_data = {
+            "file_name": file_name,
+            "download_url": download_url
+        }
 
-    context: Dict[str, Any] = {
-        "request": request,
-        "file_id": file_id,
-        "file_name": file_doc.get("file_name", "Media File"),
-        "file_size": humanbytes(file_size_raw),
-        "mime_type": mime_type,
-        "is_audio": is_audio,
-        "stream_url": stream_url,
-        "download_url": download_url,
-        "watermark": BRAND_WATERMARK,
-        "watermark_url": BRAND_WATERMARK_URL,
-    }
-
-    response = templates.TemplateResponse(
-        request=request, name="watch.html", context=context
-    )
-    # Hint proxies and clients to allow immediate streaming pipe
-    response.headers["Accept-Ranges"] = "bytes"
-    response.headers["X-Accel-Buffering"] = "no"
-    return response
-
-
-@router.get("/download/{file_id}", response_class=HTMLResponse)
-@router.get("/dl/{file_id}", response_class=HTMLResponse)
-async def download_page(request: Request, file_id: str):
-    """
-    Direct file download and fast routing portal.
-    """
-    file_doc = await file_repo.get_file(file_id)
-    if not file_doc:
-        raise HTTPException(status_code=404, detail="File Not Found")
-
-    base_url = Config.BASE_URL.rstrip("/")
-    stream_url = f"{base_url}/stream/{file_id}"
-    watch_url = f"{base_url}/watch/{file_id}"
-    file_size_raw = file_doc.get("file_size", 0)
-
-    context: Dict[str, Any] = {
-        "request": request,
-        "file_id": file_id,
-        "file_name": file_doc.get("file_name", "Downloadable File"),
-        "file_size": humanbytes(file_size_raw),
-        "mime_type": file_doc.get("mime_type", "application/octet-stream"),
-        "stream_url": stream_url,
-        "watch_url": watch_url,
-        "watermark": BRAND_WATERMARK,
-        "watermark_url": BRAND_WATERMARK_URL,
-    }
-
-    return templates.TemplateResponse(request=request, name="dl.html", context=context)
+        if using_quart:
+            return await render_template("dl.html", **template_data)
+        return render_template("dl.html", **template_data)
+        
+    except Exception as e:
+        if not using_quart:
+            current_app.logger.error(f"Error loading download page for {file_id}: {e}")
+        abort(500, description="Internal Server Error.")
