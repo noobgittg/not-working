@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ file_name }} — {{ watermark }}</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #070a12;
+            --card-bg: rgba(15, 23, 42, 0.85);
+            --card-border: rgba(56, 189, 248, 0.2);
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.35);
+            --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --plyr-color-main: #38bdf8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.12) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+        }
+        .container {
+            width: 100%;
+            max-width: 1040px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 18px 24px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .brand {
+            font-weight: 800;
+            font-size: 1.25rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+        .tag {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent);
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+        .player-wrapper {
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.8);
+        }
+        .meta-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 24px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+        }
+        .meta-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            word-break: break-all;
+            color: var(--text-main);
+        }
+        .meta-sub {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .meta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+        }
+        /* Buttons Grid */
+        .grid-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 18px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.92rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #070a12;
+            box-shadow: 0 10px 20px -5px var(--accent-glow);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px -5px var(--accent-glow);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        /* Keyboard Shortcuts helper */
+        .shortcuts-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 16px 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 10px;
+        }
+        .shortcut-item kbd {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 260px;
+            background: rgba(16, 185, 129, 0.95);
+            color: #fff;
+            text-align: center;
+            border-radius: 14px;
+            padding: 14px 22px;
+            position: fixed;
+            z-index: 1000;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: 700;
+            font-size: 0.95rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        footer {
+            margin-top: auto;
+            padding: 24px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="{{ watermark_url }}" class="brand" target="_blank" rel="noopener">⚡ {{ watermark }}</a>
+            <span class="tag">⚡ ULTRA-FAST STREAM</span>
+        </header>
+
+        <div class="player-wrapper">
+            {% if is_audio %}
+            <audio id="player" controls style="width: 100%;">
+                <source src="{{ stream_url }}" type="{{ mime_type }}" />
+            </audio>
+            {% else %}
+            <video id="player" playsinline controls preload="metadata">
+                <source src="{{ stream_url }}" type="{{ mime_type }}" />
+            </video>
+            {% endif %}
+        </div>
+
+        <div class="meta-card">
+            <h1 class="meta-title">📁 {{ file_name }}</h1>
+            <div class="meta-sub">
+                <span class="meta-badge">📦 {{ file_size }}</span>
+                <span class="meta-badge">🎞️ {{ mime_type }}</span>
+                <span class="meta-badge">⚡ Engine: HTTP 206 Fast Range</span>
+            </div>
+        </div>
+
+        <!-- Working Control Buttons -->
+        <div class="grid-buttons">
+            <a href="/file/{{ file_id }}" class="btn btn-primary" download="{{ file_name }}">
+                ⬇️ Direct Download
+            </a>
+            <button class="btn btn-secondary" onclick="copyUrl('{{ stream_url }}', '⚡ Stream Link Copied to Clipboard!')">
+                📋 Copy Stream Link
+            </button>
+            <button class="btn btn-secondary" onclick="copyUrl('{{ download_url }}', '🔗 Download Link Copied to Clipboard!')">
+                📋 Copy Download Link
+            </button>
+            <button class="btn btn-secondary" onclick="launchPlayer('vlc', '{{ stream_url }}', 'org.videolan.vlc')">
+                ▶️ VLC Player
+            </button>
+            <button class="btn btn-secondary" onclick="launchPlayer('mx', '{{ stream_url }}', 'com.mxtech.videoplayer.ad')">
+                ▶️ MX Player
+            </button>
+            <button class="btn btn-secondary" onclick="launchPlayer('playit', '{{ stream_url }}', 'com.playit.videoplayer')">
+                ▶️ PlayIt
+            </button>
+            <button class="btn btn-secondary" onclick="launchPlayer('kmplayer', '{{ stream_url }}', 'com.kmplayer')">
+                ▶️ KMPlayer
+            </button>
+            <button class="btn btn-secondary" onclick="launchPlayer('potplayer', '{{ stream_url }}', 'potplayer')">
+                ▶️ PotPlayer
+            </button>
+            <a href="/" class="btn btn-secondary">
+                🏠 Bot Home
+            </a>
+        </div>
+
+        <!-- Keyboard Shortcuts Hint -->
+        <div class="shortcuts-box">
+            <span class="shortcut-item"><kbd>Space</kbd> Play / Pause</span>
+            <span class="shortcut-item"><kbd>F</kbd> Fullscreen</span>
+            <span class="shortcut-item"><kbd>M</kbd> Mute / Unmute</span>
+            <span class="shortcut-item"><kbd>←</kbd> <kbd>→</kbd> Seek 10s</span>
+            <span class="shortcut-item"><kbd>↑</kbd> <kbd>↓</kbd> Volume</span>
+        </div>
+    </div>
+
+    <footer>
+        <p>⚡ MMW Super Sonic Pro Engine • <a href="{{ watermark_url }}" target="_blank" rel="noopener">{{ watermark }}</a></p>
+    </footer>
+
+    <div id="toast">Copied to clipboard!</div>
+
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <script>
+        const player = new Plyr('#player', {
+            controls: ['play-large', 'restart', 'rewind', 'play', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+            seekTime: 10,
+            speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg || 'Copied to clipboard!';
+            toast.className = 'show';
+            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
+        }
+
+        function copyUrl(text, successMsg) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => showToast(successMsg));
+            } else {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(successMsg);
+                } catch (e) {
+                    showToast('Failed to copy link');
+                }
+                document.body.removeChild(ta);
+            }
+        }
+
+        function launchPlayer(playerType, streamUrl, pkgName) {
+            let targetUrl = '';
+            if (playerType === 'vlc') {
+                targetUrl = 'intent:' + streamUrl + '#Intent;package=' + pkgName + ';type=video/*;end';
+            } else if (playerType === 'mx') {
+                targetUrl = 'intent:' + streamUrl + '#Intent;package=' + pkgName + ';type=video/*;end';
+            } else if (playerType === 'playit') {
+                targetUrl = 'playit://playvp/video?url=' + encodeURIComponent(streamUrl);
+            } else if (playerType === 'kmplayer') {
+                targetUrl = 'kmplayer://' + streamUrl;
+            } else if (playerType === 'potplayer') {
+                targetUrl = 'potplayer://' + streamUrl;
+            } else {
+                targetUrl = streamUrl;
+            }
+
+            try {
+                window.location.href = targetUrl;
+                setTimeout(() => {
+                    copyUrl(streamUrl, 'Opening player... Stream link also copied to clipboard!');
+                }, 1000);
+            } catch (err) {
+                copyUrl(streamUrl, 'Stream URL copied to clipboard! Paste into your media player.');
+            }
+        }
+
+        // Keyboard Shortcuts handler
+        document.addEventListener('keydown', (e) => {
+            if (['input', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) return;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                player.togglePlay();
+            } else if (e.code === 'KeyF') {
+                e.preventDefault();
+                player.fullscreen.toggle();
+            } else if (e.code === 'KeyM') {
+                e.preventDefault();
+                player.muted = !player.muted;
+            }
+        });
+    </script>
+</body>
+</html>
