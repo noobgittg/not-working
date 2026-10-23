@@ -1,451 +1,340 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 {{ file_name }} — {{ watermark }}</title>
-    
-    <!-- Speed Pre-connects -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.plyr.io" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-
-    <style>
-        :root {
-            --bg-base: #06080f;
-            --card-surface: rgba(13, 20, 36, 0.78);
-            --card-border: rgba(56, 189, 248, 0.22);
-            --neon-blue: #38bdf8;
-            --neon-purple: #818cf8;
-            --neon-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --plyr-color-main: #38bdf8;
+    <title>{{ file_name | default("Watch Video") }} - Stream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#6366f1', 600: '#4f46e5' }
+                    }
+                }
+            }
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            /* Small-caps styling enabled across all labels and typography */
-            font-variant: small-caps;
-            letter-spacing: 0.04em;
-        }
-
-        body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.14) 0px, transparent 48%),
-                radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.14) 0px, transparent 48%);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 24px 16px;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1060px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        /* Top Brand Navigation */
-        .top-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--card-surface);
-            padding: 16px 24px;
-            border-radius: 18px;
-            border: 1px solid var(--card-border);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-        }
-
-        .brand-link {
-            font-weight: 800;
-            font-size: 1.35rem;
-            background: var(--neon-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .turbo-pill {
-            background: rgba(56, 189, 248, 0.12);
-            color: var(--neon-blue);
-            padding: 6px 14px;
-            border-radius: 9999px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            border: 1px solid rgba(56, 189, 248, 0.35);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* Fast Media Shell */
-        .player-shell {
-            background: #000;
-            border-radius: 20px;
-            overflow: hidden;
-            border: 1px solid var(--card-border);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
-            position: relative;
-        }
-
-        video, audio {
-            width: 100%;
-            max-height: 75vh;
-            display: block;
-            outline: none;
-        }
-
-        /* Meta Information Card */
-        .meta-box {
-            background: var(--card-surface);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 22px;
-            border-radius: 18px;
-            border: 1px solid var(--card-border);
-        }
-
-        .meta-heading {
-            font-size: 1.35rem;
-            font-weight: 800;
-            margin-bottom: 12px;
-            word-break: break-all;
-            color: var(--text-primary);
-        }
-
-        .meta-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(255, 255, 255, 0.04);
-            padding: 6px 14px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        .badge-active {
-            color: var(--neon-blue);
-            border-color: rgba(56, 189, 248, 0.3);
-        }
-
-        /* Button Grid Layout */
-        .btn-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
-        }
-
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 13px 16px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            border: none;
-        }
-
-        .btn-primary {
-            background: var(--neon-gradient);
-            color: #06080f;
-            box-shadow: 0 10px 20px -5px rgba(56, 189, 248, 0.4);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 14px 25px -4px rgba(56, 189, 248, 0.5);
-        }
-
-        .btn-action {
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-primary);
-            border: 1px solid var(--card-border);
-        }
-
-        .btn-action:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--neon-blue);
-            transform: translateY(-2px);
-        }
-
-        /* Keyboard Navigation Box */
-        .shortcut-strip {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 14px;
-            padding: 12px 18px;
-            font-size: 0.82rem;
-            color: var(--text-secondary);
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around;
-            gap: 8px;
-        }
-
-        .shortcut-tag kbd {
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--neon-blue);
-            padding: 3px 7px;
-            border-radius: 6px;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-        }
-
-        /* Floating Alert Notification */
-        #toast {
-            visibility: hidden;
-            min-width: 280px;
-            background: #10b981;
-            color: #06080f;
-            text-align: center;
-            border-radius: 14px;
-            padding: 12px 20px;
-            position: fixed;
-            z-index: 9999;
-            bottom: 28px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-weight: 800;
-            font-size: 0.9rem;
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
-            opacity: 0;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-
-        #toast.show {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        footer {
-            margin-top: auto;
-            padding: 24px 0 10px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            text-align: center;
-        }
-
-        footer a {
-            color: var(--neon-blue);
-            text-decoration: none;
-            font-weight: 700;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Prevent theme flashing on load
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light' || (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
 
-<div class="container">
-    <!-- Header with Watermark & Fast Buffer Indicator -->
-    <header class="top-nav">
-        <a href="{{ watermark_url }}" target="_blank" rel="noopener" class="brand-link">
-            ⚡ {{ watermark }}
-        </a>
-        <div class="turbo-pill">
-            🚀 5mb/s turbo buffer
+    <!-- Header / Navbar -->
+    <header class="w-full border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="flex items-center space-x-3 overflow-hidden">
+            <span class="bg-brand-500 text-white p-2 rounded-xl text-sm shadow-lg shadow-brand-500/30 flex items-center justify-center w-9 h-9">
+                <i class="fa-solid fa-play"></i>
+            </span>
+            <h1 class="font-semibold text-base truncate max-w-xs md:max-w-xl" title="{{ file_name }}">{{ file_name | default("Streaming Media") }}</h1>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="themeToggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-slate-600 dark:text-slate-300" aria-label="Toggle Theme">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:inline"></i>
+            </button>
+            <a href="{{ download_url }}" class="hidden sm:inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition shadow-lg shadow-brand-500/2://">
+                <i class="fa-solid fa-download"></i>
+                <span>Download</span>
+            </a>
         </div>
     </header>
 
-    <!-- Fast Stream Media Frame -->
-    <div class="player-shell">
-        {% if is_audio %}
-            <audio id="player" controls preload="auto">
-                <source src="{{ stream_url }}" type="{{ mime_type }}" />
-            </audio>
-        {% else %}
-            <!-- preload="auto" aggressively populates buffer at full network speed up to 5MB/s -->
-            <video id="player" playsinline controls preload="auto">
-                <source src="{{ stream_url }}" type="{{ mime_type }}" />
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 max-w-6xl mx-auto w-full">
+        <div id="playerContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group border border-slate-200 dark:border-slate-800">
+            
+            <!-- Video Element -->
+            <video id="videoPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata">
+                <source src="{{ stream_url }}" type="video/mp4">
+                Your browser does not support HTML5 video streaming.
             </video>
-        {% endif %}
-    </div>
 
-    <!-- File Information Overview -->
-    <div class="meta-box">
-        <h1 class="meta-heading">📁 {{ file_name }}</h1>
-        <div class="meta-badges">
-            <span class="badge">📦 {{ file_size }}</span>
-            <span class="badge">🎞️ {{ mime_type }}</span>
-            <span class="badge badge-active">⚡ http 206 turbo range</span>
-            <span class="badge">🛡️ id: {{ file_id[:8] }}...</span>
+            <!-- Loading Spinner Overlay -->
+            <div id="loadingOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300">
+                <div class="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <p class="text-xs text-slate-300 mt-3 font-medium tracking-wide">Loading stream...</p>
+            </div>
+
+            <!-- Error Overlay -->
+            <div id="errorOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 p-6 text-center hidden">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-4xl mb-3"></i>
+                <h3 class="text-lg font-semibold text-white mb-1">Playback Error</h3>
+                <p id="errorMessage" class="text-sm text-slate-400 mb-4 max-w-md">Unable to load media stream. Please verify your connection or retry.</p>
+                <button id="retryBtn" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-medium transition text-sm">
+                    <i class="fa-solid fa-rotate-right mr-2"></i>Retry Playback
+                </button>
+            </div>
+
+            <!-- Double Tap Indicators -->
+            <div id="tapLeft" class="absolute inset-y-0 left-0 w-1/4 flex items-center justify-start pl-8 opacity-0 pointer-events-none transition-opacity duration-200 text-white text-2xl bg-gradient-to-r from-black/40 to-transparent">
+                <i class="fa-solid fa-backward-step"></i>
+            </div>
+            <div id="tapRight" class="absolute inset-y-0 right-0 w-1/4 flex items-center justify-end pr-8 opacity-0 pointer-events-none transition-opacity duration-200 text-white text-2xl bg-gradient-to-l from-black/40 to-transparent">
+                <i class="fa-solid fa-forward-step"></i>
+            </div>
+
+            <!-- Custom Controls Overlay -->
+            <div id="controlsBar" class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12 pb-3 px-4 flex flex-col transition-opacity duration-300 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                
+                <!-- Progress / Timeline Bar -->
+                <div class="relative w-full h-2 bg-white/20 rounded-full cursor-pointer mb-3 group/progress" id="progressBar">
+                    <div id="bufferedBar" class="absolute top-0 left-0 h-full bg-white/30 rounded-full pointer-events-none" style="width: 0%"></div>
+                    <div id="playedBar" class="absolute top-0 left-0 h-full bg-brand-500 rounded-full pointer-events-none" style="width: 0%">
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/progress:scale-100 transition-transform"></div>
+                    </div>
+                </div>
+
+                <!-- Control Buttons & Timings -->
+                <div class="flex items-center justify-between text-white">
+                    <div class="flex items-center space-x-4">
+                        <button id="playPauseBtn" class="hover:text-brand-400 transition text-lg" aria-label="Play/Pause">
+                            <i class="fa-solid fa-play" id="playIcon"></i>
+                        </button>
+                        <button id="skipBackward" class="hover:text-brand-400 transition text-sm hidden sm:inline-block" aria-label="Backward 10s">
+                            <i class="fa-solid fa-rotate-left"></i> 10s
+                        </button>
+                        <button id="skipForward" class="hover:text-brand-400 transition text-sm hidden sm:inline-block" aria-label="Forward 10s">
+                            <i class="fa-solid fa-rotate-right"></i> 10s
+                        </button>
+                        <div class="flex items-center space-x-2 group/vol">
+                            <button id="muteBtn" class="hover:text-brand-400 transition" aria-label="Mute">
+                                <i class="fa-solid fa-volume-high" id="volumeIcon"></i>
+                            </button>
+                            <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1" class="w-16 accent-brand-500 cursor-pointer hidden sm:block">
+                        </div>
+                        <span class="text-xs text-slate-300 font-mono"><span id="currentTime">00:00</span> / <span id="duration">00:00</span></span>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <!-- Speed Menu -->
+                        <div class="relative">
+                            <button id="speedBtn" class="text-xs font-semibold px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition">1× speed</button>
+                            <div id="speedMenu" class="absolute bottom-full mb-2 right-0 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-1 hidden min-w-[90px] text-xs">
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="0.5">0.5×</button>
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="0.75">0.75×</button>
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="1">1× Normal</button>
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="1.25">1.25×</button>
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="1.5">1.5×</button>
+                                <button class="w-full text-left px-3 py-1.5 hover:bg-brand-500 hover:text-white transition speed-option" data-speed="2">2×</</button>
+                            </div>
+                        </div>
+
+                        <button id="theaterBtn" class="hover:text-brand-400 transition hidden md:inline-block" aria-label="Theater Mode">
+                            <i class="fa-solid fa-rectangle-ad"></i>
+                        </button>
+                        <button id="pipBtn" class="hover:text-brand-400 transition hidden sm:inline-block" aria-label="Picture in Picture">
+                            <i class="fa-solid fa-clone"></i>
+                        </button>
+                        <button id="fullscreenBtn" class="hover:text-brand-400 transition" aria-label="Fullscreen">
+                            <i class="fa-solid fa-expand" id="fullscreenIcon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Quick Action & External Players Grid -->
-    <div class="btn-grid">
-        <a href="/download/{{ file_id }}" class="btn btn-primary" download="{{ file_name }}">
-            ⚡ fast download
-        </a>
-        <button class="btn btn-action" onclick="copyToClipboard('{{ stream_url }}', '⚡ stream link copied!')">
-            📋 copy stream
-        </button>
-        <button class="btn btn-action" onclick="copyToClipboard('{{ download_url }}', '🔗 download link copied!')">
-            📋 copy dl link
-        </button>
-        <button class="btn btn-action" onclick="openPlayer('vlc', '{{ stream_url }}', 'org.videolan.vlc')">
-            ▶️ vlc
-        </button>
-        <button class="btn btn-action" onclick="openPlayer('mx', '{{ stream_url }}', 'com.mxtech.videoplayer.ad')">
-            ▶️ mx player
-        </button>
-        <button class="btn btn-action" onclick="openPlayer('playit', '{{ stream_url }}', 'com.playit.videoplayer')">
-            ▶️ playit
-        </button>
-        <button class="btn btn-action" onclick="openPlayer('kmplayer', '{{ stream_url }}', 'com.kmplayer')">
-            ▶️ kmplayer
-        </button>
-        <button class="btn btn-action" onclick="openPlayer('potplayer', '{{ stream_url }}', 'potplayer')">
-            ▶️ potplayer
-        </button>
-        <a href="/" class="btn btn-action">
-            🏠 home
-        </a>
-    </div>
+    <!-- JavaScript Player Logic -->
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const errorOverlay = document.getElementById('errorOverlay');
+        const errorMessage = document.getElementById('errorMessage');
+        const retryBtn = document.getElementById('retryBtn');
+        const progressBar = document.getElementById('progressBar');
+        const playedBar = document.getElementById('playedBar');
+        const bufferedBar = document.getElementById('bufferedBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const muteBtn = document.getElementById('muteBtn');
+        const volumeIcon = document.getElementById('volumeIcon');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        const skipBackward = document.getElementById('skipBackward');
+        const skipForward = document.getElementById('skipForward');
+        const speedBtn = document.getElementById('speedBtn');
+        const speedMenu = document.getElementById('speedMenu');
+        const themeToggle = document.getElementById('themeToggle');
+        const playerContainer = document.getElementById('playerContainer');
+        const theaterBtn = document.getElementById('theaterBtn');
+        const pipBtn = document.getElementById('pipBtn');
 
-    <!-- Keyboard Navigation Strip -->
-    <div class="shortcut-strip">
-        <span class="shortcut-tag"><kbd>space</kbd> play/pause</span>
-        <span class="shortcut-tag"><kbd>f</kbd> full screen</span>
-        <span class="shortcut-tag"><kbd>m</kbd> mute</span>
-        <span class="shortcut-tag"><kbd>←</kbd> <kbd>→</kbd> jump 10s</span>
-        <span class="shortcut-tag"><kbd>↑</kbd> <kbd>↓</kbd> volume</span>
-    </div>
-</div>
+        // Theme Toggle
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
 
-<footer>
-    <p>⚡ ultra-fast streamer • powered by <a href="{{ watermark_url }}" target="_blank" rel="noopener">@{{ watermark }}</a></p>
-</footer>
+        // Format Time Helper
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
 
-<div id="toast">✅ copied to clipboard!</div>
+        video.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(video.duration);
+            loadingOverlay.classList.add('opacity-0', 'pointer-events-none');
+        });
 
-<!-- Fast Plyr Engine Scripts -->
-<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
-<script>
-    // Initialize Player with seek and buffer shortcuts
-    const player = new Plyr('#player', {
-        controls: [
-            'play-large', 'restart', 'rewind', 'play', 'fast-forward',
-            'progress', 'current-time', 'duration', 'mute', 'volume',
-            'captions', 'settings', 'pip', 'airplay', 'fullscreen'
-        ],
-        seekTime: 10,
-        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-        loadSprite: true,
-        iconUrl: 'https://cdn.plyr.io/3.7.8/plyr.svg'
-    });
+        video.addEventListener('waiting', () => loadingOverlay.classList.remove('opacity-0', 'pointer-events-none'));
+        video.addEventListener('playing', () => loadingOverlay.classList.add('opacity-0', 'pointer-events-none'));
 
-    // Toast alert handler
-    function showToast(message) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message || '✅ copied!';
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 2800);
-    }
+        // Play / Pause Toggle
+        function togglePlay() {
+            if (video.paused) {
+                video.play().catch(err => {
+                    console.error("Playback blocked:", err);
+                });
+            } else {
+                video.pause();
+            }
+        }
 
-    // Modern Clipboard API fallback
-    function copyToClipboard(text, msg) {
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text)
-                .then(() => showToast(msg))
-                .catch(() => fallbackCopy(text, msg));
+        playPauseBtn.addEventListener('click', togglePlay);
+        video.addEventListener('click', togglePlay);
+
+        video.addEventListener('play', () => {
+            playIcon.className = "fa-solid fa-pause";
+        });
+
+        video.addEventListener('pause', () => {
+            playIcon.className = "fa-solid fa-play";
+        });
+
+        // Time Update & Progress Bar
+        video.addEventListener('timeupdate', () => {
+            currentTimeEl.textContent = formatTime(video.currentTime);
+            const progressPercent = (video.currentTime / video.duration) * 100;
+            playedBar.style.width = `${progressPercent}%`;
+        });
+
+        // Buffered Progress
+        video.addEventListener('progress', () => {
+            if (video.buffered.length > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                const bufferedPercent = (bufferedEnd / video.duration) * 100;
+                bufferedBar.style.width = `${bufferedPercent}%`;
+            }
+        });
+
+        // Seeking via Timeline Click
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            video.currentTime = pos * video.duration;
+        });
+
+        // Skip 10s
+        skipBackward.addEventListener('click', () => { video.currentTime = Math.max(0, video.currentTime - 10); });
+        skipForward.addEventListener('click', () => { video.currentTime = Math.min(video.duration, video.currentTime + 10); });
+
+        // Volume & Mute
+        muteBtn.addEventListener('click', () => {
+            video.muted = !video.muted;
+            volumeIcon.className = video.muted ? "fa-solid fa-volume-xmark" : "fa-solid fa-volume-high";
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            video.volume = e.target.value;
+            video.muted = video.volume === 0;
+            volumeIcon.className = video.volume === 0 ? "fa-solid fa-volume-xmark" : "fa-solid fa-volume-high";
+        });
+
+        // Fullscreen
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                playerContainer.requestFullscreen().catch(err => alert("Fullscreen error: " + err.message));
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            fullscreenIcon.className = document.fullscreenElement ? "fa-solid fa-compress" : "fa-solid fa-expand";
+        });
+
+        // Theater Mode
+        theaterBtn.addEventListener('click', () => {
+            playerContainer.classList.toggle('max-w-6xl');
+            playerContainer.classList.toggle('w-full');
+            playerContainer.classList.toggle('h-[85vh]');
+        });
+
+        // PiP
+        if (document.pictureInPictureEnabled) {
+            pipBtn.addEventListener('click', async () => {
+                try {
+                    if (document.pictureInPictureElement) {
+                        await document.exitPictureInPicture();
+                    } else {
+                        await video.requestPictureInPicture();
+                    }
+                } catch (err) {
+                    console.error("PiP error:", err);
+                }
+            });
         } else {
-            fallbackCopy(text, msg);
-        }
-    }
-
-    function fallbackCopy(text, msg) {
-        const temp = document.createElement("textarea");
-        temp.value = text;
-        temp.style.position = "fixed";
-        temp.style.left = "-9999px";
-        document.body.appendChild(temp);
-        temp.focus();
-        temp.select();
-        try {
-            document.execCommand('copy');
-            showToast(msg);
-        } catch (e) {
-            showToast('⚠️ unable to copy link');
-        }
-        document.body.removeChild(temp);
-    }
-
-    // Protocol handler for Android & Desktop external media players
-    function openPlayer(type, streamUrl, pkg) {
-        let launchUrl = '';
-        if (type === 'vlc') {
-            launchUrl = `intent:${streamUrl}#Intent;package=${pkg};type=video/*;end`;
-        } else if (type === 'mx') {
-            launchUrl = `intent:${streamUrl}#Intent;package=${pkg};type=video/*;end`;
-        } else if (type === 'playit') {
-            launchUrl = `playit://playvp/video?url=${encodeURIComponent(streamUrl)}`;
-        } else if (type === 'kmplayer') {
-            launchUrl = `kmplayer://${streamUrl}`;
-        } else if (type === 'potplayer') {
-            launchUrl = `potplayer://${streamUrl}`;
-        } else {
-            launchUrl = streamUrl;
+            pipBtn.style.display = 'none';
         }
 
-        try {
-            window.location.href = launchUrl;
-            setTimeout(() => {
-                copyToClipboard(streamUrl, '⚡ stream link copied for manual player pasting!');
-            }, 1200);
-        } catch (err) {
-            copyToClipboard(streamUrl, '⚡ stream link copied to clipboard!');
-        }
-    }
+        // Speed Menu Toggle
+        speedBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speedMenu.classList.toggle('hidden');
+        });
 
-    // Keyboard Shortcuts
-    document.addEventListener('keydown', (e) => {
-        if (['input', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) return;
-        if (e.code === 'Space') {
-            e.preventDefault();
-            player.togglePlay();
-        } else if (e.code === 'KeyF') {
-            e.preventDefault();
-            player.fullscreen.toggle();
-        } else if (e.code === 'KeyM') {
-            e.preventDefault();
-            player.muted = !player.muted;
-        }
-    });
-</script>
+        document.addEventListener('click', () => speedMenu.classList.add('hidden'));
+
+        document.querySelectorAll('.speed-option').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const speed = parseFloat(e.target.getAttribute('data-speed'));
+                video.playbackRate = speed;
+                speedBtn.textContent = `${speed}× speed`;
+                speedMenu.classList.add('hidden');
+            });
+        });
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (['input', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) return;
+            if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+            if (e.code === 'KeyF') { fullscreenBtn.click(); }
+            if (e.code === 'KeyM') { muteBtn.click(); }
+            if (e.code === 'ArrowLeft') { video.currentTime = Math.max(0, video.currentTime - 5); }
+            if (e.code === 'ArrowRight') { video.currentTime = Math.min(video.duration, video.currentTime + 5); }
+        });
+
+        // Error Handling
+        video.addEventListener('error', () => {
+            loadingOverlay.classList.add('opacity-0', 'pointer-events-none');
+            errorOverlay.classList.remove('hidden');
+            errorMessage.textContent = "Failed to load media or network connection interrupted.";
+        });
+
+        retryBtn.addEventListener('click', () => {
+            errorOverlay.classList.add('hidden');
+            loadingOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            video.load();
+            video.play().catch(() => {});
+        });
+    </script>
 </body>
 </html>
