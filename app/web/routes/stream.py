@@ -4,14 +4,10 @@ from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import StreamingResponse, Response
 from app.database.repositories.file_repo import FileRepository
 
-router = APIRoruter() if 'APIRouter' in globals() else None # Compatible with existing app setup
+router = APIRouter()
 
-# Assuming FastAPI / Quart style route implementation matching existing architecture:
-async def stream_media_handler(request: Request, file_id: str, range: str = Header(None)):
-    """
-    Handles streaming media with full HTTP Range Request support (HTTP 206 Partial Content),
-    proper headers, and chunked generation for high throughput without memory bloat.
-    """
+@router.get("/stream/{file_id}")
+async def stream_media(request: Request, file_id: str, range: str = Header(None)):
     file_doc = await FileRepository.get_file_by_id(file_id)
     if not file_doc:
         raise HTTPException(status_code=404, detail="Media file not found or expired.")
@@ -74,4 +70,36 @@ async def stream_media_handler(request: Request, file_id: str, range: str = Head
         iter_file(),
         status_code=status_code,
         headers=headers
+    )
+
+@router.get("/download/{file_id}")
+async def download_media(request: Request, file_id: str):
+    """Handles direct file downloads with proper attachment headers."""
+    file_doc = await FileRepository.get_file_by_id(file_id)
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    file_path = file_doc.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File missing on server.")
+
+    file_name = file_doc.get("file_name", os.path.basename(file_path))
+    file_size = os.path.getsize(file_path)
+    
+    def iter_file():
+        chunk_size = 1024 * 1024
+        with open(file_path, "rb") as f:
+            while True:
+                data = f.read(chunk_size)
+                if not data:
+                    break
+                yield data
+
+    return StreamingResponse(
+        iter_file(),
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{file_name}"',
+            "Content-Length": str(file_size)
+        }
     )
