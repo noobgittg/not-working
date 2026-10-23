@@ -1,17 +1,12 @@
 import os
-import sys
 import asyncio
-
-PLUGIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
-if PLUGIN_DIR not in sys.path:
-    sys.path.insert(0, PLUGIN_DIR)
 from config import Config
-from logger import logger
-from mongodb import mongo
-from client import MMWProBot
-from web_support import WebSupport
-from autodel_service import run_autodelete_sweeper
-from keepalive_service import (
+from app.utils.logger import logger
+from app.database import mongo
+from app.bot.client import MMWProBot
+from app.web.web_support import WebSupport
+from app.services.autodel_service import run_autodelete_sweeper
+from app.services.keepalive_service import (
     run_keepalive_worker,
     schedule_24h_restart,
     send_restart_notification,
@@ -19,45 +14,50 @@ from keepalive_service import (
 )
 
 async def start_bot_and_services(bot: MMWProBot):
-    await mongo.connect()
-    await bot.start()
+    try:
+        await mongo.connect()
+    except Exception as e:
+        logger.error(f"MongoDB connection warning: {e}. Bot will continue with cached state.")
 
-    if os.path.exists(RESTART_MARKER_FILE):
-        try:
-            os.remove(RESTART_MARKER_FILE)
-        except OSError as exc:
-            logger.warning("Could not clear restart marker (%s).", type(exc).__name__)
-        try:
+    try:
+        await bot.start()
+        
+        if os.path.exists(RESTART_MARKER_FILE):
+            try:
+                os.remove(RESTART_MARKER_FILE)
+            except Exception:
+                pass
             await send_restart_notification(bot)
-        except Exception as exc:
-            logger.warning("Restart notification failed (%s).", type(exc).__name__)
 
-    asyncio.create_task(run_autodelete_sweeper(bot), name="auto-delete-sweeper")
-    asyncio.create_task(run_keepalive_worker(bot, interval=6), name="keepalive-worker")
-    asyncio.create_task(schedule_24h_restart(bot, interval=86400), name="daily-restart")
-    logger.info("MMW All-In-One Pro Engine running. Watermark: %s", Config.WATERMARK)
-
+        asyncio.create_task(run_autodelete_sweeper(bot))
+        asyncio.create_task(run_keepalive_worker(bot, interval=6))
+        asyncio.create_task(schedule_24h_restart(bot, interval=86400))
+        
+        logger.info(f"⚡ MMW All-In-One Pro Engine running. Watermark: {Config.WATERMARK}")
+    except Exception as e:
+        logger.error(f"Error starting bot services: {e}")
 
 async def main():
-    logger.info("Starting MMW Pro Engine with Koyeb Web Support...")
+    logger.info("⚡ Starting MMW Pro Engine with Koyeb Web Support...")
     bot = MMWProBot()
+    
     web_support = WebSupport(bot)
     server = web_support.get_server()
 
+    asyncio.create_task(start_bot_and_services(bot))
+
     try:
-        await start_bot_and_services(bot)
         await server.serve()
     finally:
         logger.info("Gracefully stopping engine...")
-        if getattr(bot, "is_connected", False):
-            try:
-                await bot.stop()
-            except Exception as exc:
-                logger.warning("Bot shutdown encountered an error (%s).", type(exc).__name__)
+        try:
+            await bot.stop()
+        except Exception:
+            pass
         try:
             await mongo.close()
-        except Exception as exc:
-            logger.warning("MongoDB shutdown encountered an error (%s).", type(exc).__name__)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
