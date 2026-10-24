@@ -1,4 +1,5 @@
 import secrets
+from urllib.parse import quote
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message,
@@ -11,6 +12,14 @@ from app.database.repositories.file_repo import file_repo
 from app.utils.font import to_smallcaps, format_watermark
 from app.utils.helpers import humanbytes, time_formatter
 from app.utils.logger import logger
+
+def make_player_intents(stream_url: str):
+    return {
+        "mx": f"intent:{stream_url}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end",
+        "vlc": f"vlc://{stream_url.replace('https://', '').replace('http://', '')}",
+        "playit": f"playit://playvideo?link={quote(stream_url)}",
+        "km": f"intent:{stream_url}#Intent;package=com.kmplayer;type=video/*;end"
+    }
 
 @Client.on_message(filters.private & filters.command("stream"))
 async def stream_command_entry(client: Client, message: Message):
@@ -31,7 +40,7 @@ async def stream_callback_entry(client: Client, query: CallbackQuery):
     await generate_stream_response(client, original, query.message)
 
 async def generate_stream_response(client: Client, media_msg: Message, target_reply: Message):
-    status = await target_reply.reply_text(f"⚡ **{to_smallcaps('ɢᴇɴᴇʀᴀᴛɪɴɢ sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍ ʟɪɴᴋ...')}**")
+    status = await target_reply.reply_text(f"⚡ **{to_smallcaps('ɢᴇɴᴇʀᴀᴛɪɴɢ 12 ᴍʙ/s sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍ ʟɪɴᴋ...')}**")
 
     bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else media_msg.chat.id
     try:
@@ -71,19 +80,19 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
 
     watch_url = f"{Config.BASE_URL}/watch/{file_id}"
     download_url = f"{Config.BASE_URL}/download/{file_id}"
+    stream_url = f"{Config.BASE_URL}/stream/{file_id}"
+    intents = make_player_intents(stream_url)
 
     text = (
-        f"✦ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍ ʟɪɴᴋ')}** ✦\n\n"
+        f"✦ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍ ʟɪɴᴋ (12 ᴍʙ/s)')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
         f"• 📦 **{to_smallcaps('ғɪʟᴇ sɪᴢᴇ')}** : `{humanbytes(file_size)}`\n"
         f"• 🏷️ **{to_smallcaps('ᴍɪᴍᴇ ᴛʏᴘᴇ')}** : `{mime_type}`\n"
         f"• ⏱️ **{to_smallcaps('ᴅᴜʀᴀᴛɪᴏɴ')}** : `{duration}`\n"
         f"• 🆔 **{to_smallcaps('ғɪʟᴇ ɪᴅ')}** : `{file_id}`\n\n"
-        f"🔗 **{to_smallcaps('ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ (𝟷𝟻 ᴘʟᴀʏᴇʀ ᴇɴɢɪɴᴇs)')}** :\n{watch_url}\n\n"
+        f"🔗 **{to_smallcaps('ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ (ᴡᴇʙ ᴘʟᴀʏᴇʀ)')}** :\n{watch_url}\n\n"
         f"⬇️ **{to_smallcaps('ғᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ')}** :\n{download_url}\n\n"
-        f"💡 **{to_smallcaps('ғᴇᴀᴛᴜʀᴇs')}** :\n"
-        f"• 📥 {to_smallcaps('ᴄʟɪᴄᴋ')} `[ɢᴇᴛ ғɪʟᴇ]` {to_smallcaps('ᴛᴏ ʀᴇᴛʀɪᴇᴠᴇ ᴛʜᴇ ғɪʟᴇ ᴅɪʀᴇᴄᴛʟʏ ɪɴ ᴛᴇʟᴇɢʀᴀᴍ.')}\n"
-        f"• 🗑️ {to_smallcaps('ᴄʟɪᴄᴋ')} `[ʀᴇᴠᴏᴋᴇ]` {to_smallcaps('ᴛᴏ ᴅᴇʟᴇᴛᴇ/ᴅɪsᴀʙʟᴇ ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ᴀɴʏᴛɪᴍᴇ.')}"
+        f"📱 **{to_smallcaps('ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀs')}** : {to_smallcaps('ᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ᴛᴏ ᴘʟᴀʏ ᴅɪʀᴇᴄᴛʟʏ ɪɴ ᴍx ᴘʟᴀʏᴇʀ, ᴠʟᴄ, ᴘʟᴀʏɪᴛ, ᴏʀ ᴋᴍᴘʟᴀʏᴇʀ.')}"
         f"{format_watermark()}"
     )
 
@@ -91,6 +100,14 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
         [
             InlineKeyboardButton(f"🎬 {to_smallcaps('ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ')}", url=watch_url),
             InlineKeyboardButton(f"⬇️ {to_smallcaps('ғᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ')}", url=download_url)
+        ],
+        [
+            InlineKeyboardButton(f"🎬 {to_smallcaps('ᴍx ᴘʟᴀʏᴇʀ')}", url=intents["mx"]),
+            InlineKeyboardButton(f"🟧 {to_smallcaps('ᴠʟᴄ ᴘʟᴀʏᴇʀ')}", url=intents["vlc"])
+        ],
+        [
+            InlineKeyboardButton(f"⚡ {to_smallcaps('ᴘʟᴀʏɪᴛ')}", url=intents["playit"]),
+            InlineKeyboardButton(f"🔮 {to_smallcaps('ᴋᴍᴘʟᴀʏᴇʀ')}", url=intents["km"])
         ],
         [
             InlineKeyboardButton(f"📥 {to_smallcaps('ɢᴇᴛ ғɪʟᴇ')}", callback_data=f"getfile_{file_id}"),
@@ -111,8 +128,7 @@ async def get_file_command_handler(client: Client, message: Message):
     if len(message.command) < 2:
         return await message.reply_text(
             f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/getfile <file_id>`\n\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/getfile abc123xyz`\n\n"
-            f"💡 {to_smallcaps('ʀᴇᴛʀɪᴇᴠᴇs ᴀɴᴅ sᴇɴᴅs ᴛʜᴇ ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ғɪʟᴇ ᴅɪʀᴇᴄᴛʟʏ ᴛᴏ ʏᴏᴜ.')}"
+            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/getfile abc123xyz`"
             f"{format_watermark()}"
         )
     file_id = message.command[1].strip()
@@ -128,11 +144,9 @@ async def send_streamed_file_to_user(client: Client, chat_id: int, file_id: str,
     file_doc = await file_repo.get_file(file_id)
     if not file_doc:
         return await reply_target.reply_text(
-            f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴏʀ sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ ʀᴇᴠᴏᴋᴇᴅ!')}**\n\n"
-            f"💡 {to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ᴍᴀʏ ʜᴀᴠᴇ ᴇxᴘɪʀᴇᴅ ᴏʀ ʙᴇᴇɴ ᴅᴇʟᴇᴛᴇᴅ ʙʏ ᴛʜᴇ ᴜᴘʟᴏᴀᴅᴇʀ.')}"
+            f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴏʀ sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ ʀᴇᴠᴏᴋᴇᴅ!')}**"
             f"{format_watermark()}"
         )
-
     try:
         msg = await client.get_messages(file_doc["chat_id"], file_doc["message_id"])
         if msg and msg.media:
@@ -143,23 +157,17 @@ async def send_streamed_file_to_user(client: Client, chat_id: int, file_id: str,
         logger.error(f"Error copying media file for file_id {file_id}: {e}", exc_info=True)
         await reply_target.reply_text(f"❌ **{to_smallcaps('ғᴀɪʟᴇᴅ ᴛᴏ sᴇɴᴅ ғɪʟᴇ')}**: `{e}`")
 
-# ==================== REVOKE / DELETE STREAM LINK FEATURE ====================
+# ==================== REVOKE / DELETE FEATURE ====================
 
 @Client.on_message(filters.private & filters.command(["revoke", "delfile", "revokestream"]))
 async def revoke_command_handler(client: Client, message: Message):
     if len(message.command) < 2:
-        return await message.reply_text(
-            f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/revoke <file_id>`\n\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/revoke abc123xyz`\n\n"
-            f"💡 {to_smallcaps('ᴘᴇʀᴍᴀɴᴇɴᴛʟʏ ᴅɪsᴀʙʟᴇs ᴛʜᴇ sᴛʀᴇᴀᴍɪɴɢ ʟɪɴᴋ ғᴏʀ ᴛʜɪs ғɪʟᴇ.')}"
-            f"{format_watermark()}"
-        )
+        return await message.reply_text(f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/revoke <file_id>`{format_watermark()}")
     file_id = message.command[1].strip()
     file_doc = await file_repo.get_file(file_id, include_revoked=True)
     if not file_doc:
         return await message.reply_text(f"❌ **{to_smallcaps('ғɪʟᴇ ɪᴅ ɴᴏᴛ ғᴏᴜɴᴅ!')}**")
 
-    # Authorize: owner of file or admin
     user_id = message.from_user.id
     if file_doc.get("user_id") and file_doc["user_id"] != user_id and user_id not in Config.ADMINS:
         return await message.reply_text(f"🚫 **{to_smallcaps('ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴛᴏ ʀᴇᴠᴏᴋᴇ ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ!')}**")
@@ -169,8 +177,7 @@ async def revoke_command_handler(client: Client, message: Message):
         f"✦ **{to_smallcaps('sᴛʀᴇᴀᴍ ʟɪɴᴋ ʀᴇᴠᴏᴋᴇᴅ')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_doc.get('file_name', 'Media')}`\n"
         f"• 🆔 **{to_smallcaps('ғɪʟᴇ ɪᴅ')}** : `{file_id}`\n\n"
-        f"✅ **{to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴠᴏᴋᴇᴅ & ᴅɪsᴀʙʟᴇᴅ.')}**\n"
-        f"• {to_smallcaps('ᴀʟʟ ᴡᴇʙ ᴘʟᴀʏᴇʀs ᴀɴᴅ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋs ᴡɪʟʟ ɴᴏᴡ ʀᴇᴛᴜʀɴ 𝟺𝟶𝟺.')}"
+        f"✅ **{to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴠᴏᴋᴇᴅ & ᴅɪsᴀʙʟᴇᴅ.')}**"
         f"{format_watermark()}"
     )
 
@@ -187,13 +194,11 @@ async def revoke_callback_entry(client: Client, query: CallbackQuery):
 
     await file_repo.revoke_file(file_id)
     await query.answer(to_smallcaps("sᴛʀᴇᴀᴍ ʟɪɴᴋ ʀᴇᴠᴏᴋᴇᴅ!"), show_alert=True)
-
     await query.message.edit_text(
         f"✦ **{to_smallcaps('sᴛʀᴇᴀᴍ ʟɪɴᴋ ʀᴇᴠᴏᴋᴇᴅ')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_doc.get('file_name', 'Media')}`\n"
         f"• 🆔 **{to_smallcaps('ғɪʟᴇ ɪᴅ')}** : `{file_id}`\n\n"
-        f"🚫 **{to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ ᴘᴇʀᴍᴀɴᴇɴᴛʟʏ ʀᴇᴠᴏᴋᴇᴅ & ᴅɪsᴀʙʟᴇᴅ.')}**\n"
-        f"• {to_smallcaps('ᴀʟʟ ᴡᴇʙ ᴘʟᴀʏᴇʀs ᴀɴᴅ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋs ᴡɪʟʟ ɴᴏᴡ ʀᴇᴛᴜʀɴ 𝟺𝟶𝟺 ɴᴏᴛ ғᴏᴜɴᴅ.')}\n"
+        f"🚫 **{to_smallcaps('ᴛʜɪs sᴛʀᴇᴀᴍ ʟɪɴᴋ ʜᴀs ʙᴇᴇɴ ᴘᴇʀᴍᴀɴᴇɴᴛʟʏ ʀᴇᴠᴏᴋᴇᴅ & ᴅɪsᴀʙʟᴇᴅ.')}**"
         f"{format_watermark()}",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"❌ {to_smallcaps('ᴄʟᴏsᴇ')}", callback_data="cancel_op")]])
     )
