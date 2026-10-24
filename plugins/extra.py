@@ -5,10 +5,9 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import Config
-from app.utils.font import to_smallcaps, format_watermark
-from app.utils.helpers import humanbytes, time_formatter, clean_temp_files
-from app.database.repositories.file_repo import file_repo
-from app.services.ffmpeg_service import get_detailed_mediainfo
+from plugins.core_utils import to_smallcaps, format_watermark, humanbytes, time_formatter, clean_temp_files
+from plugins.core_db import file_repo
+from plugins.core_services import get_detailed_mediainfo
 
 BOT_START_TIME = time.time()
 
@@ -18,45 +17,45 @@ async def id_command_handler(client: Client, message: Message):
     chat = message.chat
     reply = message.reply_to_message
 
-    text = f"✦ **{to_smallcaps('USER & CHAT IDENTIFIER')}** ✦\n\n"
+    text = f"✦ **{to_smallcaps('user & chat identifier')}** ✦\n\n"
     if user:
         dc_id = getattr(user, "dc_id", "N/A") or "N/A"
         text += (
-            f"👤 **{to_smallcaps('YOUR INFO')}** :\n"
-            f"• 🆔 **{to_smallcaps('USER ID')}** : `{user.id}`\n"
-            f"• 👤 **{to_smallcaps('FIRST NAME')}** : {user.first_name}\n"
-            f"• 🏷️ **{to_smallcaps('USERNAME')}** : @{user.username if user.username else to_smallcaps('NONE')}\n"
-            f"• 🌐 **{to_smallcaps('DATACENTER')}** : `DC {dc_id}`\n\n"
+            f"👤 **{to_smallcaps('your info')}** :\n"
+            f"• 🆔 **{to_smallcaps('user id')}** : `{user.id}`\n"
+            f"• 👤 **{to_smallcaps('first name')}** : {user.first_name}\n"
+            f"• 🏷️ **{to_smallcaps('username')}** : @{user.username if user.username else to_smallcaps('none')}\n"
+            f"• 🌐 **{to_smallcaps('datacenter')}** : `DC {dc_id}`\n\n"
         )
     if reply and reply.from_user:
         r_user = reply.from_user
         r_dc = getattr(r_user, "dc_id", "N/A") or "N/A"
         text += (
-            f"💬 **{to_smallcaps('REPLIED USER')}** :\n"
-            f"• 🆔 **{to_smallcaps('USER ID')}** : `{r_user.id}`\n"
-            f"• 👤 **{to_smallcaps('FIRST NAME')}** : {r_user.first_name}\n"
-            f"• 🏷️ **{to_smallcaps('USERNAME')}** : @{r_user.username if r_user.username else to_smallcaps('NONE')}\n"
-            f"• 🌐 **{to_smallcaps('DATACENTER')}** : `DC {r_dc}`\n\n"
+            f"💬 **{to_smallcaps('replied user')}** :\n"
+            f"• 🆔 **{to_smallcaps('user id')}** : `{r_user.id}`\n"
+            f"• 👤 **{to_smallcaps('first name')}** : {r_user.first_name}\n"
+            f"• 🏷️ **{to_smallcaps('username')}** : @{r_user.username if r_user.username else to_smallcaps('none')}\n"
+            f"• 🌐 **{to_smallcaps('datacenter')}** : `DC {r_dc}`\n\n"
         )
     if reply and reply.forward_from:
         f_user = reply.forward_from
         text += (
-            f"⏩ **{to_smallcaps('FORWARDED FROM')}** :\n"
-            f"• 🆔 **{to_smallcaps('USER ID')}** : `{f_user.id}`\n"
-            f"• 👤 **{to_smallcaps('NAME')}** : {f_user.first_name}\n\n"
+            f"⏩ **{to_smallcaps('forwarded from')}** :\n"
+            f"• 🆔 **{to_smallcaps('user id')}** : `{f_user.id}`\n"
+            f"• 👤 **{to_smallcaps('name')}** : {f_user.first_name}\n\n"
         )
     if reply and reply.forward_from_chat:
         f_chat = reply.forward_from_chat
         text += (
-            f"📢 **{to_smallcaps('FORWARDED CHANNEL')}** :\n"
-            f"• 🆔 **{to_smallcaps('CHAT ID')}** : `{f_chat.id}`\n"
-            f"• 🏷️ **{to_smallcaps('TITLE')}** : {f_chat.title}\n\n"
+            f"📢 **{to_smallcaps('forwarded channel')}** :\n"
+            f"• 🆔 **{to_smallcaps('chat id')}** : `{f_chat.id}`\n"
+            f"• 🏷️ **{to_smallcaps('title')}** : {f_chat.title}\n\n"
         )
     text += (
-        f"💬 **{to_smallcaps('CHAT DETAILS')}** :\n"
-        f"• 🆔 **{to_smallcaps('CHAT ID')}** : `{chat.id}`\n"
-        f"• 🏷️ **{to_smallcaps('CHAT TYPE')}** : `{chat.type.name if hasattr(chat.type, 'name') else str(chat.type)}`\n"
-        f"• 📨 **{to_smallcaps('MESSAGE ID')}** : `{message.id}`"
+        f"💬 **{to_smallcaps('chat details')}** :\n"
+        f"• 🆔 **{to_smallcaps('chat id')}** : `{chat.id}`\n"
+        f"• 🏷️ **{to_smallcaps('chat type')}** : `{chat.type.name if hasattr(chat.type, 'name') else str(chat.type)}`\n"
+        f"• 📨 **{to_smallcaps('message id')}** : `{message.id}`"
         f"{format_watermark()}"
     )
     await message.reply_text(text)
@@ -70,22 +69,22 @@ async def info_command_handler(client: Client, message: Message):
         try:
             target = await client.get_users(message.command[1])
         except Exception:
-            return await message.reply_text(f"❌ **{to_smallcaps('USER NOT FOUND!')}**")
+            return await message.reply_text(f"❌ **{to_smallcaps('user not found!')}**")
 
     dc_id = getattr(target, "dc_id", "N/A") or "N/A"
-    is_bot = "🤖 YES" if target.is_bot else "👤 NO"
-    is_premium = "⭐ YES" if getattr(target, "is_premium", False) else "❌ NO"
+    is_bot = "🤖 ʏᴇs" if target.is_bot else "👤 ɴᴏ"
+    is_premium = "⭐ ʏᴇs" if getattr(target, "is_premium", False) else "❌ ɴᴏ"
 
     text = (
-        f"✦ **{to_smallcaps('USER INFORMATION CARD')}** ✦\n\n"
-        f"• 🆔 **{to_smallcaps('USER ID')}** : `{target.id}`\n"
-        f"• 👤 **{to_smallcaps('FIRST NAME')}** : {target.first_name}\n"
-        f"• 👥 **{to_smallcaps('LAST NAME')}** : {target.last_name or to_smallcaps('NONE')}\n"
-        f"• 🏷️ **{to_smallcaps('USERNAME')}** : @{target.username if target.username else to_smallcaps('NONE')}\n"
-        f"• 🌐 **{to_smallcaps('DATACENTER')}** : `DC {dc_id}`\n"
-        f"• 🤖 **{to_smallcaps('IS BOT?')}** : `{is_bot}`\n"
-        f"• ⭐ **{to_smallcaps('PREMIUM?')}** : `{is_premium}`\n"
-        f"• 🔗 **{to_smallcaps('PERMALINK')}** : [{target.first_name}](tg://user?id={target.id})"
+        f"✦ **{to_smallcaps('user information card')}** ✦\n\n"
+        f"• 🆔 **{to_smallcaps('user id')}** : `{target.id}`\n"
+        f"• 👤 **{to_smallcaps('first name')}** : {target.first_name}\n"
+        f"• 👥 **{to_smallcaps('last name')}** : {target.last_name or to_smallcaps('none')}\n"
+        f"• 🏷️ **{to_smallcaps('username')}** : @{target.username if target.username else to_smallcaps('none')}\n"
+        f"• 🌐 **{to_smallcaps('datacenter')}** : `DC {dc_id}`\n"
+        f"• 🤖 **{to_smallcaps('is bot?')}** : `{is_bot}`\n"
+        f"• ⭐ **{to_smallcaps('premium?')}** : `{is_premium}`\n"
+        f"• 🔗 **{to_smallcaps('permalink')}** : [{target.first_name}](tg://user?id={target.id})"
         f"{format_watermark()}"
     )
     await message.reply_text(text)
@@ -93,44 +92,44 @@ async def info_command_handler(client: Client, message: Message):
 @Client.on_message(filters.command("ping"))
 async def ping_command_handler(client: Client, message: Message):
     start = time.time()
-    reply = await message.reply_text(f"⚡ **{to_smallcaps('PINGING ENGINE...')}**")
+    reply = await message.reply_text(f"⚡ **{to_smallcaps('pinging engine...')}**")
     end = time.time()
     latency_ms = round((end - start) * 1000, 2)
     uptime_str = time_formatter(seconds=round(time.time() - BOT_START_TIME))
 
     text = (
-        f"✦ **{to_smallcaps('SYSTEM LATENCY & UPTIME')}** ✦\n\n"
-        f"• ⚡ **{to_smallcaps('PING')}** : `{latency_ms} ms`\n"
-        f"• ⏱️ **{to_smallcaps('UPTIME')}** : `{uptime_str}`\n"
-        f"• 🚀 **{to_smallcaps('SERVER')}** : `Koyeb Cloud Fast Container`\n"
-        f"• 🌐 **{to_smallcaps('STATUS')}** : `Operational (Ultra-Fast)`"
+        f"✦ **{to_smallcaps('system latency & uptime')}** ✦\n\n"
+        f"• ⚡ **{to_smallcaps('ping')}** : `{latency_ms} ms`\n"
+        f"• ⏱️ **{to_smallcaps('uptime')}** : `{uptime_str}`\n"
+        f"• 🚀 **{to_smallcaps('stream speed')}** : `12 MB/s (4 Players)`\n"
+        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Ultra-Fast)`"
         f"{format_watermark()}"
     )
-    btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('REFRESH')}", callback_data="ping_refresh")]]
+    btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('refresh')}", callback_data="ping_refresh")]]
     await reply.edit_text(text, reply_markup=InlineKeyboardMarkup(btn))
 
 @Client.on_callback_query(filters.regex(r"^ping_refresh$"))
 async def ping_refresh_callback(client: Client, query: CallbackQuery):
     start = time.time()
-    await query.answer(to_smallcaps("PINGING..."))
+    await query.answer(to_smallcaps("pinging..."))
     end = time.time()
     latency_ms = round((end - start) * 1000, 2)
     uptime_str = time_formatter(seconds=round(time.time() - BOT_START_TIME))
 
     text = (
-        f"✦ **{to_smallcaps('SYSTEM LATENCY & UPTIME')}** ✦\n\n"
-        f"• ⚡ **{to_smallcaps('PING')}** : `{latency_ms} ms`\n"
-        f"• ⏱️ **{to_smallcaps('UPTIME')}** : `{uptime_str}`\n"
-        f"• 🚀 **{to_smallcaps('SERVER')}** : `Koyeb Cloud Fast Container`\n"
-        f"• 🌐 **{to_smallcaps('STATUS')}** : `Operational (Ultra-Fast)`"
+        f"✦ **{to_smallcaps('system latency & uptime')}** ✦\n\n"
+        f"• ⚡ **{to_smallcaps('ping')}** : `{latency_ms} ms`\n"
+        f"• ⏱️ **{to_smallcaps('uptime')}** : `{uptime_str}`\n"
+        f"• 🚀 **{to_smallcaps('stream speed')}** : `12 MB/s (4 Players)`\n"
+        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Ultra-Fast)`"
         f"{format_watermark()}"
     )
-    btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('REFRESH')}", callback_data="ping_refresh")]]
+    btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('refresh')}", callback_data="ping_refresh")]]
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(btn))
 
 @Client.on_message(filters.command(["speedtest", "speed"]))
 async def speedtest_command_handler(client: Client, message: Message):
-    status = await message.reply_text(f"🚀 **{to_smallcaps('MEASURING REAL SERVER NETWORK LATENCY...')}**")
+    status = await message.reply_text(f"🚀 **{to_smallcaps('measuring real server network latency...')}**")
     loop = asyncio.get_running_loop()
 
     targets = [
@@ -152,13 +151,13 @@ async def speedtest_command_handler(client: Client, message: Message):
         ms = await loop.run_in_executor(None, _test_sock)
         results.append((label, ms))
 
-    text = f"✦ **{to_smallcaps('SERVER NETWORK LATENCY REPORT')}** ✦\n\n"
+    text = f"✦ **{to_smallcaps('server network latency report')}** ✦\n\n"
     for label, ms in results:
         val = f"`{ms} ms`" if ms > 0 else "`Timeout / Blocked`"
         text += f"• 🌐 **{to_smallcaps(label)}** : {val}\n"
     text += (
-        f"\n• ⚡ **{to_smallcaps('HOST')}** : `High-Speed Cloud Container`\n"
-        f"• ⏱️ **{to_smallcaps('SERVER STATUS')}** : `Operational & Ultra-Responsive`"
+        f"\n• ⚡ **{to_smallcaps('stream bandwidth')}** : `12 MB/s Turbo Ready`\n"
+        f"• ⏱️ **{to_smallcaps('server status')}** : `Operational & Ultra-Responsive`"
         f"{format_watermark()}"
     )
     await status.edit_text(text)
@@ -168,8 +167,8 @@ async def mediainfo_command_handler(client: Client, message: Message):
     target = message.reply_to_message
     if not target or not target.media:
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('PLEASE REPLY TO A VIDEO, AUDIO, OR DOCUMENT.')}**\n\n"
-            f"• **{to_smallcaps('USAGE')}**: {to_smallcaps('Reply to media with')} `/mediainfo`"
+            f"⚠️ **{to_smallcaps('please reply to a video, audio, or document.')}**\n\n"
+            f"• **{to_smallcaps('usage')}** : {to_smallcaps('reply to media with')} `/mediainfo`"
             f"{format_watermark()}"
         )
     await generate_mediainfo_response(client, target, message)
@@ -179,7 +178,7 @@ async def mediainfo_callback_entry(client: Client, query: CallbackQuery):
     msg_id = int(query.matches[0].group(1))
     original = await client.get_messages(query.message.chat.id, msg_id)
     if not original or not original.media:
-        return await query.answer(to_smallcaps("MEDIA NOT FOUND!"), show_alert=True)
+        return await query.answer(to_smallcaps("media not found!"), show_alert=True)
     await query.answer()
     await generate_mediainfo_response(client, original, query.message)
 
@@ -194,49 +193,48 @@ async def generate_mediainfo_response(client: Client, media_msg: Message, target
     width = getattr(media, "width", 0)
     height = getattr(media, "height", 0)
 
-    # For files > 25MB, present instant metadata without blocking on huge downloads
     if file_size_bytes > 25 * 1024 * 1024:
         res_str = f"{width}x{height}" if width and height else "N/A"
         text = (
-            f"✦ **{to_smallcaps('MEDIA INFORMATION')}** ✦\n\n"
-            f"• 📁 **{to_smallcaps('FILE NAME')}** : `{raw_name}`\n"
-            f"• 📦 **{to_smallcaps('FILE SIZE')}** : `{file_size_str}`\n"
-            f"• 🏷️ **{to_smallcaps('MIME TYPE')}** : `{mime_type}`\n"
-            f"• ⏱️ **{to_smallcaps('DURATION')}** : `{dur_str}`\n"
-            f"• 📐 **{to_smallcaps('RESOLUTION')}** : `{res_str}`\n\n"
-            f"💡 {to_smallcaps('For deep stream playback and external players, use the stream button below:')}"
+            f"✦ **{to_smallcaps('media information')}** ✦\n\n"
+            f"• 📁 **{to_smallcaps('file name')}** : `{raw_name}`\n"
+            f"• 📦 **{to_smallcaps('file size')}** : `{file_size_str}`\n"
+            f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
+            f"• ⏱️ **{to_smallcaps('duration')}** : `{dur_str}`\n"
+            f"• 📐 **{to_smallcaps('resolution')}** : `{res_str}`\n\n"
+            f"💡 {to_smallcaps('for 12 mb/s playback in playit, mx, vlc, or s player, use the stream button below:')}"
             f"{format_watermark()}"
         )
         buttons = [
-            [InlineKeyboardButton(f"⚡ {to_smallcaps('STREAM LINK')}", callback_data=f"stream_{media_msg.id}")],
-            [InlineKeyboardButton(f"❌ {to_smallcaps('CLOSE')}", callback_data="cancel_op")]
+            [InlineKeyboardButton(f"⚡ {to_smallcaps('12mb/s stream link')}", callback_data=f"stream_{media_msg.id}")],
+            [InlineKeyboardButton(f"❌ {to_smallcaps('close')}", callback_data="cancel_op")]
         ]
         return await target_reply.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
-    status = await target_reply.reply_text(f"🔍 **{to_smallcaps('EXTRACTING DEEP MEDIAINFO WITH FFPROBE...')}**")
+    status = await target_reply.reply_text(f"🔍 **{to_smallcaps('extracting deep mediainfo with ffprobe...')}**")
 
-    temp_dir = f"downloads/probe_{media_msg.id}_{int(time.time())}"
+    temp_dir = os.path.join(Config.DOWNLOAD_DIR, f"probe_{media_msg.id}_{int(time.time())}")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, raw_name)
 
     try:
         await media_msg.download(file_name=temp_path)
     except Exception as e:
-        clean_temp_files(temp_path)
-        return await status.edit_text(f"❌ **{to_smallcaps('EXTRACTION FAILED')}**: `{e}`")
+        clean_temp_files(temp_path, temp_dir)
+        return await status.edit_text(f"❌ **{to_smallcaps('extraction failed')}** : `{e}`")
 
     info = await get_detailed_mediainfo(temp_path)
-    clean_temp_files(temp_path)
+    clean_temp_files(temp_path, temp_dir)
 
     if not info:
         res_str = f"{width}x{height}" if width and height else "N/A"
         return await status.edit_text(
-            f"✦ **{to_smallcaps('MEDIA INFORMATION')}** ✦\n\n"
-            f"• 📁 **{to_smallcaps('FILE NAME')}** : `{raw_name}`\n"
-            f"• 📦 **{to_smallcaps('FILE SIZE')}** : `{file_size_str}`\n"
-            f"• 🏷️ **{to_smallcaps('MIME TYPE')}** : `{mime_type}`\n"
-            f"• ⏱️ **{to_smallcaps('DURATION')}** : `{dur_str}`\n"
-            f"• 📐 **{to_smallcaps('RESOLUTION')}** : `{res_str}`"
+            f"✦ **{to_smallcaps('media information')}** ✦\n\n"
+            f"• 📁 **{to_smallcaps('file name')}** : `{raw_name}`\n"
+            f"• 📦 **{to_smallcaps('file size')}** : `{file_size_str}`\n"
+            f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
+            f"• ⏱️ **{to_smallcaps('duration')}** : `{dur_str}`\n"
+            f"• 📐 **{to_smallcaps('resolution')}** : `{res_str}`"
             f"{format_watermark()}"
         )
 
@@ -245,52 +243,53 @@ async def generate_mediainfo_response(client: Client, media_msg: Message, target
     bitrate_str = f"{round(info.get('bitrate', 0) / 1000)} kbps" if info.get("bitrate") else "N/A"
 
     text = (
-        f"✦ **{to_smallcaps('FFPROBE MEDIA INFORMATION')}** ✦\n\n"
-        f"📁 **{to_smallcaps('FILE')}** : `{raw_name}`\n"
-        f"📦 **{to_smallcaps('SIZE')}** : `{file_size_str}`\n"
-        f"📦 **{to_smallcaps('CONTAINER')}** : `{container}`\n"
-        f"⏱️ **{to_smallcaps('DURATION')}** : `{dur_str}`\n"
-        f"📊 **{to_smallcaps('OVERALL BITRATE')}** : `{bitrate_str}`\n\n"
+        f"✦ **{to_smallcaps('ffprobe media information')}** ✦\n\n"
+        f"📁 **{to_smallcaps('file')}** : `{raw_name}`\n"
+        f"📦 **{to_smallcaps('size')}** : `{file_size_str}`\n"
+        f"📦 **{to_smallcaps('container')}** : `{container}`\n"
+        f"⏱️ **{to_smallcaps('duration')}** : `{dur_str}`\n"
+        f"📊 **{to_smallcaps('overall bitrate')}** : `{bitrate_str}`\n\n"
     )
 
     if info.get("video_streams"):
         for i, v in enumerate(info["video_streams"], 1):
             text += (
-                f"🎬 **{to_smallcaps(f'VIDEO STREAM #{i}')}** :\n"
-                f"  • 🏷️ **{to_smallcaps('CODEC')}** : `{v['codec']}` ({v['profile']})\n"
-                f"  • 📐 **{to_smallcaps('RESOLUTION')}** : `{v['width']}x{v['height']}` ({v['aspect_ratio']})\n"
-                f"  • 🎨 **{to_smallcaps('PIXEL FORMAT')}** : `{v['pix_fmt']}`\n"
-                f"  • 🎞️ **{to_smallcaps('FRAME RATE')}** : `{v['r_frame_rate']} fps`\n\n"
+                f"🎬 **{to_smallcaps(f'video stream #{i}')}** :\n"
+                f"  • 🏷️ **{to_smallcaps('codec')}** : `{v['codec']}` ({v['profile']})\n"
+                f"  • 📐 **{to_smallcaps('resolution')}** : `{v['width']}x{v['height']}` ({v['aspect_ratio']})\n"
+                f"  • 🎨 **{to_smallcaps('pixel format')}** : `{v['pix_fmt']}`\n"
+                f"  • 🎞️ **{to_smallcaps('frame rate')}** : `{v['r_frame_rate']} fps`\n\n"
             )
 
     if info.get("audio_streams"):
         for i, a in enumerate(info["audio_streams"], 1):
-            a_bitrate = f"{round(a['bitrate'] / 1000)} kbps" if a['bitrate'] else "N/A"
+            lang_val = a.get("language") or a.get("lang") or "Undetermined"
             text += (
-                f"🔊 **{to_smallcaps(f'AUDIO STREAM #{i}')}** :\n"
-                f"  • 🏷️ **{to_smallcaps('CODEC')}** : `{a['codec']}`\n"
-                f"  • 📻 **{to_smallcaps('CHANNELS')}** : `{a['channels']} ({a['channel_layout']})`\n"
-                f"  • 🎚️ **{to_smallcaps('SAMPLING')}** : `{a['sample_rate']} Hz`\n"
-                f"  • 🌐 **{to_smallcaps('LANGUAGE')}** : `{a['lang']}`\n\n"
+                f"🔊 **{to_smallcaps(f'audio stream #{i}')}** :\n"
+                f"  • 🏷️ **{to_smallcaps('codec')}** : `{a['codec']}`\n"
+                f"  • 📻 **{to_smallcaps('channels')}** : `{a['channels']} ({a['channel_layout']})`\n"
+                f"  • 🎚️ **{to_smallcaps('sampling')}** : `{a['sample_rate']} Hz`\n"
+                f"  • 🌐 **{to_smallcaps('language')}** : `{lang_val}`\n\n"
             )
 
     if info.get("subtitle_streams"):
-        text += f"📝 **{to_smallcaps('SUBTITLES')}** :\n"
+        text += f"📝 **{to_smallcaps('subtitles')}** :\n"
         for i, s in enumerate(info["subtitle_streams"], 1):
-            text += f"  • #{i} : `{s['codec']}` [{s['lang']}] - {s['title']}\n"
+            lang_val = s.get("language") or s.get("lang") or "Undetermined"
+            text += f"  • #{i} : `{s['codec']}` [{lang_val}] - {s['title']}\n"
         text += "\n"
 
-    text += f"⚡ **{to_smallcaps('POWERED BY')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
-    btn = [[InlineKeyboardButton(f"❌ {to_smallcaps('CLOSE')}", callback_data="cancel_op")]]
+    text += f"⚡ **{to_smallcaps('powered by')}** : [{Config.WATERMARK}]({Config.WATERMARK_URL})"
+    btn = [[InlineKeyboardButton(f"❌ {to_smallcaps('close')}", callback_data="cancel_op")]]
     await status.edit_text(text, reply_markup=InlineKeyboardMarkup(btn))
 
 @Client.on_message(filters.command("search"))
 async def search_command_handler(client: Client, message: Message):
     if len(message.command) < 2:
         return await message.reply_text(
-            f"📝 **{to_smallcaps('USAGE')}**: `/search <keyword>`\n\n"
-            f"• **{to_smallcaps('EXAMPLE')}**: `/search sample`\n\n"
-            f"💡 {to_smallcaps('Searches your indexed stream files instantly.')}"
+            f"📝 **{to_smallcaps('usage')}** : `/search <keyword>`\n\n"
+            f"• **{to_smallcaps('example')}** : `/search sample`\n\n"
+            f"💡 {to_smallcaps('searches your indexed 12 mb/s stream files instantly.')}"
             f"{format_watermark()}"
         )
 
@@ -299,12 +298,12 @@ async def search_command_handler(client: Client, message: Message):
 
     if not files:
         return await message.reply_text(
-            f"🔍 **{to_smallcaps('NO FILES FOUND MATCHING')}** : `{query_str}`\n\n"
-            f"💡 {to_smallcaps('Try another search keyword.')}"
+            f"🔍 **{to_smallcaps('no files found matching')}** : `{query_str}`\n\n"
+            f"💡 {to_smallcaps('try another search keyword.')}"
             f"{format_watermark()}"
         )
 
-    text = f"✦ **{to_smallcaps('SEARCH RESULTS FOR')}** : `{query_str}` ✦\n\n"
+    text = f"✦ **{to_smallcaps('search results for')}** : `{query_str}` ✦\n\n"
     buttons = []
     for i, f in enumerate(files, 1):
         fname = f.get("file_name", "Media")
@@ -312,9 +311,9 @@ async def search_command_handler(client: Client, message: Message):
         fsize = humanbytes(f.get("file_size", 0))
         text += f"{i}. 📁 **{fname}** (`{fsize}`)\n"
         buttons.append([
-            InlineKeyboardButton(f"🎬 {i}. {to_smallcaps('WATCH')}", url=f"{Config.BASE_URL}/watch/{fid}"),
-            InlineKeyboardButton(f"⬇️ {to_smallcaps('DOWNLOAD')}", url=f"{Config.BASE_URL}/download/{fid}")
+            InlineKeyboardButton(f"🎬 {i}. {to_smallcaps('watch (4 players)')}", url=f"{Config.BASE_URL}/watch/{fid}"),
+            InlineKeyboardButton(f"⬇️ {to_smallcaps('download')}", url=f"{Config.BASE_URL}/download/{fid}")
         ])
 
-    text += f"{format_watermark()}"
+    text += format_watermark()
     await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)

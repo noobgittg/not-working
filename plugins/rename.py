@@ -10,98 +10,182 @@ from pyrogram.types import (
     ForceReply
 )
 from config import Config
-from app.database.repositories.user_repo import user_repo
-from app.utils.cache import cache
-from app.utils.font import to_smallcaps, format_watermark
-from app.utils.helpers import humanbytes, time_formatter, clean_temp_files, sanitize_filename
-from app.utils.progress import progress_for_pyrogram
-from app.services.ffmpeg_service import get_media_attributes
-from app.services.thumb_service import resolve_thumbnail
-from app.services.caption_service import extract_and_format_caption
-from app.services.autodel_service import schedule_deletion
-from app.utils.logger import logger
+from plugins.core_db import user_repo, file_repo
+from plugins.core_utils import (
+    cache,
+    to_smallcaps,
+    format_watermark,
+    humanbytes,
+    time_formatter,
+    clean_temp_files,
+    sanitize_filename,
+    progress_for_pyrogram,
+    logger
+)
+from plugins.core_services import (
+    get_media_attributes,
+    resolve_thumbnail,
+    extract_and_format_caption,
+    schedule_deletion
+)
 
 MAX_BOT_FILE_SIZE = 2000 * 1024 * 1024  # 2000 MiB (2GB Telegram Bot API Limit)
 
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def incoming_file_entry(client: Client, message: Message):
+    user = message.from_user
+    if user and await user_repo.is_banned(user.id):
+        return await message.reply_text(
+            f"🚫 **{to_smallcaps('you are banned from using this bot!')}**"
+            f"{format_watermark()}"
+        )
+
+    # Check if user is replying to an addaudio / addsub ForceReply prompt first
+    if message.reply_to_message and message.reply_to_message.reply_markup:
+        if isinstance(message.reply_to_message.reply_markup, ForceReply):
+            return
+
+    u = await user_repo.get_or_create(user.id, user.first_name, user.username) if user else {}
     media = message.document or message.video or message.audio
-    raw_file_name = getattr(media, "file_name", None) or "Unknown_File"
+    raw_file_name = getattr(media, "file_name", None) or "Unknown_File.mp4"
     file_name = raw_file_name.replace("`", "'")
     file_size_bytes = getattr(media, "file_size", 0)
     file_size = humanbytes(file_size_bytes)
-    mime_type = getattr(media, "mime_type", "unknown")
-    duration = time_formatter(seconds=getattr(media, "duration", 0)) if getattr(media, "duration", 0) > 0 else "N/A"
+    mime_type = getattr(media, "mime_type", "video/mp4")
+    dur_val = getattr(media, "duration", 0)
+    duration = time_formatter(seconds=dur_val) if dur_val > 0 else "N/A"
 
     is_video = bool(message.video or (message.document and mime_type and mime_type.startswith("video/")))
 
+    # Auto-Index file in DB for instant 12 MB/s streaming & 4 External Players
+    bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else message.chat.id
+    try:
+        log_msg = await message.forward(bin_chan) if bin_chan != message.chat.id else message
+    except Exception:
+        log_msg = message
+
+    file_id = secrets.token_urlsafe(10)
+    await file_repo.save_file(
+        file_id=file_id,
+        chat_id=log_msg.chat.id,
+        message_id=log_msg.id,
+        file_name=file_name,
+        file_size=file_size_bytes,
+        mime_type=mime_type,
+        user_id=user.id if user else 0,
+        metadata={"duration": dur_val, "width": getattr(media, "width", 0), "height": getattr(media, "height", 0)},
+        tg_file_id=getattr(media, "file_id", None)
+    )
+    watch_url = f"{Config.BASE_URL}/watch/{file_id}"
+    download_url = f"{Config.BASE_URL}/download/{file_id}"
+
+    # Check if Auto-Rename is enabled & user has prefix/suffix configured
+    if u.get("auto_rename") and (u.get("prefix") or u.get("suffix")) and file_size_bytes <= MAX_BOT_FILE_SIZE:
+        name_parts = os.path.splitext(raw_file_name)
+        auto_target = sanitize_filename(f"{u.get('prefix', '')}{name_parts[0]}{u.get('suffix', '')}{name_parts[1] or '.mp4'}")
+        await cache.set(f"rename_name_{user.id}_{message.id}", auto_target, ttl=600)
+        upload_mode = "vid" if u.get("upload_mode", "video") == "video" else "doc"
+        return await run_rename_workflow(client, message, message, user.id, message.id, auto_target, upload_mode, watch_url, download_url)
+
+    # Check if Auto-Compress is enabled for videos
+    if u.get("auto_compress") and is_video and file_size_bytes <= MAX_BOT_FILE_SIZE:
+        from plugins.compressor import run_auto_compress_workflow
+        return await run_auto_compress_workflow(client, message, user.id)
+
     if file_size_bytes > MAX_BOT_FILE_SIZE:
         text = (
-            f"✦ **{to_smallcaps('sᴍᴀʀᴛ ᴍᴇᴅɪᴀ ɪɴsᴘᴇᴄᴛᴏʀ')}** ✦\n\n"
-            f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
-            f"• 📦 **{to_smallcaps('ғɪʟᴇ sɪᴢᴇ')}** : `{file_size}`\n"
-            f"• 🏷️ **{to_smallcaps('ᴍɪᴍᴇ ᴛʏᴘᴇ')}** : `{mime_type}`\n"
-            f"• ⏱️ **{to_smallcaps('ᴅᴜʀᴀᴛɪᴏɴ')}** : `{duration}`\n\n"
-            f"⚠️ **{to_smallcaps('ɴᴏᴛᴇ')}** : {to_smallcaps('ᴛʜɪs ғɪʟᴇ ᴇxᴄᴇᴇᴅs ᴛᴇʟᴇɢʀᴀᴍ 𝟸ɢʙ ᴜᴘʟᴏᴀᴅ ʟɪᴍɪᴛ.')}\n"
-            f"💡 {to_smallcaps('ʏᴏᴜ ᴄᴀɴ ɢᴇɴᴇʀᴀᴛᴇ ᴀɴ ɪɴsᴛᴀɴᴛ sᴜᴘᴇʀ-sᴏɴɪᴄ sᴛʀᴇᴀᴍ & ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ʙᴇʟᴏᴡ:')}"
+            f"✦ **{to_smallcaps('smart media inspector (12 mb/s)')}** ✦\n\n"
+            f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
+            f"• 📦 **{to_smallcaps('file size')}** : `{file_size}`\n"
+            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s Turbo`\n"
+            f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
+            f"• ⏱️ **{to_smallcaps('duration')}** : `{duration}`\n\n"
+            f"⚠️ **{to_smallcaps('note')}** : {to_smallcaps('file exceeds 2gb bot upload limit, but 12 mb/s stream & 4 external players are ready!')}"
             f"{format_watermark()}"
         )
         buttons = [
-            [InlineKeyboardButton(f"⚡ {to_smallcaps('ɢᴇɴᴇʀᴀᴛᴇ sᴛʀᴇᴀᴍ ʟɪɴᴋ')}", callback_data=f"stream_{message.id}")],
-            [InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")]
+            [
+                InlineKeyboardButton(f"🎬 {to_smallcaps('watch (4 players)')}", url=watch_url),
+                InlineKeyboardButton(f"⬇️ {to_smallcaps('12 mb/s download')}", url=download_url)
+            ],
+            [InlineKeyboardButton(f"🗜️ {to_smallcaps('compress < 2gb')}", callback_data=f"compress_menu_{message.id}")],
+            [InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")]
         ]
         return await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), quote=True)
 
-    u = await user_repo.get_user(message.from_user.id)
     has_thumb = "✅" if u and u.get("thumb_id") else "🌐 ᴛʜᴀᴍ_ᴜʀʟ"
-    has_caption = "✅" if u and (u.get("custom_caption") or u.get("captions_list")) else "📄 ᴏʀɪɢɪɴᴀʟ"
+    has_caption = "✅" if u and (u.get("custom_caption") or u.get("captions_list")) else "📄 ᴀᴜᴛᴏ"
+    auto_ren_status = "🟢 ᴏɴ" if u.get("auto_rename") else "⚪ ᴏғғ"
+    auto_comp_status = "🟢 ᴏɴ" if u.get("auto_compress") else "⚪ ᴏғғ"
 
     text = (
-        f"✦ **{to_smallcaps('sᴍᴀʀᴛ ᴍᴇᴅɪᴀ ɪɴsᴘᴇᴄᴛᴏʀ')}** ✦\n\n"
-        f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
-        f"• 📦 **{to_smallcaps('ғɪʟᴇ sɪᴢᴇ')}** : `{file_size}`\n"
-        f"• 🏷️ **{to_smallcaps('ᴍɪᴍᴇ ᴛʏᴘᴇ')}** : `{mime_type}`\n"
-        f"• ⏱️ **{to_smallcaps('ᴅᴜʀᴀᴛɪᴏɴ')}** : `{duration}`\n"
-        f"• 🖼️ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}** : `{has_thumb}`\n"
-        f"• 📝 **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴ')}** : `{has_caption}`\n\n"
-        f"💡 **{to_smallcaps('sᴇʟᴇᴄᴛ ᴀɴ ᴀᴄᴛɪᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴘʀᴏᴄᴇᴇᴅ:')}**"
+        f"✦ **{to_smallcaps('smart media studio & 12 mb/s stream')}** ✦\n\n"
+        f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
+        f"• 📦 **{to_smallcaps('file size')}** : `{file_size}`\n"
+        f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s (PLAYit • MX • VLC • S Player)`\n"
+        f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
+        f"• ⏱️ **{to_smallcaps('duration')}** : `{duration}`\n"
+        f"• 🖼️ **{to_smallcaps('thumbnail')}** : `{has_thumb}` | 📝 **{to_smallcaps('caption')}** : `{has_caption}`\n"
+        f"• 🤖 **{to_smallcaps('auto rename')}** : `{auto_ren_status}` | 🗜️ **{to_smallcaps('auto compress')}** : `{auto_comp_status}`\n\n"
+        f"🔗 **{to_smallcaps('instant 4-player watch link')}** :\n{watch_url}\n\n"
+        f"💡 **{to_smallcaps('select an action below to proceed:')}**"
         f"{format_watermark()}"
     )
 
     buttons = [
         [
-            InlineKeyboardButton(f"✏️ {to_smallcaps('ʀᴇɴᴀᴍᴇ ғɪʟᴇ')}", callback_data=f"rename_{message.id}"),
-            InlineKeyboardButton(f"⚡ {to_smallcaps('sᴛʀᴇᴀᴍ ʟɪɴᴋ')}", callback_data=f"stream_{message.id}")
+            InlineKeyboardButton(f"✏️ {to_smallcaps('rename file')}", callback_data=f"rename_{message.id}"),
+            InlineKeyboardButton(f"⚡ {to_smallcaps('stream details')}", callback_data=f"stream_{message.id}")
+        ],
+        [
+            InlineKeyboardButton(f"🎬 {to_smallcaps('watch (4 players)')}", url=watch_url),
+            InlineKeyboardButton(f"⬇️ {to_smallcaps('12 mb/s download')}", url=download_url)
         ]
     ]
-    row2 = []
+    row3 = []
     if is_video:
-        row2.append(InlineKeyboardButton(f"🗜️ {to_smallcaps('ᴄᴏᴍᴘʀᴇss ᴠɪᴅᴇᴏ')}", callback_data=f"compress_menu_{message.id}"))
-    row2.append(InlineKeyboardButton(f"📊 {to_smallcaps('ᴍᴇᴅɪᴀɪɴғᴏ')}", callback_data=f"pro_mediainfo_{message.id}"))
-    buttons.append(row2)
+        row3.append(InlineKeyboardButton(f"🗜️ {to_smallcaps('compress video')}", callback_data=f"compress_menu_{message.id}"))
+    row3.append(InlineKeyboardButton(f"📊 {to_smallcaps('mediainfo')}", callback_data=f"pro_mediainfo_{message.id}"))
+    buttons.append(row3)
     buttons.append([
-        InlineKeyboardButton(f"🎛️ {to_smallcaps('ғɪʟᴇ ᴘʀᴏ ᴀᴅᴠᴀɴᴄᴇ ғᴇᴀᴛᴜʀᴇs')}", callback_data=f"pro_menu_{message.id}")
+        InlineKeyboardButton(f"🎛️ {to_smallcaps('file pro advance features')}", callback_data=f"pro_menu_{message.id}")
     ])
     buttons.append([
-        InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")
+        InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")
     ])
 
-    await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), quote=True)
+    await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), quote=True, disable_web_page_preview=True)
+
+@Client.on_message(filters.private & filters.command(["autorename", "auto_rename"]))
+async def toggle_autorename_cmd(client: Client, message: Message):
+    user_id = message.from_user.id
+    u = await user_repo.get_or_create(user_id, message.from_user.first_name, message.from_user.username)
+    new_state = not bool(u.get("auto_rename", False))
+    await user_repo.update_user(user_id, {"auto_rename": new_state})
+    state_txt = "🟢 ᴇɴᴀʙʟᴇᴅ" if new_state else "⚪ ᴅɪsᴀʙʟᴇᴅ"
+    await message.reply_text(
+        f"✦ **{to_smallcaps('auto-rename mode')}** ✦\n\n"
+        f"• 🤖 **{to_smallcaps('status')}** : `{state_txt}`\n"
+        f"• 🏷️ **{to_smallcaps('prefix')}** : `{u.get('prefix') or 'None'}`\n"
+        f"• 🏷️ **{to_smallcaps('suffix')}** : `{u.get('suffix') or 'None'}`\n\n"
+        f"💡 {to_smallcaps('when enabled, incoming files are automatically renamed with your prefix/suffix and custom thumbnail + caption!')}"
+        f"{format_watermark()}"
+    )
 
 @Client.on_message(filters.private & filters.command(["setprefix", "prefix"]))
 async def set_prefix_handler(client: Client, message: Message):
     if len(message.command) < 2:
         return await message.reply_text(
-            f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/setprefix <prefix_text>`\n\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/setprefix [MMW] `\n\n"
-            f"💡 {to_smallcaps('ᴛʜɪs ᴘʀᴇғɪx ᴡɪʟʟ ʙᴇ ᴘʀᴇᴘᴇɴᴅᴇᴅ ᴛᴏ ᴇᴠᴇʀʏ ʀᴇɴᴀᴍᴇᴅ ғɪʟᴇ.')}"
+            f"📝 **{to_smallcaps('usage')}** : `/setprefix <prefix_text>`\n\n"
+            f"• **{to_smallcaps('example')}** : `/setprefix [MMW] `\n\n"
+            f"💡 {to_smallcaps('this prefix will be prepended to every renamed file.')}"
             f"{format_watermark()}"
         )
     prefix = message.text.split(None, 1)[1]
     await user_repo.update_user(message.from_user.id, {"prefix": prefix})
     await message.reply_text(
-        f"✅ **{to_smallcaps('ғɪʟᴇ ᴘʀᴇғɪx sᴀᴠᴇᴅ!')}**\n\n"
-        f"• 🏷️ **{to_smallcaps('ɴᴇᴡ ᴘʀᴇғɪx')}** : `{prefix}`"
+        f"✅ **{to_smallcaps('file prefix saved!')}**\n\n"
+        f"• 🏷️ **{to_smallcaps('new prefix')}** : `{prefix}`"
         f"{format_watermark()}"
     )
 
@@ -109,16 +193,16 @@ async def set_prefix_handler(client: Client, message: Message):
 async def set_suffix_handler(client: Client, message: Message):
     if len(message.command) < 2:
         return await message.reply_text(
-            f"📝 **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/setsuffix <suffix_text>`\n\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/setsuffix  @mallumovieworldmain2`\n\n"
-            f"💡 {to_smallcaps('ᴛʜɪs sᴜғғɪx ᴡɪʟʟ ʙᴇ ɪɴsᴇʀᴛᴇᴅ ʙᴇғᴏʀᴇ ᴛʜᴇ ғɪʟᴇ ᴇxᴛᴇɴsɪᴏɴ.')}"
+            f"📝 **{to_smallcaps('usage')}** : `/setsuffix <suffix_text>`\n\n"
+            f"• **{to_smallcaps('example')}** : `/setsuffix @mallumovieworldmain2`\n\n"
+            f"💡 {to_smallcaps('this suffix will be inserted before the file extension.')}"
             f"{format_watermark()}"
         )
     suffix = message.text.split(None, 1)[1]
     await user_repo.update_user(message.from_user.id, {"suffix": suffix})
     await message.reply_text(
-        f"✅ **{to_smallcaps('ғɪʟᴇ sᴜғғɪx sᴀᴠᴇᴅ!')}**\n\n"
-        f"• 🏷️ **{to_smallcaps('ɴᴇᴡ sᴜғғɪx')}** : `{suffix}`"
+        f"✅ **{to_smallcaps('file suffix saved!')}**\n\n"
+        f"• 🏷️ **{to_smallcaps('new suffix')}** : `{suffix}`"
         f"{format_watermark()}"
     )
 
@@ -127,41 +211,39 @@ async def del_prefix_suffix(client: Client, message: Message):
     cmd = message.command[0].lower()
     if "prefix" in cmd:
         await user_repo.update_user(message.from_user.id, {"prefix": None})
-        await message.reply_text(f"🗑️ **{to_smallcaps('ғɪʟᴇ ᴘʀᴇғɪx ʀᴇᴍᴏᴠᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ!')}**{format_watermark()}")
+        await message.reply_text(f"🗑️ **{to_smallcaps('file prefix removed successfully!')}**{format_watermark()}")
     else:
         await user_repo.update_user(message.from_user.id, {"suffix": None})
-        await message.reply_text(f"🗑️ **{to_smallcaps('ғɪʟᴇ sᴜғғɪx ʀᴇᴍᴏᴠᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ!')}**{format_watermark()}")
+        await message.reply_text(f"🗑️ **{to_smallcaps('file suffix removed successfully!')}**{format_watermark()}")
 
 @Client.on_message(filters.private & filters.command("rename"))
 async def rename_cmd_handler(client: Client, message: Message):
     target = message.reply_to_message
     if not target or not target.media:
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ғɪʟᴇ ᴏʀ ᴠɪᴅᴇᴏ ᴛᴏ ʀᴇɴᴀᴍᴇ.')}**\n\n"
-            f"• **{to_smallcaps('ᴜsᴀɢᴇ')}**: `/rename <new_name.ext>`"
+            f"⚠️ **{to_smallcaps('please reply to a file or video to rename.')}**\n\n"
+            f"• **{to_smallcaps('usage')}** : `/rename <new_name.ext>`"
             f"{format_watermark()}"
         )
 
     media = target.document or target.video or target.audio
     if getattr(media, "file_size", 0) > MAX_BOT_FILE_SIZE:
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('ғɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ (> 𝟸ɢʙ)!')}**\n\n"
-            f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ʀᴇsᴛʀɪᴄᴛs ʙᴏᴛ ᴜᴘʟᴏᴀᴅs ᴛᴏ 𝟸ɢʙ. ғɪʟᴇs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 𝟸ɢʙ ᴄᴀɴɴᴏᴛ ʙᴇ ʀᴇɴᴀᴍᴇᴅ.')}\n\n"
-            f"💡 {to_smallcaps('ᴜsᴇ')} `/stream` {to_smallcaps('ᴛᴏ ɢᴇɴᴇʀᴀᴛᴇ ᴀ sᴛʀᴇᴀᴍɪɴɢ ʟɪɴᴋ ɪɴsᴛᴇᴀᴅ!')}"
+            f"⚠️ **{to_smallcaps('file too large (> 2gb)!')}**\n\n"
+            f"💡 {to_smallcaps('use')} `/stream` {to_smallcaps('to generate a 12 mb/s streaming link instead!')}"
             f"{format_watermark()}"
         )
 
     if len(message.command) < 2:
         return await message.reply_text(
-            f"📝 **{to_smallcaps('ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ɴᴇᴡ ғɪʟᴇ ɴᴀᴍᴇ!')}**\n\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/rename sample_video.mp4`"
+            f"📝 **{to_smallcaps('please provide a new file name!')}**\n\n"
+            f"• **{to_smallcaps('example')}** : `/rename sample_video.mp4`"
             f"{format_watermark()}"
         )
 
     raw_input_name = message.text.split(None, 1)[1]
     new_name = sanitize_filename(raw_input_name)
 
-    # Auto-preserve extension if omitted by user
     orig_name = getattr(media, "file_name", "") or ""
     orig_ext = os.path.splitext(orig_name)[1]
     if not os.path.splitext(new_name)[1] and orig_ext:
@@ -175,55 +257,67 @@ async def rename_callback_ask(client: Client, query: CallbackQuery):
     msg_id = int(query.matches[0].group(1))
     original = await client.get_messages(query.message.chat.id, msg_id)
     if not original or not original.media:
-        return await query.answer(to_smallcaps("ᴍᴇᴅɪᴀ ɴᴏᴛ ғᴏᴜɴᴅ!"), show_alert=True)
+        return await query.answer(to_smallcaps("media not found!"), show_alert=True)
 
     media = original.document or original.video or original.audio
     if getattr(media, "file_size", 0) > MAX_BOT_FILE_SIZE:
         return await query.message.edit_text(
-            f"⚠️ **{to_smallcaps('ғɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ (> 𝟸ɢʙ)!')}**\n\n"
-            f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ᴅᴏᴇs ɴᴏᴛ sᴜᴘᴘᴏʀᴛ ᴜᴘʟᴏᴀᴅɪɴɢ ғɪʟᴇs ɢʀᴇᴀᴛᴇʀ ᴛʜᴀɴ 𝟸ɢʙ. ᴄᴀɴɴᴏᴛ ʀᴇɴᴀᴍᴇ.')}\n\n"
-            f"💡 {to_smallcaps('ᴜsᴇ ᴛʜᴇ sᴛʀᴇᴀᴍ ʟɪɴᴋ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴡᴀᴛᴄʜ ᴏʀ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɴᴛʟʏ!')}"
+            f"⚠️ **{to_smallcaps('file too large (> 2gb)!')}**\n\n"
+            f"💡 {to_smallcaps('use the stream link button to watch or download at 12 mb/s!')}"
             f"{format_watermark()}",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"⚡ {to_smallcaps('sᴛʀᴇᴀᴍ ʟɪɴᴋ')}", callback_data=f"stream_{msg_id}")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"⚡ {to_smallcaps('stream link')}", callback_data=f"stream_{msg_id}")]])
         )
 
-    old_name = getattr(media, "file_name", None) or "file.bin"
+    old_name = getattr(media, "file_name", None) or "file.mp4"
 
     await query.message.delete()
     await client.send_message(
         chat_id=query.message.chat.id,
         text=(
-            f"✏️ **{to_smallcaps('ᴇɴᴛᴇʀ ɴᴇᴡ ғɪʟᴇ ɴᴀᴍᴇ')}**\n\n"
-            f"• 📁 **{to_smallcaps('ᴄᴜʀʀᴇɴᴛ')}** : `{old_name}`\n\n"
-            f"💬 {to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴛʜɪs ᴍᴇssᴀɢᴇ ᴏʀ sᴇɴᴅ ʏᴏᴜʀ ɴᴇᴡ ғɪʟᴇɴᴀᴍᴇ.')}\n"
-            f"💡 {to_smallcaps('sᴇɴᴅ')} `/cancel` {to_smallcaps('ᴛᴏ ᴀʙᴏʀᴛ.')}"
+            f"✏️ **{to_smallcaps('enter new file name')}** ✦\n\n"
+            f"• 📁 **{to_smallcaps('current')}** : `{old_name}`\n\n"
+            f"💬 {to_smallcaps('reply to this message or send your new filename.')}\n"
+            f"💡 {to_smallcaps('send')} `/cancel` {to_smallcaps('to abort.')}"
             f"{format_watermark()}"
         ),
-        reply_markup=ForceReply(placeholder=to_smallcaps("ᴇɴᴛᴇʀ ɴᴇᴡ ғɪʟᴇ ɴᴀᴍᴇ..."))
+        reply_markup=ForceReply(placeholder=to_smallcaps("enter new file name..."))
     )
     await cache.set(f"waiting_rename_{query.from_user.id}", msg_id, ttl=300)
 
-@Client.on_message(filters.private & filters.text & ~filters.command(["start", "help", "cancel", "rename", "compress", "stream", "pro", "setprefix", "setsuffix", "delprefix", "delsuffix"]))
+@Client.on_message(filters.private & filters.text & ~filters.command([
+    "start", "help", "about", "status", "settings", "cancel", "rename", "autorename", "auto_rename",
+    "compress", "autocompress", "auto_compress", "stream", "getfile", "file", "revoke", "delfile",
+    "revokestream", "pro", "filepro", "advance", "tools", "setprefix", "prefix", "setsuffix", "suffix",
+    "delprefix", "delsuffix", "setcaption", "set_caption", "addcaption", "add_caption", "caption",
+    "captions", "see_caption", "delcaption", "del_caption", "setthumb", "set_thumb", "thumb",
+    "viewthumb", "view_thumb", "delthumb", "del_thumb", "autodelete", "set_timer", "timer",
+    "session", "admin", "stats", "users", "user", "userinfo", "cache", "database", "dbstats",
+    "logs", "devilmod", "devmode", "dev", "developer", "broadcast", "ban", "unban", "restart",
+    "id", "myid", "info", "whois", "ping", "speedtest", "speed", "mediainfo", "probe", "search",
+    "extractaudio", "extaudio", "extractsub", "extsub", "addaudio", "addsub", "trim", "clean", "purge"
+]))
 async def reply_force_rename_collector(client: Client, message: Message):
-    # Support both explicit ForceReply quotes AND direct text messages from user
-    is_reply_to_force = bool(
-        message.reply_to_message and
-        message.reply_to_message.reply_markup and
-        isinstance(message.reply_to_message.reply_markup, ForceReply)
-    )
+    user_id = message.from_user.id
 
-    msg_id = await cache.get(f"waiting_rename_{message.from_user.id}")
+    # If user is waiting for trim time in file_pro, let file_pro handle it
+    if await cache.get(f"waiting_trim_{user_id}"):
+        from plugins.file_pro import execute_trim_video
+        trim_vid_id = await cache.get(f"waiting_trim_{user_id}")
+        await cache.delete(f"waiting_trim_{user_id}")
+        return await execute_trim_video(client, message, trim_vid_id, message.text.strip())
+
+    # If user is in interactive session generator step, let session.py handle it
+    if await cache.get(f"sess_step_{user_id}"):
+        from plugins.session import handle_session_text_step
+        return await handle_session_text_step(client, message)
+
+    msg_id = await cache.get(f"waiting_rename_{user_id}")
     if not msg_id:
         return
 
-    # If it's not a reply to ForceReply and not waiting, skip
-    if not is_reply_to_force and not msg_id:
-        return
-
-    await cache.delete(f"waiting_rename_{message.from_user.id}")
+    await cache.delete(f"waiting_rename_{user_id}")
     new_name = sanitize_filename(message.text.strip())
 
-    # Auto-preserve extension from original media if not supplied by user
     try:
         orig_msg = await client.get_messages(message.chat.id, msg_id)
         if orig_msg and orig_msg.media:
@@ -232,26 +326,26 @@ async def reply_force_rename_collector(client: Client, message: Message):
             orig_ext = os.path.splitext(orig_file_name)[1]
             if not os.path.splitext(new_name)[1] and orig_ext:
                 new_name = f"{new_name}{orig_ext}"
-    except Exception as e:
-        logger.debug(f"Could not inspect original extension: {e}")
+    except Exception:
+        pass
 
-    await cache.set(f"rename_name_{message.from_user.id}_{msg_id}", new_name, ttl=600)
+    await cache.set(f"rename_name_{user_id}_{msg_id}", new_name, ttl=600)
     await show_rename_options(message, msg_id, new_name)
 
 async def show_rename_options(message: Message, target_id: int, new_name: str):
     btn = [
         [
-            InlineKeyboardButton(f"📁 {to_smallcaps('ᴜᴘʟᴏᴀᴅ ᴀs ᴅᴏᴄᴜᴍᴇɴᴛ')}", callback_data=f"renameto_doc_{target_id}"),
-            InlineKeyboardButton(f"🎬 {to_smallcaps('ᴜᴘʟᴏᴀᴅ ᴀs ᴠɪᴅᴇᴏ')}", callback_data=f"renameto_vid_{target_id}")
+            InlineKeyboardButton(f"📁 {to_smallcaps('upload as document')}", callback_data=f"renameto_doc_{target_id}"),
+            InlineKeyboardButton(f"🎬 {to_smallcaps('upload as video')}", callback_data=f"renameto_vid_{target_id}")
         ],
         [
-            InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")
+            InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")
         ]
     ]
     await message.reply_text(
-        f"✦ **{to_smallcaps('sᴇʟᴇᴄᴛ ᴜᴘʟᴏᴀᴅ ᴛʏᴘᴇ')}** ✦\n\n"
-        f"• 🏷️ **{to_smallcaps('ᴛᴀʀɢᴇᴛ ɴᴀᴍᴇ')}** : `{new_name}`\n\n"
-        f"💡 {to_smallcaps('ᴄʜᴏᴏsᴇ ᴡʜᴇᴛʜᴇʀ ᴛᴏ sᴇɴᴅ ᴛʜᴇ ғɪʟᴇ ᴀs ᴀ sᴛʀᴇᴀᴍᴀʙʟᴇ ᴠɪᴅᴇᴏ ᴏʀ ᴀ ʀᴀᴡ ᴅᴏᴄᴜᴍᴇɴᴛ.')}"
+        f"✦ **{to_smallcaps('select upload type')}** ✦\n\n"
+        f"• 🏷️ **{to_smallcaps('target name')}** : `{new_name}`\n\n"
+        f"💡 {to_smallcaps('choose whether to send the file as a streamable video or a raw document.')}"
         f"{format_watermark()}",
         reply_markup=InlineKeyboardMarkup(btn)
     )
@@ -264,40 +358,49 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
 
     new_name = await cache.get(f"rename_name_{user_id}_{target_id}")
     if not new_name:
-        return await query.answer(to_smallcaps("sᴇssɪᴏɴ ᴇxᴘɪʀᴇᴅ! ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."), show_alert=True)
-
-    status_msg = await query.message.edit_text(f"⏳ **{to_smallcaps('ɪɴɪᴛɪᴀʟɪᴢɪɴɢ ʀᴇɴᴀᴍᴇ ᴡᴏʀᴋғʟᴏᴡ...')}**")
+        return await query.answer(to_smallcaps("session expired! please try again."), show_alert=True)
 
     original_msg = await client.get_messages(query.message.chat.id, target_id)
     if not original_msg or not original_msg.media:
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ɴᴏ ʟᴏɴɢᴇʀ ᴇxɪsᴛs!')}**")
+        return await query.message.edit_text(f"❌ **{to_smallcaps('original media no longer exists!')}**")
+
+    await run_rename_workflow(client, original_msg, query.message, user_id, target_id, new_name, upload_type, is_edit=True)
+
+async def run_rename_workflow(
+    client: Client,
+    original_msg: Message,
+    reply_msg: Message,
+    user_id: int,
+    target_id: int,
+    new_name: str,
+    upload_type: str = "vid",
+    watch_url: str = "",
+    download_url: str = "",
+    is_edit: bool = False
+):
+    status_msg = await (reply_msg.edit_text if is_edit else reply_msg.reply_text)(
+        f"⏳ **{to_smallcaps('initializing fast rename workflow...')}**"
+    )
 
     media = original_msg.document or original_msg.video or original_msg.audio
-    if getattr(media, "file_size", 0) > MAX_BOT_FILE_SIZE:
-        return await status_msg.edit_text(
-            f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ: ғɪʟᴇs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 𝟸ɢʙ ᴄᴀɴɴᴏᴛ ʙᴇ ʀᴇɴᴀᴍᴇᴅ!')}**\n\n"
-            f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ʜᴀs ᴀ sᴛʀɪᴄᴛ 𝟸𝟶𝟶𝟶 ᴍɪʙ (𝟸ɢʙ) ʟɪᴍɪᴛ ғᴏʀ ʙᴏᴛ ᴜᴘʟᴏᴀᴅs.')}"
-            f"{format_watermark()}"
-        )
-
-    # Fetch user prefix/suffix
     u = await user_repo.get_user(user_id)
-    prefix = u.get("prefix") or ""
-    suffix = u.get("suffix") or ""
+    prefix = (u.get("prefix") if u else "") or ""
+    suffix = (u.get("suffix") if u else "") or ""
 
     name_parts = os.path.splitext(new_name)
     base_name = name_parts[0]
     ext = name_parts[1]
-
-    # Auto-preserve extension from original media if missing
     if not ext:
         orig_file_name = getattr(media, "file_name", "") or ""
-        orig_ext = os.path.splitext(orig_file_name)[1]
-        ext = orig_ext
+        ext = os.path.splitext(orig_file_name)[1] or ".mp4"
 
-    final_name = sanitize_filename(f"{prefix}{base_name}{suffix}{ext}")
+    if prefix and not base_name.startswith(prefix):
+        base_name = f"{prefix}{base_name}"
+    if suffix and not base_name.endswith(suffix):
+        base_name = f"{base_name}{suffix}"
 
-    # Isolated directory with random token for unlimited concurrent operations
+    final_name = sanitize_filename(f"{base_name}{ext}")
+
     unique_token = secrets.token_hex(4)
     download_dir = os.path.join(Config.DOWNLOAD_DIR, f"{user_id}_{target_id}_{unique_token}")
     os.makedirs(download_dir, exist_ok=True)
@@ -308,25 +411,15 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
         await original_msg.download(
             file_name=download_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ғɪʟᴇ", status_msg, start_time)
+            progress_args=("📥 downloading file", status_msg, start_time)
         )
     except Exception as e:
-        logger.error(f"Download error in rename for user {user_id}: {e}", exc_info=True)
         clean_temp_files(download_path, download_dir)
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{e}`")
+        return await status_msg.edit_text(f"❌ **{to_smallcaps('download failed')}** : `{e}`")
 
     if not os.path.exists(download_path):
         clean_temp_files(download_dir)
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴀғᴛᴇʀ ᴅᴏᴡɴʟᴏᴀᴅ!')}**")
-
-    file_size_bytes = os.path.getsize(download_path)
-    if file_size_bytes > MAX_BOT_FILE_SIZE:
-        clean_temp_files(download_path, download_dir)
-        return await status_msg.edit_text(
-            f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ: ғɪʟᴇ ᴇxᴄᴇᴇᴅs 𝟸ɢʙ (𝟸𝟶𝟶𝟶 ᴍɪʙ) ʟɪᴍɪᴛ!')}**\n\n"
-            f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ᴅᴏᴇs ɴᴏᴛ ᴀʟʟᴏᴡ ʙᴏᴛs ᴛᴏ ᴜᴘʟᴏᴀᴅ ғɪʟᴇs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 𝟸ɢʙ.')}"
-            f"{format_watermark()}"
-        )
+        return await status_msg.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
 
     attrs = await get_media_attributes(download_path)
     dur = int(attrs.get("duration", 0))
@@ -340,7 +433,6 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
     if not isinstance(thumb_path, str) or not os.path.exists(thumb_path):
         thumb_path = None
 
-    # Deep metadata-driven caption
     orig_caption = original_msg.caption or ""
     final_caption = await extract_and_format_caption(
         user_id=user_id,
@@ -350,7 +442,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
     )
 
     upload_start = time.time()
-    await status_msg.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ʀᴇɴᴀᴍᴇᴅ ғɪʟᴇ...')}**")
+    await status_msg.edit_text(f"📤 **{to_smallcaps('uploading renamed file...')}**")
 
     sent_msg = None
     try:
@@ -359,7 +451,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
             h = int(attrs.get("height", 720)) or 720
             try:
                 sent_msg = await client.send_video(
-                    chat_id=query.message.chat.id,
+                    chat_id=reply_msg.chat.id,
                     video=download_path,
                     caption=final_caption,
                     duration=dur,
@@ -368,40 +460,31 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
                     thumb=thumb_path,
                     supports_streaming=True,
                     progress=progress_for_pyrogram,
-                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status_msg, upload_start)
+                    progress_args=("📤 uploading video", status_msg, upload_start)
                 )
-            except Exception as vid_err:
-                logger.warning(f"send_video failed for {download_path}, falling back to send_document: {vid_err}")
+            except Exception:
                 sent_msg = await client.send_document(
-                    chat_id=query.message.chat.id,
+                    chat_id=reply_msg.chat.id,
                     document=download_path,
                     caption=final_caption,
                     thumb=thumb_path,
                     force_document=True,
                     progress=progress_for_pyrogram,
-                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴅᴏᴄᴜᴍᴇɴᴛ", status_msg, upload_start)
+                    progress_args=("📤 uploading document", status_msg, upload_start)
                 )
         else:
             sent_msg = await client.send_document(
-                chat_id=query.message.chat.id,
+                chat_id=reply_msg.chat.id,
                 document=download_path,
                 caption=final_caption,
                 thumb=thumb_path,
                 force_document=True,
                 progress=progress_for_pyrogram,
-                progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴅᴏᴄᴜᴍᴇɴᴛ", status_msg, upload_start)
+                progress_args=("📤 uploading document", status_msg, upload_start)
             )
     except Exception as e:
-        logger.error(f"Upload error in rename for user {user_id}: {e}", exc_info=True)
         clean_temp_files(download_path, thumb_path, download_dir)
-        err_text = str(e)
-        if "2000" in err_text or "bigger than" in err_text.lower():
-            return await status_msg.edit_text(
-                f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ: ғɪʟᴇ ᴇxᴄᴇᴇᴅs 𝟸ɢʙ (𝟸𝟶𝟶𝟶 ᴍɪʙ) ʟɪᴍɪᴛ!')}**\n\n"
-                f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ᴅᴏᴇs ɴᴏᴛ ᴀʟʟᴏᴡ ʙᴏᴛs ᴛᴏ ᴜᴘʟᴏᴀᴅ ғɪʟᴇs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 𝟸ɢʙ.')}"
-                f"{format_watermark()}"
-            )
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{err_text}`")
+        return await status_msg.edit_text(f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
 
     clean_temp_files(download_path, thumb_path, download_dir)
     try:

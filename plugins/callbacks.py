@@ -1,9 +1,109 @@
 from pyrogram import Client, filters
-from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from config import Config
-from app.database.repositories.user_repo import user_repo
-from app.database.repositories.chat_repo import chat_repo
-from app.utils.font import to_smallcaps, format_watermark
+from plugins.core_db import user_repo, chat_repo, file_repo
+from plugins.core_utils import to_smallcaps, format_watermark
+
+async def render_help_menu(target_msg: Message, user, is_admin: bool, is_edit: bool = True):
+    help_text = (
+        f"✦ **{to_smallcaps('smart help center')}** ✦\n\n"
+        f"👋 **{to_smallcaps('hello')} {user.mention}** !\n"
+        f"{to_smallcaps('explore our categorized guides below for all auto & pro features:')}\n\n"
+        f"• ✏️ **{to_smallcaps('auto & pro renamer')}** : {to_smallcaps('rename, auto-rename, prefix & suffix')}\n"
+        f"• 🗜️ **{to_smallcaps('auto & pro compressor')}** : {to_smallcaps('h.264 presets, auto-compress & target mb')}\n"
+        f"• ⚡ **{to_smallcaps('12 mb/s streamer')}** : {to_smallcaps('4 external players (playit, mx, vlc, s player)')}\n"
+        f"• 📝 **{to_smallcaps('auto captions')}** : {to_smallcaps('dynamic templates & cap[] queue manager')}\n"
+        f"• 🤝 **{to_smallcaps('auto accept')}** : {to_smallcaps('auto-approve channel & group join requests')}\n"
+        f"• 🖼️ **{to_smallcaps('thumbnail')}** : {to_smallcaps('custom photo & tham_url caching')}\n"
+        f"• ⏱️ **{to_smallcaps('auto-delete')}** : {to_smallcaps('timed message sweeper')}\n"
+        f"• 🎛️ **{to_smallcaps('file pro studio')}** : {to_smallcaps('extract/add audio & subs, trim, mediainfo')}\n"
+        f"• 🔑 **{to_smallcaps('session')}** : {to_smallcaps('pyrogram & telethon string session generator')}\n"
+    )
+    if is_admin:
+        help_text += f"• 👑 **{to_smallcaps('admin')}** : {to_smallcaps('broadcast, ban/unban, single db & cache')}\n"
+    help_text += format_watermark()
+
+    buttons = [
+        [
+            InlineKeyboardButton(f"✏️ {to_smallcaps('renamer')}", callback_data="help_renamer"),
+            InlineKeyboardButton(f"🗜️ {to_smallcaps('compressor')}", callback_data="help_compressor")
+        ],
+        [
+            InlineKeyboardButton(f"⚡ {to_smallcaps('12mb/s stream')}", callback_data="help_streamer"),
+            InlineKeyboardButton(f"📝 {to_smallcaps('captions')}", callback_data="help_caption")
+        ],
+        [
+            InlineKeyboardButton(f"🤝 {to_smallcaps('auto accept')}", callback_data="help_accept"),
+            InlineKeyboardButton(f"🖼️ {to_smallcaps('thumbnail')}", callback_data="help_thumbnail")
+        ],
+        [
+            InlineKeyboardButton(f"⏱️ {to_smallcaps('auto-delete')}", callback_data="help_autodelete"),
+            InlineKeyboardButton(f"🎛️ {to_smallcaps('file pro')}", callback_data="help_filepro")
+        ],
+        [
+            InlineKeyboardButton(f"🔑 {to_smallcaps('session')}", callback_data="help_session"),
+            InlineKeyboardButton(f"🛠️ {to_smallcaps('tools & cleaner')}", callback_data="help_tools")
+        ]
+    ]
+    if is_admin:
+        buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('admin control')}", callback_data="help_admin")])
+    buttons.append([InlineKeyboardButton(f"🔙 {to_smallcaps('back to home')}", callback_data="nav_home")])
+
+    if is_edit:
+        await target_msg.edit_text(help_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+    else:
+        await target_msg.reply_text(help_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+
+
+async def render_settings_menu(target_msg: Message, user, is_edit: bool = True):
+    u = await user_repo.get_or_create(user.id, user.first_name, user.username)
+    has_thumb = "✅" if u.get("thumb_id") else "🌐 ᴛʜᴀᴍ_ᴜʀʟ"
+    has_caption = "✅" if (u.get("custom_caption") or u.get("captions_list")) else "📄 ᴀᴜᴛᴏ"
+    timer = u.get("auto_delete_time", 0)
+    timer_str = f"{timer}s" if timer > 0 else to_smallcaps("disabled")
+    prefix_str = u.get("prefix") or to_smallcaps("none")
+    suffix_str = u.get("suffix") or to_smallcaps("none")
+    auto_ren = "🟢 ᴏɴ" if u.get("auto_rename") else "⚪ ᴏғғ"
+    auto_comp = "🟢 ᴏɴ" if u.get("auto_compress") else "⚪ ᴏғғ"
+    up_mode = "🎬 ᴠɪᴅᴇᴏ" if u.get("upload_mode", "video") == "video" else "📁 ᴅᴏᴄ"
+
+    settings_text = (
+        f"✦ **{to_smallcaps('smart settings & auto dashboard')}** ✦\n\n"
+        f"👤 **{to_smallcaps('user')}** : {user.mention} (`{user.id}`)\n\n"
+        f"• 🤖 **{to_smallcaps('auto rename')}** : `{auto_ren}`\n"
+        f"• 🗜️ **{to_smallcaps('auto compress')}** : `{auto_comp}`\n"
+        f"• 📤 **{to_smallcaps('upload mode')}** : `{up_mode}`\n"
+        f"• 🖼️ **{to_smallcaps('custom thumbnail')}** : `{has_thumb}`\n"
+        f"• 📝 **{to_smallcaps('custom caption')}** : `{has_caption}`\n"
+        f"• 🏷️ **{to_smallcaps('file prefix')}** : `{prefix_str}`\n"
+        f"• 🏷️ **{to_smallcaps('file suffix')}** : `{suffix_str}`\n"
+        f"• ⏱️ **{to_smallcaps('auto-delete timer')}** : `{timer_str}`\n\n"
+        f"💡 **{to_smallcaps('click any button below to toggle or configure:')}**"
+        f"{format_watermark()}"
+    )
+    buttons = [
+        [
+            InlineKeyboardButton(f"🤖 {to_smallcaps('auto rename')}: {auto_ren}", callback_data="settings_toggle_autoren"),
+            InlineKeyboardButton(f"🗜️ {to_smallcaps('auto compress')}: {auto_comp}", callback_data="settings_toggle_autocomp")
+        ],
+        [
+            InlineKeyboardButton(f"📤 {to_smallcaps('mode')}: {up_mode}", callback_data="settings_toggle_upmode"),
+            InlineKeyboardButton(f"⏱️ {to_smallcaps('timer settings')}", callback_data="open_timer_menu")
+        ],
+        [
+            InlineKeyboardButton(f"🖼️ {to_smallcaps('view thumb')}", callback_data="settings_view_thumb"),
+            InlineKeyboardButton(f"📝 {to_smallcaps('view caption')}", callback_data="settings_view_caption")
+        ],
+        [
+            InlineKeyboardButton(f"🔄 {to_smallcaps('reset all')}", callback_data="settings_reset_all"),
+            InlineKeyboardButton(f"🔙 {to_smallcaps('back to home')}", callback_data="nav_home")
+        ]
+    ]
+    if is_edit:
+        await target_msg.edit_text(settings_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+    else:
+        await target_msg.reply_text(settings_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+
 
 @Client.on_callback_query(filters.regex(r"^nav_(home|help|about|status|settings)"))
 async def navigation_callbacks(client: Client, query: CallbackQuery):
@@ -13,386 +113,277 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
 
     if action == "home":
         text = (
-            f"✦ **{to_smallcaps('ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ')}** ✦\n\n"
-            f"👋 **{to_smallcaps('ʜᴇʟʟᴏ')} {user.mention}** !\n\n"
-            f"🚀 **{to_smallcaps('ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴜʟᴛʀᴀ-ғᴀsᴛ ᴍᴜʟᴛɪ-ᴘᴜʀᴘᴏsᴇ ᴘʀᴏ ʙᴏᴛ!')}**\n\n"
-            f"💎 **{to_smallcaps('ᴇxᴘᴀɴᴅᴇᴅ ғᴇᴀᴛᴜʀᴇ sᴜɪᴛᴇ')}** :\n"
-            f"• ✏️ **{to_smallcaps('ᴜʟᴛʀᴀ-ғᴀsᴛ ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ʀᴇɴᴀᴍᴇ ᴡɪᴛʜ ᴄᴜsᴛᴏᴍ ᴘʀᴇғɪx, sᴜғғɪx & ᴛʏᴘᴇ')}\n"
-            f"• 🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('sᴜᴘᴇʀ-ғᴀsᴛ ʜ.𝟸𝟼𝟺 ᴄᴏᴍᴘʀᴇssɪᴏɴ & ᴘʀᴇsᴇᴛs')}\n"
-            f"• ⚡ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴇᴇᴋɪɴɢ & ᴘʟʏʀ ᴡᴇʙ ᴘʟᴀʏᴇʀ')}\n"
-            f"• 🖼️ **{to_smallcaps('sᴍᴀʀᴛ ᴛʜᴜᴍʙɴᴀɪʟs')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴘʜᴏᴛᴏ + ᴛʜᴀᴍ_ᴜʀʟ ᴀᴜᴛᴏ-ғᴀʟʟʙᴀᴄᴋ')}\n"
-            f"• 📝 **{to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ғᴜʟʟ ᴛᴇᴍᴘʟᴀᴛɪɴɢ ({filename}, {filesize}, cap[])')}\n"
-            f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ ᴛɪᴍᴇʀ')}** : {to_smallcaps('sᴄʜᴇᴅᴜʟᴇᴅ ʙᴀᴛᴄʜ ᴍᴇssᴀɢᴇ sᴡᴇᴇᴘᴇʀ')}\n"
-            f"• 🤝 **{to_smallcaps('ᴀᴜᴛᴏ-ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴs')}** : {to_smallcaps('ɪɴsᴛᴀɴᴛʟʏ ᴀᴄᴄᴇᴘᴛ ᴄʜᴀɴɴᴇʟ & ɢʀᴏᴜᴘ ʀᴇǫᴜᴇsᴛs')}\n"
-            f"• 🧹 **{to_smallcaps('sᴇʀᴠɪᴄᴇ ᴄʟᴇᴀɴᴇʀ')}** : {to_smallcaps('ᴀᴜᴛᴏ-ᴘᴜʀɢᴇ sᴇʀᴠɪᴄᴇ ɴᴏᴛɪᴄᴇs & ᴍᴀɴᴜᴀʟ ᴄʟᴇᴀɴ')}\n"
-            f"• 🔑 **{to_smallcaps('sᴛʀɪɴɢ sᴇssɪᴏɴ')}** : {to_smallcaps('ɪɴ-ᴍᴇᴍᴏʀʏ ᴘʏʀᴏɢʀᴀᴍ & ᴛᴇʟᴇᴛʜᴏɴ ɢᴇɴᴇʀᴀᴛᴏʀ')}\n"
-            f"• 🛠️ **{to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}** : {to_smallcaps('ɪᴅ, ɪɴғᴏ, ᴘɪɴɢ, sᴘᴇᴇᴅᴛᴇsᴛ & ᴍᴇᴅɪᴀɪɴғᴏ')}\n"
-            f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ')}** : {to_smallcaps('ʟɪᴠᴇ ᴍᴇᴛʀɪᴄs, ʙʀᴏᴀᴅᴄᴀsᴛ & ᴜsᴇʀ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ')}\n\n"
-            f"💡 **{to_smallcaps('ǫᴜɪᴄᴋ sᴛᴀʀᴛ')}** : {to_smallcaps('sᴇɴᴅ ᴏʀ ғᴏʀᴡᴀʀᴅ ᴀɴʏ ғɪʟᴇ ᴏʀ ᴠɪᴅᴇᴏ ᴛᴏ ᴏᴘᴇɴ ᴛʜᴇ sᴍᴀʀᴛ ᴍᴇᴅɪᴀ ᴍᴇɴᴜ!')}"
+            f"✦ **{to_smallcaps('mmw all-in-one pro')}** ✦\n\n"
+            f"👋 **{to_smallcaps('hello')} {user.mention}** !\n\n"
+            f"🚀 **{to_smallcaps('welcome to your ultra-fast multi-purpose pro bot!')}**\n\n"
+            f"💎 **{to_smallcaps('all auto & pro features')}** :\n"
+            f"• ✏️ **{to_smallcaps('auto & pro renamer')}** : {to_smallcaps('rename with custom prefix, suffix & thumb')}\n"
+            f"• 🗜️ **{to_smallcaps('auto & pro compressor')}** : {to_smallcaps('ffmpeg h.264 presets & target size')}\n"
+            f"• ⚡ **{to_smallcaps('12 mb/s fast streamer')}** : {to_smallcaps('http 206 range + 4 external players only (playit, mx, vlc, s player)')}\n"
+            f"• 📝 **{to_smallcaps('auto dynamic captions')}** : {to_smallcaps('full templating ({filename}, {filesize}, cap[])')}\n"
+            f"• 🤝 **{to_smallcaps('auto accept joins')}** : {to_smallcaps('instantly accept channel & group requests')}\n"
+            f"• 🖼️ **{to_smallcaps('smart thumbnails')}** : {to_smallcaps('custom photo + tham_url auto-fallback')}\n"
+            f"• ⏱️ **{to_smallcaps('auto-delete timer')}** : {to_smallcaps('scheduled batch message sweeper')}\n"
+            f"• 🎛️ **{to_smallcaps('file pro studio')}** : {to_smallcaps('mediainfo, extract/add audio & subs, trim')}\n"
+            f"• 🔑 **{to_smallcaps('string session')}** : {to_smallcaps('in-memory pyrogram & telethon generator')}\n"
+            f"• 👑 **{to_smallcaps('admin control')}** : {to_smallcaps('single db, fast cache, broadcast & stats')}\n\n"
+            f"💡 **{to_smallcaps('quick start')}** : {to_smallcaps('send or forward any file or video to start!')}"
             f"{format_watermark()}"
         )
         buttons = [
             [
-                InlineKeyboardButton(f"📖 {to_smallcaps('ʜᴇʟᴘ ɢᴜɪᴅᴇ')}", callback_data="nav_help"),
-                InlineKeyboardButton(f"⚙️ {to_smallcaps('sᴇᴛᴛɪɴɢs')}", callback_data="nav_settings")
+                InlineKeyboardButton(f"📖 {to_smallcaps('help guide')}", callback_data="nav_help"),
+                InlineKeyboardButton(f"⚙️ {to_smallcaps('settings & auto')}", callback_data="nav_settings")
             ],
             [
-                InlineKeyboardButton(f"📊 {to_smallcaps('sʏsᴛᴇᴍ sᴛᴀᴛᴜs')}", callback_data="nav_status"),
-                InlineKeyboardButton(f"ℹ️ {to_smallcaps('ᴀʙᴏᴜᴛ ʙᴏᴛ')}", callback_data="nav_about")
+                InlineKeyboardButton(f"📊 {to_smallcaps('system status')}", callback_data="nav_status"),
+                InlineKeyboardButton(f"ℹ️ {to_smallcaps('about bot')}", callback_data="nav_about")
             ]
         ]
         if is_admin:
-            buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ')}", callback_data="admin_panel_back")])
+            buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('admin control panel')}", callback_data="admin_panel_back")])
         buttons.append([
-            InlineKeyboardButton(f"📢 {to_smallcaps('ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=Config.WATERMARK_URL)
+            InlineKeyboardButton(f"📢 {to_smallcaps('official channel')}", url=Config.WATERMARK_URL)
         ])
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
     elif action == "help":
-        help_text = (
-            f"✦ **{to_smallcaps('sᴍᴀʀᴛ ʜᴇʟᴘ ᴄᴇɴᴛᴇʀ')}** ✦\n\n"
-            f"👋 **{to_smallcaps('ʜᴇʟʟᴏ')} {user.mention}** !\n"
-            f"{to_smallcaps('ᴇxᴘʟᴏʀᴇ ᴏᴜʀ ᴄᴀᴛᴇɢᴏʀɪᴢᴇᴅ ɢᴜɪᴅᴇs ʙᴇʟᴏᴡ ғᴏʀ ᴅᴇᴛᴀɪʟᴇᴅ ɪɴsᴛʀᴜᴄᴛɪᴏɴs ᴀɴᴅ ᴇxᴀᴍᴘʟᴇs:')}\n\n"
-            f"• ✏️ **{to_smallcaps('ʀᴇɴᴀᴍᴇʀ')}** : {to_smallcaps('ғɪʟᴇ ʀᴇɴᴀᴍɪɴɢ, ᴘʀᴇғɪx, sᴜғғɪx, ᴍᴏᴅᴇ ᴄᴏɴᴠᴇʀsɪᴏɴ')}\n"
-            f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : {to_smallcaps('ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛs & ᴄʀғ ᴛᴜɴɪɴɢ')}\n"
-            f"• ⚡ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : {to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ, ʜᴛᴛᴘ 𝟸𝟶𝟼 ʟɪɴᴋs, ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}\n"
-            f"• 🖼️ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}** : {to_smallcaps('ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ ᴘʜᴏᴛᴏs & ᴛʜᴀᴍ_ᴜʀʟ ᴄᴀᴄʜɪɴɢ')}\n"
-            f"• 📝 **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴs')}** : {to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴛᴇᴍᴘʟᴀᴛᴇs & ᴄᴀᴘ[] ǫᴜᴇᴜᴇ ᴍᴀɴᴀɢᴇʀ')}\n"
-            f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ')}** : {to_smallcaps('ᴛɪᴍᴇᴅ ᴍᴇssᴀɢᴇ sᴄʜᴇᴅᴜʟɪɴɢ & ʙᴀᴛᴄʜ ᴄʟᴇᴀɴɪɴɢ')}\n"
-            f"• 🔑 **{to_smallcaps('sᴇssɪᴏɴ')}** : {to_smallcaps('ᴘʏʀᴏɢʀᴀᴍ & ᴛᴇʟᴇᴛʜᴏɴ sᴛʀɪɴɢ sᴇssɪᴏɴ ɢᴇɴᴇʀᴀᴛɪᴏɴ')}\n"
-            f"• 🧹 **{to_smallcaps('ᴄʟᴇᴀɴᴇʀ')}** : {to_smallcaps('ɢʀᴏᴜᴘ sᴇʀᴠɪᴄᴇ ᴍᴇssᴀɢᴇs ᴘᴜʀɢᴇʀ')}\n"
-            f"• 🛠️ **{to_smallcaps('ᴛᴏᴏʟs')}** : {to_smallcaps('ɪᴅ, ɪɴғᴏ, ᴘɪɴɢ, sᴘᴇᴇᴅᴛᴇsᴛ & ᴍᴇᴅɪᴀɪɴғᴏ')}\n"
-        )
-        if is_admin:
-            help_text += f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴ')}** : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ, ʙᴀɴ/ᴜɴʙᴀɴ & sʏsᴛᴇᴍ ʀᴇsᴛᴀʀᴛ')}\n"
-
-        help_text += f"{format_watermark()}"
-
-        buttons = [
-            [
-                InlineKeyboardButton(f"✏️ {to_smallcaps('ʀᴇɴᴀᴍᴇʀ')}", callback_data="help_renamer"),
-                InlineKeyboardButton(f"🗜️ {to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}", callback_data="help_compressor")
-            ],
-            [
-                InlineKeyboardButton(f"⚡ {to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}", callback_data="help_streamer"),
-                InlineKeyboardButton(f"🖼️ {to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ')}", callback_data="help_thumbnail")
-            ],
-            [
-                InlineKeyboardButton(f"📝 {to_smallcaps('ᴄᴀᴘᴛɪᴏɴs')}", callback_data="help_caption"),
-                InlineKeyboardButton(f"⏱️ {to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ')}", callback_data="help_autodelete")
-            ],
-            [
-                InlineKeyboardButton(f"🔑 {to_smallcaps('sᴇssɪᴏɴ')}", callback_data="help_session"),
-                InlineKeyboardButton(f"🧹 {to_smallcaps('ᴄʟᴇᴀɴᴇʀ')}", callback_data="help_cleaner")
-            ],
-            [
-                InlineKeyboardButton(f"🎛️ {to_smallcaps('ғɪʟᴇ ᴘʀᴏ ᴀᴅᴠᴀɴᴄᴇ')}", callback_data="help_filepro"),
-                InlineKeyboardButton(f"🛠️ {to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs')}", callback_data="help_tools")
-            ],
-            [
-                InlineKeyboardButton(f"🌐 {to_smallcaps('ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅ')}", url=f"{Config.BASE_URL}/stats")
-            ]
-        ]
-        if is_admin:
-            buttons.append([InlineKeyboardButton(f"👑 {to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ')}", callback_data="help_admin")])
-        buttons.append([InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")])
-
-        await query.message.edit_text(help_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+        await render_help_menu(query.message, user, is_admin, is_edit=True)
 
     elif action == "about":
         about_text = (
-            f"✦ **{to_smallcaps('ᴀʙᴏᴜᴛ ᴍᴍᴡ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴘʀᴏ')}** ✦\n\n"
-            f"• 🤖 **{to_smallcaps('ʙᴏᴛ ɴᴀᴍᴇ')}** : `MMW All-In-One Pro`\n"
-            f"• 💎 **{to_smallcaps('ᴇᴅɪᴛɪᴏɴ')}** : `v2.5.0 God-Mode Release`\n"
-            f"• 🐍 **{to_smallcaps('ᴇɴɢɪɴᴇ')}** : `Python 3.10+ / Pyrofork (Non-blocking Async)`\n"
-            f"• 🍃 **{to_smallcaps('ᴅᴀᴛᴀʙᴀsᴇ')}** : `MongoDB Motor with Indexing & Connection Pooling`\n"
-            f"• 🎬 **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ')}** : `FastAPI + Plyr.js Engine (Byte-Accurate Range 206)`\n"
-            f"• 🗜️ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ')}** : `FFmpeg with YUV420p & Even-Dimension Enforcement`\n"
-            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Concurrent Standard-Lib Pingers (6s Cycle)`\n"
-            f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Automatic Memory Sweeper & Daily Reboot Alerts`\n"
-            f"• 🛡️ **{to_smallcaps('sᴇᴄᴜʀɪᴛʏ')}** : `Filename Sanitization & In-Memory Session Gen`"
+            f"✦ **{to_smallcaps('about mmw all-in-one pro')}** ✦\n\n"
+            f"• 🤖 **{to_smallcaps('bot name')}** : `MMW All-In-One Pro`\n"
+            f"• 💎 **{to_smallcaps('edition')}** : `v3.0.0 Unified Plugin Architecture`\n"
+            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s ByteStreamer (HTTP 206 Range)`\n"
+            f"• 📱 **{to_smallcaps('external players')}** : `PLAYit, MX Player, VLC, S Player (4 Only)`\n"
+            f"• 🍃 **{to_smallcaps('database')}** : `Single Unified MongoDB + O(1) Memory Cache`\n"
+            f"• 🗜️ **{to_smallcaps('compressor')}** : `FFmpeg YUV420p Even-Dimension Engine`\n"
+            f"• 💓 **{to_smallcaps('keep-alive')}** : `6 Concurrent Pingers (6s Cycle)`"
             f"{format_watermark()}"
         )
-        buttons = [[InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")]]
+        buttons = [[InlineKeyboardButton(f"🔙 {to_smallcaps('back to home')}", callback_data="nav_home")]]
         await query.message.edit_text(about_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
     elif action == "status":
         users_count = await user_repo.get_total_users()
         chats_count = await chat_repo.get_total_chats()
+        files_count = await file_repo.get_total_files()
         status_text = (
-            f"✦ **{to_smallcaps('sʏsᴛᴇᴍ & ʙᴏᴛ sᴛᴀᴛᴜs')}** ✦\n\n"
-            f"• 👥 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴜsᴇʀs')}** : `{users_count}`\n"
-            f"• 📢 **{to_smallcaps('ᴛᴏᴛᴀʟ ᴄʜᴀᴛs')}** : `{chats_count}`\n"
-            f"• ⚡ **{to_smallcaps('ᴄᴀᴄʜɪɴɢ')}** : `FastMemoryCache (TTL Active)`\n"
-            f"• 🌐 **{to_smallcaps('ᴡᴇʙ sᴇʀᴠᴇʀ')}** : `FastAPI Operational on Koyeb`\n"
-            f"• 💓 **{to_smallcaps('ᴋᴇᴇᴘ-ᴀʟɪᴠᴇ')}** : `6 Types Every 6s (Active)`\n"
-            f"• 🔄 **{to_smallcaps('24ʜ ʀᴇsᴛᴀʀᴛ')}** : `Auto-Scheduled (Active)`\n"
-            f"• 🚀 **{to_smallcaps('sᴇʀᴠᴇʀ sᴛᴀᴛᴜs')}** : `Online & Ultra-Fast`"
+            f"✦ **{to_smallcaps('system & bot status')}** ✦\n\n"
+            f"• 👥 **{to_smallcaps('total users')}** : `{users_count}`\n"
+            f"• 📢 **{to_smallcaps('total chats')}** : `{chats_count}`\n"
+            f"• 📁 **{to_smallcaps('indexed files')}** : `{files_count}`\n"
+            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s Turbo`\n"
+            f"• 📱 **{to_smallcaps('4 external players')}** : `PLAYit • MX • VLC • S Player`\n"
+            f"• 🧠 **{to_smallcaps('caching')}** : `O(1) FastMemoryCache Active`\n"
+            f"• 🚀 **{to_smallcaps('server status')}** : `Online & Ultra-Fast`"
             f"{format_watermark()}"
         )
         buttons = [
             [
-                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇғʀᴇsʜ')}", callback_data="nav_status"),
-                InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")
+                InlineKeyboardButton(f"🔄 {to_smallcaps('refresh')}", callback_data="nav_status"),
+                InlineKeyboardButton(f"🔙 {to_smallcaps('back to home')}", callback_data="nav_home")
             ]
         ]
         await query.message.edit_text(status_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
     elif action == "settings":
-        u = await user_repo.get_user(user.id)
-        has_thumb = "✅" if u and u.get("thumb_id") else "❌"
-        has_caption = "✅" if u and (u.get("custom_caption") or u.get("captions_list")) else "❌"
-        timer = u.get("auto_delete_time", 0) if u else 0
-        timer_str = f"{timer}s" if timer > 0 else to_smallcaps("ᴅɪsᴀʙʟᴇᴅ")
-        prefix_str = u.get("prefix") or to_smallcaps("ɴᴏɴᴇ")
-        suffix_str = u.get("suffix") or to_smallcaps("ɴᴏɴᴇ")
-        tham_url_str = u.get("tham_url") or Config.THAM_URL
+        await render_settings_menu(query.message, user, is_edit=True)
 
-        settings_text = (
-            f"✦ **{to_smallcaps('sᴍᴀʀᴛ sᴇᴛᴛɪɴɢs ᴅᴀsʜʙᴏᴀʀᴅ')}** ✦\n\n"
-            f"👤 **{to_smallcaps('ᴜsᴇʀ')}** : {user.mention} (`{user.id}`)\n\n"
-            f"• 🖼️ **{to_smallcaps('ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ')}** : `{has_thumb}`\n"
-            f"• 📝 **{to_smallcaps('ᴄᴜsᴛᴏᴍ ᴄᴀᴘᴛɪᴏɴ')}** : `{has_caption}`\n"
-            f"• 🏷️ **{to_smallcaps('ғɪʟᴇ ᴘʀᴇғɪx')}** : `{prefix_str}`\n"
-            f"• 🏷️ **{to_smallcaps('ғɪʟᴇ sᴜғғɪx')}** : `{suffix_str}`\n"
-            f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ ᴛɪᴍᴇʀ')}** : `{timer_str}`\n"
-            f"• 🔗 **{to_smallcaps('ᴛʜᴀᴍ_ᴜʀʟ ғᴀʟʟʙᴀᴄᴋ')}** : `{tham_url_str}`\n\n"
-            f"💡 **{to_smallcaps('ᴄʟɪᴄᴋ ᴀ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ᴍᴏᴅɪғʏ ᴀɴʏ sᴇᴛᴛɪɴɢ:')}**"
-            f"{format_watermark()}"
-        )
-        buttons = [
-            [
-                InlineKeyboardButton(f"🖼️ {to_smallcaps('ᴠɪᴇᴡ ᴛʜᴜᴍʙ')}", callback_data="settings_view_thumb"),
-                InlineKeyboardButton(f"📝 {to_smallcaps('ᴠɪᴇᴡ ᴄᴀᴘᴛɪᴏɴ')}", callback_data="settings_view_caption")
-            ],
-            [
-                InlineKeyboardButton(f"⏱️ {to_smallcaps('ᴛɪᴍᴇʀ sᴇᴛᴛɪɴɢs')}", callback_data="open_timer_menu"),
-                InlineKeyboardButton(f"🔄 {to_smallcaps('ʀᴇsᴇᴛ ᴀʟʟ')}", callback_data="settings_reset_all")
-            ],
-            [
-                InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ')}", callback_data="nav_home")
-            ]
-        ]
-        await query.message.edit_text(settings_text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
-# Categorized Help Subpages
-@Client.on_callback_query(filters.regex(r"^help_(renamer|compressor|streamer|thumbnail|caption|autodelete|session|cleaner|admin|tools|filepro)"))
+@Client.on_callback_query(filters.regex(r"^help_(renamer|compressor|streamer|thumbnail|caption|autodelete|session|cleaner|admin|tools|filepro|accept)"))
 async def help_subpages(client: Client, query: CallbackQuery):
     cat = query.matches[0].group(1)
     buttons = [
         [
-            InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ ʜᴇʟᴘ')}", callback_data="nav_help"),
-            InlineKeyboardButton(f"🏠 {to_smallcaps('ʜᴏᴍᴇ')}", callback_data="nav_home")
+            InlineKeyboardButton(f"🔙 {to_smallcaps('back to help')}", callback_data="nav_help"),
+            InlineKeyboardButton(f"🏠 {to_smallcaps('home')}", callback_data="nav_home")
         ]
     ]
 
     text = ""
     if cat == "renamer":
         text = (
-            f"✦ **{to_smallcaps('ʀᴇɴᴀᴍᴇʀ — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• ✏️ **{to_smallcaps('ʜᴏᴡ ᴛᴏ ʀᴇɴᴀᴍᴇ ᴀ ғɪʟᴇ')}** :\n"
-            f"  1. {to_smallcaps('sᴇɴᴅ ᴏʀ ғᴏʀᴡᴀʀᴅ ᴀɴʏ ғɪʟᴇ ᴏʀ ᴠɪᴅᴇᴏ ᴛᴏ ᴛʜᴇ ʙᴏᴛ.')}\n"
-            f"  2. {to_smallcaps('ᴄʟɪᴄᴋ')} [✏️ {to_smallcaps('ʀᴇɴᴀᴍᴇ')}] {to_smallcaps('ᴏɴ ᴛʜᴇ ᴍᴇᴅɪᴀ ɪɴғᴏ ᴄᴀʀᴅ.')}\n"
-            f"  3. {to_smallcaps('ᴛʏᴘᴇ ʏᴏᴜʀ ɴᴇᴡ ғɪʟᴇɴᴀᴍᴇ (ɪɴᴄʟᴜᴅɪɴɢ ᴇxᴛᴇɴsɪᴏɴ, ᴇ.ɢ. movie.mkv).')}\n"
-            f"  4. {to_smallcaps('ᴄʜᴏᴏsᴇ ᴡʜᴇᴛʜᴇʀ ᴛᴏ ᴜᴘʟᴏᴀᴅ ᴀs ᴅᴏᴄᴜᴍᴇɴᴛ ᴏʀ sᴛʀᴇᴀᴍᴀʙʟᴇ ᴠɪᴅᴇᴏ.')}\n\n"
-            f"• 🏷️ **{to_smallcaps('ғɪʟᴇ ᴘʀᴇғɪx & sᴜғғɪx')}** :\n"
-            f"  • `/setprefix <text>` : {to_smallcaps('ᴀᴅᴅ ᴛᴇxᴛ ᴛᴏ ᴛʜᴇ sᴛᴀʀᴛ ᴏғ ᴀʟʟ ʀᴇɴᴀᴍᴇᴅ ғɪʟᴇs.')}\n"
-            f"  • `/setsuffix <text>` : {to_smallcaps('ᴀᴅᴅ ᴛᴇxᴛ ʙᴇғᴏʀᴇ ᴛʜᴇ ᴇxᴛᴇɴsɪᴏɴ ᴏɴ ᴀʟʟ ғɪʟᴇs.')}\n"
-            f"  • `/delprefix` : {to_smallcaps('ᴄʟᴇᴀʀ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴘʀᴇғɪx.')}\n"
-            f"  • `/delsuffix` : {to_smallcaps('ᴄʟᴇᴀʀ ʏᴏᴜʀ sᴀᴠᴇᴅ sᴜғғɪx.')}\n\n"
-            f"• 🛡️ **{to_smallcaps('sᴀɴɪᴛɪᴢᴀᴛɪᴏɴ')}** : {to_smallcaps('ᴀʟʟ ɪʟʟᴇɢᴀʟ ғɪʟᴇsʏsᴛᴇᴍ ᴄʜᴀʀᴀᴄᴛᴇʀs ᴀʀᴇ ᴀᴜᴛᴏ-sᴛʀɪᴘᴘᴇᴅ.')}"
+            f"✦ **{to_smallcaps('auto & pro renamer — guide')}** ✦\n\n"
+            f"• ✏️ **{to_smallcaps('manual rename')}** :\n"
+            f"  1. {to_smallcaps('send any file or video and click')} `[✏️ {to_smallcaps('rename')}]`.\n"
+            f"  2. {to_smallcaps('or reply to a file with')} `/rename new_name.mp4`.\n\n"
+            f"• 🤖 **{to_smallcaps('auto-rename mode')}** :\n"
+            f"  • `/autorename` : {to_smallcaps('toggle automatic renaming on/off.')}\n"
+            f"  • `/setprefix <text>` : {to_smallcaps('set prefix for all files.')}\n"
+            f"  • `/setsuffix <text>` : {to_smallcaps('set suffix before extension.')}\n"
+            f"  • `/delprefix` & `/delsuffix` : {to_smallcaps('remove saved prefix/suffix.')}"
             f"{format_watermark()}"
         )
     elif cat == "compressor":
         text = (
-            f"✦ **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴏʀ — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 🗜️ **{to_smallcaps('ʜᴏᴡ ᴛᴏ ᴄᴏᴍᴘʀᴇss ᴀ ᴠɪᴅᴇᴏ')}** :\n"
-            f"  1. {to_smallcaps('sᴇɴᴅ ᴀ ᴠɪᴅᴇᴏ ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/compress`.\n"
-            f"  2. {to_smallcaps('ᴄʜᴏᴏsᴇ ᴀ ᴄᴏᴍᴘʀᴇssɪᴏɴ ǫᴜᴀʟɪᴛʏ ᴘʀᴇsᴇᴛ:')}\n"
-            f"     • 𝟽𝟸𝟶ᴘ ʜᴅ : {to_smallcaps('ʙᴇsᴛ ʙᴀʟᴀɴᴄᴇ ᴏғ ᴄʟᴀʀɪᴛʏ ᴀɴᴅ sɪᴢᴇ sᴀᴠɪɴɢs.')}\n"
-            f"     • 𝟺𝟾𝟶ᴘ sᴅ : {to_smallcaps('sᴜᴘᴇʀ-ғᴀsᴛ ᴇɴᴄᴏᴅɪɴɢ ғᴏʀ ᴍᴏʙɪʟᴇ ᴠɪᴇᴡɪɴɢ.')}\n"
-            f"     • 𝟹𝟼𝟶ᴘ ʟᴏᴡ : {to_smallcaps('ᴍᴀxɪᴍᴜᴍ sɪᴢᴇ ʀᴇᴅᴜᴄᴛɪᴏɴ (ᴜᴘ ᴛᴏ 𝟾𝟶% sᴀᴠᴇᴅ).')}\n"
-            f"     • 𝟷𝟶𝟾𝟶ᴘ ғᴜʟʟ ʜᴅ : {to_smallcaps('ʜɪɢʜ-ʙɪᴛʀᴀᴛᴇ ᴘʀᴇsᴇʀᴠᴀᴛɪᴏɴ ᴡɪᴛʜ ᴄʀғ 𝟸𝟺.')}\n\n"
-            f"• ⚙️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴛᴇᴄʜɴɪᴄᴀʟ ɢᴜᴀʀᴀɴᴛᴇᴇs')}** :\n"
-            f"  • {to_smallcaps('ᴇɴғᴏʀᴄᴇs yuv420p ᴘɪxᴇʟ ғᴏʀᴍᴀᴛ ғᴏʀ 𝟷𝟶𝟶% ᴘʟᴀʏᴇʀ ᴄᴏᴍᴘᴀᴛɪʙɪʟɪᴛʏ.')}\n"
-            f"  • {to_smallcaps('ᴀᴜᴛᴏ-sᴄᴀʟᴇs ᴛᴏ ᴇᴠᴇɴ ᴅɪᴍᴇɴsɪᴏɴs ᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴇɴᴄᴏᴅᴇʀ ᴄʀᴀsʜᴇs.')}\n"
-            f"  • {to_smallcaps('ᴘʀᴇsᴇʀᴠᴇs ᴀᴜᴅɪᴏ ᴛʀᴀᴄᴋs ᴀɴᴅ sᴜʙᴛɪᴛʟᴇs.')}"
+            f"✦ **{to_smallcaps('auto & pro compressor — guide')}** ✦\n\n"
+            f"• 🗜️ **{to_smallcaps('manual compression')}** :\n"
+            f"  • {to_smallcaps('send a video or reply with')} `/compress` {to_smallcaps('or')} `/compress 100MB`.\n"
+            f"  • {to_smallcaps('choose 720p, 480p, 360p, 1080p, crf 24, crf 20, or target size.')}\n\n"
+            f"• 🤖 **{to_smallcaps('auto-compress mode')}** :\n"
+            f"  • `/autocompress` : {to_smallcaps('toggle automatic 720p hd superfast compression.')}"
             f"{format_watermark()}"
         )
     elif cat == "streamer":
         text = (
-            f"✦ **{to_smallcaps('sᴛʀᴇᴀᴍᴇʀ — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• ⚡ **{to_smallcaps('ʜᴏᴡ ᴛᴏ ɢᴇɴᴇʀᴀᴛᴇ ᴀ sᴛʀᴇᴀᴍ ʟɪɴᴋ')}** :\n"
-            f"  1. {to_smallcaps('sᴇɴᴅ ᴀɴʏ ғɪʟᴇ ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ғɪʟᴇ ᴡɪᴛʜ')} `/stream`.\n"
-            f"  2. {to_smallcaps('ᴛʜᴇ ʙᴏᴛ ɪɴsᴛᴀɴᴛʟʏ ɢᴇɴᴇʀᴀᴛᴇs ʜɪɢʜ-sᴘᴇᴇᴅ ᴡᴇʙ & sᴛʀᴇᴀᴍɪɴɢ ʟɪɴᴋs.')}\n\n"
-            f"• 🎬 **{to_smallcaps('ᴡᴇʙ ᴘʟᴀʏᴇʀ ғᴇᴀᴛᴜʀᴇs')}** :\n"
-            f"  • {to_smallcaps('ᴘʟʏʀ ᴠ𝟹 ᴘʟᴀʏᴇʀ ᴡɪᴛʜ sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟs, ᴘɪᴘ & ғᴜʟʟsᴄʀᴇᴇɴ.')}\n"
-            f"  • {to_smallcaps('ʙʏᴛᴇ-ᴀᴄᴄᴜʀᴀᴛᴇ ʜᴛᴛᴘ 𝟸𝟶𝟼 ʀᴀɴɢᴇ sᴇᴇᴋɪɴɢ (ɴᴏ ʟᴀɢ/ʙᴜғғᴇʀɪɴɢ).')}\n\n"
-            f"• 📱 **{to_smallcaps('ᴏɴᴇ-ᴄʟɪᴄᴋ ᴀɴᴅʀᴏɪᴅ ᴀᴘᴘ ɪɴᴛᴇɴᴛs')}** :\n"
-            f"  • ᴍx ᴘʟᴀʏᴇʀ, ᴠʟᴄ, ᴘʟᴀʏɪᴛ, ᴋᴍᴘʟᴀʏᴇʀ & ᴊᴜsᴛᴘʟᴀʏᴇʀ."
+            f"✦ **{to_smallcaps('12 mb/s streamer & 4 players — guide')}** ✦\n\n"
+            f"• ⚡ **{to_smallcaps('12 mb/s stream response')}** :\n"
+            f"  • {to_smallcaps('every file gets an instant 12 mb/s http 206 range stream & download link.')}\n"
+            f"  • {to_smallcaps('or reply to any file with')} `/stream`.\n\n"
+            f"• 📱 **{to_smallcaps('4 external players supported only')}** :\n"
+            f"  `1.` ▶️ **PLAYit**\n"
+            f"  `2.` 🎬 **MX Player**\n"
+            f"  `3.` 🔊 **VLC Player**\n"
+            f"  `4.` 🚀 **S Player**\n\n"
+            f"• 📥 `/getfile <id>` : {to_smallcaps('retrieve file in telegram.')}\n"
+            f"• 🗑️ `/revoke <id>` : {to_smallcaps('disable stream link anytime.')}"
+            f"{format_watermark()}"
+        )
+    elif cat == "accept":
+        text = (
+            f"✦ **{to_smallcaps('auto-accept join requests — guide')}** ✦\n\n"
+            f"• 🤝 **{to_smallcaps('automatic join approval')}** :\n"
+            f"  • {to_smallcaps('add the bot as admin to your channel or group with invite users permission.')}\n"
+            f"  • {to_smallcaps('the bot automatically accepts all incoming join requests and sends a stylish welcome message!')}\n\n"
+            f"• ⚙️ **{to_smallcaps('commands')}** :\n"
+            f"  • `/accept` {to_smallcaps('or')} `/autoapprove` : {to_smallcaps('toggle auto-accept on/off.')}"
             f"{format_watermark()}"
         )
     elif cat == "thumbnail":
         text = (
-            f"✦ **{to_smallcaps('ᴛʜᴜᴍʙɴᴀɪʟ — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 🖼️ **{to_smallcaps('sᴇᴛᴛɪɴɢ ʏᴏᴜʀ ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴘʜᴏᴛᴏ ᴡɪᴛʜ')} `/setthumb`.\n"
-            f"  • {to_smallcaps('ᴏʀ ᴘᴀss ᴀ ᴅɪʀᴇᴄᴛ ɪᴍᴀɢᴇ ᴜʀʟ')}: `/setthumb <image_url>`.\n\n"
-            f"• 👁️ **{to_smallcaps('ᴠɪᴇᴡ ʏᴏᴜʀ ᴛʜᴜᴍʙɴᴀɪʟ')}** : `/thumb`\n"
-            f"• 🗑️ **{to_smallcaps('ᴅᴇʟᴇᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ')}** : `/delthumb`\n\n"
-            f"• ⚡ **{to_smallcaps('sᴍᴀʀᴛ ғᴀʟʟʙᴀᴄᴋ ᴄᴀᴄʜᴇ')}** :\n"
-            f"  {to_smallcaps('ɪғ ɴᴏ ᴄᴜsᴛᴏᴍ ᴘʜᴏᴛᴏ ɪs sᴇᴛ, ᴛʜᴇ ʙᴏᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴀᴘᴘʟɪᴇs ʏᴏᴜʀ')} `THAM_URL` {to_smallcaps('ᴡɪᴛʜ ʟᴏᴄᴀʟ ᴅɪsᴋ ᴄᴀᴄʜɪɴɢ.')}"
+            f"✦ **{to_smallcaps('smart thumbnail — guide')}** ✦\n\n"
+            f"• 🖼️ **{to_smallcaps('commands')}** :\n"
+            f"  • {to_smallcaps('send any photo or reply to a photo with')} `/setthumb`.\n"
+            f"  • `/setthumb <url>` : {to_smallcaps('set direct image url fallback.')}\n"
+            f"  • `/thumb` : {to_smallcaps('view active thumbnail.')}\n"
+            f"  • `/delthumb` : {to_smallcaps('delete custom thumbnail.')}"
             f"{format_watermark()}"
         )
     elif cat == "caption":
         text = (
-            f"✦ **{to_smallcaps('ᴄᴀᴘᴛɪᴏɴs — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 📝 **{to_smallcaps('sᴇᴛ ᴄᴜsᴛᴏᴍ ᴄᴀᴘᴛɪᴏɴ ᴛᴇᴍᴘʟᴀᴛᴇ')}** :\n"
-            f"  `/setcaption <template>`\n\n"
-            f"• 🏷️ **{to_smallcaps('ᴀᴠᴀɪʟᴀʙʟᴇ ᴅʏɴᴀᴍɪᴄ ᴛᴀɢs')}** :\n"
-            f"  • `{'{filename}'}` : {to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}\n"
-            f"  • `{'{filesize}'}` : {to_smallcaps('ғɪʟᴇ sɪᴢᴇ')}\n"
-            f"  • `{'{duration}'}` : {to_smallcaps('ᴠɪᴅᴇᴏ ʟᴇɴɢᴛʜ')}\n"
-            f"  • `{'{ext}'}` : {to_smallcaps('ғɪʟᴇ ᴇxᴛᴇɴsɪᴏɴ')}\n"
-            f"  • `{'{original_caption}'}` : {to_smallcaps('ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ᴄᴀᴘᴛɪᴏɴ')}\n"
-            f"  • `{'{date}'}` : {to_smallcaps('ᴜᴛᴄ ᴛɪᴍᴇsᴛᴀᴍᴘ')}\n\n"
-            f"• 📚 **{to_smallcaps('ᴅʏɴᴀᴍɪᴄ ᴄᴀᴘᴛɪᴏɴs ʟɪsᴛ (ᴄᴀᴘ[])')}** :\n"
-            f"  • `/addcaption <template>` : {to_smallcaps('ᴀᴅᴅ ᴛᴏ ᴍᴜʟᴛɪ-ᴄᴀᴘᴛɪᴏɴ ǫᴜᴇᴜᴇ.')}\n"
-            f"  • `/caption` : {to_smallcaps('ᴠɪᴇᴡ ᴀʟʟ ᴀᴄᴛɪᴠᴇ ᴀɴᴅ sᴀᴠᴇᴅ ᴄᴀᴘᴛɪᴏɴs.')}\n"
-            f"  • `/delcaption` : {to_smallcaps('ʀᴇsᴇᴛ ᴄᴀᴘᴛɪᴏɴs ᴛᴏ ᴅᴇғᴀᴜʟᴛ.')}"
+            f"✦ **{to_smallcaps('auto dynamic captions — guide')}** ✦\n\n"
+            f"• 📝 **{to_smallcaps('commands')}** :\n"
+            f"  • `/setcaption <template>` : {to_smallcaps('set custom caption template.')}\n"
+            f"  • `/addcaption <template>` : {to_smallcaps('add to cap[] queue.')}\n"
+            f"  • `/caption` : {to_smallcaps('view active caption & queue.')}\n"
+            f"  • `/delcaption` : {to_smallcaps('reset to default.')}\n\n"
+            f"• 🏷️ **{to_smallcaps('variables')}** : `{filename}`, `{filesize}`, `{duration}`, `{language}`, `{audio_track}`, `{ext}`"
             f"{format_watermark()}"
         )
     elif cat == "autodelete":
         text = (
-            f"✦ **{to_smallcaps('ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ — ᴄᴏᴍᴘʟᴇᴛᴇ ᴜsᴀɢᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• ⏱️ **{to_smallcaps('ᴀᴜᴛᴏᴍᴀᴛɪᴄ ᴍᴇssᴀɢᴇ ᴘᴜʀɢɪɴɢ')}** :\n"
-            f"  {to_smallcaps('ᴘʀᴏᴛᴇᴄᴛ ʏᴏᴜʀ ᴄᴏɴᴛᴇɴᴛ ʙʏ ᴀᴜᴛᴏ-ᴅᴇʟᴇᴛɪɴɢ ʙᴏᴛ ᴏᴜᴛᴘᴜᴛ ғɪʟᴇs ᴀғᴛᴇʀ ᴀ sᴇᴛ ᴅᴜʀᴀᴛɪᴏɴ.')}\n\n"
-            f"• ⚙️ **{to_smallcaps('ᴄᴏᴍᴍᴀɴᴅ ᴜsᴀɢᴇ')}** :\n"
-            f"  • `/autodelete` : {to_smallcaps('ᴏᴘᴇɴ ɪɴᴛᴇʀᴀᴄᴛɪᴠᴇ ᴛɪᴍᴇʀ sᴇʟᴇᴄᴛɪᴏɴ ᴍᴇɴᴜ.')}\n"
-            f"  • `/autodelete <seconds>` : {to_smallcaps('sᴇᴛ ᴀ ᴄᴜsᴛᴏᴍ ᴅᴜʀᴀᴛɪᴏɴ (ᴇ.ɢ. 𝟼𝟶𝟶 ғᴏʀ 𝟷𝟶 ᴍɪɴ).')}\n\n"
-            f"• 🛡️ **{to_smallcaps('sᴀғᴇ ʙᴀᴛᴄʜ sᴡᴇᴇᴘɪɴɢ')}** :\n"
-            f"  {to_smallcaps('ᴇxᴘɪʀᴇᴅ ᴍᴇssᴀɢᴇs ᴀʀᴇ ᴘᴜʀɢᴇᴅ ɪɴ ʙᴀᴛᴄʜᴇs ᴏғ ᴜᴘ ᴛᴏ 𝟷𝟶𝟶 ᴛᴏ ᴘʀᴇᴠᴇɴᴛ floodwait.')}"
+            f"✦ **{to_smallcaps('auto-delete timer — guide')}** ✦\n\n"
+            f"• ⏱️ `/autodelete` : {to_smallcaps('open interactive timer menu.')}\n"
+            f"• ⏱️ `/autodelete <seconds>` : {to_smallcaps('set custom auto-delete delay.')}"
             f"{format_watermark()}"
         )
     elif cat == "session":
         text = (
-            f"✦ **{to_smallcaps('sᴛʀɪɴɢ sᴇssɪᴏɴ — ᴄᴏᴍᴘʟᴇᴛᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 🔑 **{to_smallcaps('ɢᴇɴᴇʀᴀᴛᴇ ᴛᴇʟᴇɢʀᴀᴍ sᴇssɪᴏɴ')}** :\n"
-            f"  • {to_smallcaps('sᴜᴘᴘᴏʀᴛs ʙᴏᴛʜ')} **Pyrogram / Pyrofork** {to_smallcaps('ᴀɴᴅ')} **Telethon**.\n"
-            f"  • {to_smallcaps('ɢᴇɴᴇʀᴀᴛᴇᴅ 𝟷𝟶𝟶% ɪɴ-ᴍᴇᴍᴏʀʏ (ɴᴏ sᴇssɪᴏɴ ғɪʟᴇs ᴡʀɪᴛᴛᴇɴ ᴛᴏ ᴅɪsᴋ).')}\n"
-            f"  • {to_smallcaps('ғᴜʟʟ ᴛᴡᴏ-ғᴀᴄᴛᴏʀ ᴀᴜᴛʜᴇɴᴛɪᴄᴀᴛɪᴏɴ (𝟸ғᴀ) sᴜᴘᴘᴏʀᴛ.')}\n\n"
-            f"• 🚀 **{to_smallcaps('ʜᴏᴡ ᴛᴏ sᴛᴀʀᴛ')}** :\n"
-            f"  {to_smallcaps('ᴜsᴇ')} `/session` {to_smallcaps('ᴀɴᴅ ғᴏʟʟᴏᴡ ᴛʜᴇ ɪɴᴛᴇʀᴀᴄᴛɪᴠᴇ sᴛᴇᴘ-ʙʏ-sᴛᴇᴘ ᴘʀᴏᴍᴘᴛs.')}\n\n"
-            f"• 🔒 **{to_smallcaps('sᴇᴄᴜʀɪᴛʏ ᴡᴀʀɴɪɴɢ')}** :\n"
-            f"  {to_smallcaps('ɴᴇᴠᴇʀ sʜᴀʀᴇ ʏᴏᴜʀ sᴇssɪᴏɴ sᴛʀɪɴɢ ᴡɪᴛʜ ᴀɴʏᴏɴᴇ! ᴛʜᴇ ʙᴏᴛ sᴇɴᴅs ʏᴏᴜʀ sᴇssɪᴏɴ ᴅɪʀᴇᴄᴛʟʏ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs.')}"
-            f"{format_watermark()}"
-        )
-    elif cat == "cleaner":
-        text = (
-            f"✦ **{to_smallcaps('sᴇʀᴠɪᴄᴇ ᴄʟᴇᴀɴᴇʀ — ᴄᴏᴍᴘʟᴇᴛᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 🧹 **{to_smallcaps('ᴀᴜᴛᴏᴍᴀᴛɪᴄ sᴇʀᴠɪᴄᴇ ᴄʟᴇᴀɴᴇʀ')}** :\n"
-            f"  {to_smallcaps('ᴀᴅᴅ ᴛʜᴇ ʙᴏᴛ ᴀs ᴀɴ ᴀᴅᴍɪɴ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴛᴏ ɪɴsᴛᴀɴᴛʟʏ ᴅᴇʟᴇᴛᴇ:')}\n"
-            f"  • {to_smallcaps('ɴᴇᴡ ᴍᴇᴍʙᴇʀ ᴊᴏɪɴᴇᴅ ɴᴏᴛɪᴄᴇs')}\n"
-            f"  • {to_smallcaps('ᴍᴇᴍʙᴇʀ ʟᴇғᴛ ɴᴏᴛɪᴄᴇs')}\n"
-            f"  • {to_smallcaps('ᴘɪɴɴᴇᴅ ᴍᴇssᴀɢᴇ ɴᴏᴛɪᴄᴇs')}\n"
-            f"  • {to_smallcaps('ᴄʜᴀᴛ ᴛɪᴛʟᴇ & ᴘʜᴏᴛᴏ ᴜᴘᴅᴀᴛᴇ ɴᴏᴛɪᴄᴇs')}\n\n"
-            f"• 🗑️ **{to_smallcaps('ᴍᴀɴᴜᴀʟ ᴘᴜʀɢᴇ')}** :\n"
-            f"  • `/clean <count>` : {to_smallcaps('ᴘᴜʀɢᴇ ʀᴇᴄᴇɴᴛ ᴍᴇssᴀɢᴇs (ᴜᴘ ᴛᴏ 𝟷𝟶𝟶).')}"
+            f"✦ **{to_smallcaps('string session generator — guide')}** ✦\n\n"
+            f"• 🔑 `/session` : {to_smallcaps('interactive step-by-step pyrogram & telethon string session generator in telegram.')}"
             f"{format_watermark()}"
         )
     elif cat == "filepro":
         text = (
-            f"✦ **{to_smallcaps('ғɪʟᴇ ᴘʀᴏ ᴀᴅᴠᴀɴᴄᴇ ғᴇᴀᴛᴜʀᴇs — ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 📊 **{to_smallcaps('ᴍᴇᴅɪᴀɪɴғᴏ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇᴅɪᴀ ᴡɪᴛʜ')} `/mediainfo` {to_smallcaps('ᴛᴏ ɪɴsᴘᴇᴄᴛ ᴄᴏɴᴛᴀɪɴᴇʀ, ᴠɪᴅᴇᴏ, ᴀᴜᴅɪᴏ, ᴀɴᴅ sᴜʙᴛɪᴛʟᴇ sᴛʀᴇᴀᴍs.')}\n\n"
-            f"• 🎵 **{to_smallcaps('ᴇxᴛʀᴀᴄᴛ ᴀʟʟ ᴀᴜᴅɪᴏ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/extractaudio` {to_smallcaps('ᴛᴏ ᴇxᴛʀᴀᴄᴛ ᴇᴠᴇʀʏ ᴀᴜᴅɪᴏ ᴛʀᴀᴄᴋ (ᴍᴘ𝟹/ᴍ𝟺ᴀ) sᴇᴘᴀʀᴀᴛᴇʟʏ.')}\n\n"
-            f"• 💬 **{to_smallcaps('ᴇxᴛʀᴀᴄᴛ ᴀʟʟ sᴜʙᴛɪᴛʟᴇ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/extractsub` {to_smallcaps('ᴛᴏ ᴇxᴛʀᴀᴄᴛ ᴇᴠᴇʀʏ sᴜʙᴛɪᴛʟᴇ ᴛʀᴀᴄᴋ (.sʀᴛ/.ᴀss) ᴡɪᴛʜ ʟᴀɴɢᴜᴀɢᴇ ᴛᴀɢs.')}\n\n"
-            f"• ➕🎵 **{to_smallcaps('ᴀᴅᴅ ᴀᴜᴅɪᴏ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/addaudio` {to_smallcaps('ᴛᴏ ᴍᴜx ᴀ ɴᴇᴡ ᴀᴜᴅɪᴏ ᴛʀᴀᴄᴋ ᴏʀ ʀᴇᴘʟᴀᴄᴇ ᴇxɪsᴛɪɴɢ ᴀᴜᴅɪᴏ.')}\n\n"
-            f"• ➕💬 **{to_smallcaps('ᴀᴅᴅ sᴜʙᴛɪᴛʟᴇ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/addsub` {to_smallcaps('ᴛᴏ sᴏғᴛ-ᴍᴜx ᴀ .sʀᴛ ᴏʀ .ᴀss sᴜʙᴛɪᴛʟᴇ ғɪʟᴇ ɪɴᴛᴏ ᴛʜᴇ ᴠɪᴅᴇᴏ.')}\n\n"
-            f"• ✂️ **{to_smallcaps('ᴛʀɪᴍ ᴠɪᴅᴇᴏ')}** :\n"
-            f"  • {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴡɪᴛʜ')} `/trim` {to_smallcaps('ᴛᴏ ᴄᴜᴛ ᴀ sᴇɢᴍᴇɴᴛ (ᴇ.ɢ. 00:01:30 00:05:00) ᴡɪᴛʜ ғᴀsᴛ sᴛʀᴇᴀᴍ ᴄᴏᴘʏ.')}"
+            f"✦ **{to_smallcaps('file pro studio — guide')}** ✦\n\n"
+            f"• 📊 `/mediainfo` : {to_smallcaps('inspect full container, video, audio & subtitle streams.')}\n"
+            f"• 🎵 `/extractaudio` : {to_smallcaps('extract all audio tracks separately.')}\n"
+            f"• 💬 `/extractsub` : {to_smallcaps('extract all subtitle tracks (.srt/.ass).')}\n"
+            f"• ➕🎵 `/addaudio` : {to_smallcaps('mux or replace audio track in video.')}\n"
+            f"• ➕💬 `/addsub` : {to_smallcaps('soft-mux subtitle file into video.')}\n"
+            f"• ✂️ `/trim` : {to_smallcaps('trim video segment by start & end time.')}"
             f"{format_watermark()}"
         )
-    elif cat == "tools":
+    elif cat in ["tools", "cleaner"]:
         text = (
-            f"✦ **{to_smallcaps('ᴛᴏᴏʟs & ᴇxᴛʀᴀs — ᴄᴏᴍᴘʟᴇᴛᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 🆔 **{to_smallcaps('ᴜsᴇʀ & ᴄʜᴀᴛ ɪᴅ')}** :\n"
-            f"  • `/id` : {to_smallcaps('ᴠɪᴇᴡ ʏᴏᴜʀ ᴜsᴇʀ ɪᴅ, ᴅᴀᴛᴀᴄᴇɴᴛᴇʀ (ᴅᴄ), ᴄʜᴀᴛ ɪᴅ & ᴍᴇssᴀɢᴇ ɪᴅ.')}\n"
-            f"  • `/info` : {to_smallcaps('ᴠɪᴇᴡ ᴅᴇᴛᴀɪʟᴇᴅ ᴘʀᴏғɪʟᴇ ᴄᴀʀᴅ ᴏғ ᴀɴʏ ᴜsᴇʀ.')}\n\n"
-            f"• ⚡ **{to_smallcaps('ʟᴀᴛᴇɴᴄʏ & sᴘᴇᴇᴅ')}** :\n"
-            f"  • `/ping` : {to_smallcaps('ᴍᴇᴀsᴜʀᴇ ʀᴇᴀʟ-ᴛɪᴍᴇ ʙᴏᴛ ʀᴇsᴘᴏɴsᴇ ʟᴀᴛᴇɴᴄʏ ᴀɴᴅ ᴜᴘᴛɪᴍᴇ.')}\n"
-            f"  • `/speedtest` : {to_smallcaps('ʀᴜɴ ɴᴇᴛᴡᴏʀᴋ ʙᴀɴᴅᴡɪᴅᴛʜ sᴘᴇᴇᴅᴛᴇsᴛ.')}\n\n"
-            f"• 🔍 **{to_smallcaps('ғғᴘʀᴏʙᴇ ᴍᴇᴅɪᴀɪɴғᴏ')}** :\n"
-            f"  • `/mediainfo` : {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴠɪᴅᴇᴏ/ᴀᴜᴅɪᴏ ᴛᴏ ɪɴsᴘᴇᴄᴛ ᴄᴏᴅᴇᴄs, ʙɪᴛʀᴀᴛᴇ, ʀᴇsᴏʟᴜᴛɪᴏɴ & ᴛʀᴀᴄᴋs.')}\n\n"
-            f"• 🔎 **{to_smallcaps('ғɪʟᴇ sᴇᴀʀᴄʜ')}** :\n"
-            f"  • `/search <keyword>` : {to_smallcaps('sᴇᴀʀᴄʜ ɪɴᴅᴇxᴇᴅ sᴛʀᴇᴀᴍ ғɪʟᴇs.')}\n\n"
-            f"• ❌ **{to_smallcaps('ᴜɴɪᴠᴇʀsᴀʟ ᴄᴀɴᴄᴇʟ')}** :\n"
-            f"  • `/cancel` : {to_smallcaps('ᴀʙᴏʀᴛ ᴀɴʏ ᴘᴇɴᴅɪɴɢ ᴏᴘᴇʀᴀᴛɪᴏɴ ᴏʀ ɪɴᴘᴜᴛ ᴘʀᴏᴍᴘᴛ.')}"
+            f"✦ **{to_smallcaps('tools & service cleaner — guide')}** ✦\n\n"
+            f"• 🆔 `/id` & `/info` : {to_smallcaps('user & chat id inspector.')}\n"
+            f"• ⚡ `/ping` & `/speedtest` : {to_smallcaps('server latency & network check.')}\n"
+            f"• 🔎 `/search <query>` : {to_smallcaps('search indexed stream files.')}\n"
+            f"• 🧹 `/clean <count>` : {to_smallcaps('purge group messages & auto-delete service notices.')}\n"
+            f"• ❌ `/cancel` : {to_smallcaps('cancel active tasks & prompts.')}"
             f"{format_watermark()}"
         )
     elif cat == "admin":
         text = (
-            f"✦ **{to_smallcaps('ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ — ᴄᴏᴍᴘʟᴇᴛᴇ ɢᴜɪᴅᴇ')}** ✦\n\n"
-            f"• 👑 **{to_smallcaps('ᴀᴅᴍɪɴɪsᴛʀᴀᴛɪᴠᴇ ᴄᴏᴍᴍᴀɴᴅs')}** :\n"
-            f"  • `/admin` : {to_smallcaps('ᴏᴘᴇɴ ᴀᴅᴍɪɴ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ ᴡɪᴛʜ ʟɪᴠᴇ ᴍᴇᴛʀɪᴄs.')}\n"
-            f"  • `/broadcast` : {to_smallcaps('ʙʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇs ᴛᴏ ᴀʟʟ ʀᴇɢɪsᴛᴇʀᴇᴅ ᴜsᴇʀs.')}\n"
-            f"  • `/ban <user_id>` : {to_smallcaps('ʙᴀɴ ᴀ ᴜsᴇʀ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜᴇ ʙᴏᴛ.')}\n"
-            f"  • `/unban <user_id>` : {to_smallcaps('ᴜɴʙᴀɴ ᴀ ᴘʀᴇᴠɪᴏᴜsʟʏ ʙᴀɴɴᴇᴅ ᴜsᴇʀ.')}\n"
-            f"  • `/restart` : {to_smallcaps('sᴀғᴇʟʏ ʀᴇʙᴏᴏᴛ ᴛʜᴇ ʙᴏᴛ ᴘʀᴏᴄᴇss.')}"
+            f"✦ **{to_smallcaps('admin control — guide')}** ✦\n\n"
+            f"• 👑 `/admin` : {to_smallcaps('open admin control panel.')}\n"
+            f"• 📊 `/stats` & `/dbstats` & `/cache` : {to_smallcaps('view live metrics.')}\n"
+            f"• 📢 `/broadcast` : {to_smallcaps('broadcast message to all users.')}\n"
+            f"• 🚫 `/ban <id>` & `/unban <id>` : {to_smallcaps('manage user access.')}\n"
+            f"• 🔄 `/restart` : {to_smallcaps('reboot bot server.')}"
             f"{format_watermark()}"
         )
 
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
-# Settings View & Actions
-@Client.on_callback_query(filters.regex(r"^settings_(view_thumb|view_caption|reset_all)"))
+
+@Client.on_callback_query(filters.regex(r"^settings_(view_thumb|view_caption|reset_all|toggle_autoren|toggle_autocomp|toggle_upmode)"))
 async def settings_actions(client: Client, query: CallbackQuery):
     action = query.matches[0].group(1)
-    user_id = query.from_user.id
-    buttons = [[InlineKeyboardButton(f"🔙 {to_smallcaps('ʙᴀᴄᴋ ᴛᴏ sᴇᴛᴛɪɴɢs')}", callback_data="nav_settings")]]
+    user = query.from_user
+    user_id = user.id
+    buttons = [[InlineKeyboardButton(f"🔙 {to_smallcaps('back to settings')}", callback_data="nav_settings")]]
 
-    if action == "view_thumb":
-        u = await user_repo.get_user(user_id)
-        thumb_id = u.get("thumb_id") if u else None
+    u = await user_repo.get_or_create(user_id, user.first_name, user.username)
+
+    if action == "toggle_autoren":
+        new_val = not bool(u.get("auto_rename", False))
+        await user_repo.update_user(user_id, {"auto_rename": new_val})
+        await query.answer(to_smallcaps(f"auto rename {'enabled' if new_val else 'disabled'}!"))
+        return await render_settings_menu(query.message, user, is_edit=True)
+
+    elif action == "toggle_autocomp":
+        new_val = not bool(u.get("auto_compress", False))
+        await user_repo.update_user(user_id, {"auto_compress": new_val})
+        await query.answer(to_smallcaps(f"auto compress {'enabled' if new_val else 'disabled'}!"))
+        return await render_settings_menu(query.message, user, is_edit=True)
+
+    elif action == "toggle_upmode":
+        curr_mode = u.get("upload_mode", "video")
+        new_mode = "document" if curr_mode == "video" else "video"
+        await user_repo.update_user(user_id, {"upload_mode": new_mode})
+        await query.answer(to_smallcaps(f"upload mode: {new_mode}!"))
+        return await render_settings_menu(query.message, user, is_edit=True)
+
+    elif action == "view_thumb":
+        thumb_id = u.get("thumb_id")
         if thumb_id:
             await query.answer()
             await query.message.reply_photo(
                 photo=thumb_id,
-                caption=f"🖼️ **{to_smallcaps('ʏᴏᴜʀ ᴀᴄᴛɪᴠᴇ ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ')}**{format_watermark()}"
+                caption=f"🖼️ **{to_smallcaps('your active custom thumbnail')}**{format_watermark()}"
             )
         else:
-            tham_url = (u.get("tham_url") if u else None) or Config.THAM_URL
+            tham_url = u.get("tham_url") or Config.THAM_URL
             await query.message.edit_text(
-                f"ℹ️ **{to_smallcaps('ɴᴏ ᴄᴜsᴛᴏᴍ ᴘʜᴏᴛᴏ ᴛʜᴜᴍʙɴᴀɪʟ sᴇᴛ.')}**\n\n"
-                f"• 🔗 **{to_smallcaps('ᴀᴜᴛᴏᴍᴀᴛɪᴄ ᴛʜᴀᴍ_ᴜʀʟ')}** : `{tham_url}`\n\n"
-                f"💡 {to_smallcaps('ᴛᴏ sᴇᴛ ᴀ ᴘʜᴏᴛᴏ, ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ɪᴍᴀɢᴇ ᴡɪᴛʜ')} `/setthumb`."
+                f"ℹ️ **{to_smallcaps('no custom photo thumbnail set.')}**\n\n"
+                f"• 🔗 **{to_smallcaps('automatic tham_url')}** : `{tham_url}`\n\n"
+                f"💡 {to_smallcaps('send any photo or reply to a photo with')} `/setthumb`."
                 f"{format_watermark()}",
                 reply_markup=InlineKeyboardMarkup(buttons),
                 disable_web_page_preview=True
             )
 
     elif action == "view_caption":
-        u = await user_repo.get_user(user_id)
-        c = u.get("custom_caption") if u else None
-        cap_list = u.get("captions_list", []) if u else []
-        text = f"✦ **{to_smallcaps('ʏᴏᴜʀ ᴄᴀᴘᴛɪᴏɴ sᴇᴛᴛɪɴɢs')}** ✦\n\n"
+        c = u.get("custom_caption")
+        cap_list = u.get("captions_list", [])
+        text = f"✦ **{to_smallcaps('your caption settings')}** ✦\n\n"
         if c:
-            text += f"• 📝 **{to_smallcaps('ᴀᴄᴛɪᴠᴇ ᴄᴀᴘᴛɪᴏɴ')}** :\n`{c}`\n\n"
+            text += f"• 📝 **{to_smallcaps('active caption')}** :\n`{c}`\n\n"
         else:
-            text += f"• 📝 **{to_smallcaps('ᴀᴄᴛɪᴠᴇ ᴄᴀᴘᴛɪᴏɴ')}** : `{to_smallcaps('ᴅᴇғᴀᴜʟᴛ (ғᴀʟʟʙᴀᴄᴋ ᴛᴏ ғɪʟᴇ ᴄᴀᴘᴛɪᴏɴ)')}`\n\n"
+            text += f"• 📝 **{to_smallcaps('active caption')}** : `{to_smallcaps('default auto metadata template')}`\n\n"
 
         if cap_list:
-            text += f"📚 **{to_smallcaps('sᴀᴠᴇᴅ ᴅʏɴᴀᴍɪᴄ ᴄᴀᴘᴛɪᴏɴs (ᴄᴀᴘ[])')}** :\n"
+            text += f"📚 **{to_smallcaps('saved dynamic captions (cap[])')}** :\n"
             for i, cap in enumerate(cap_list, 1):
                 text += f"{i}. `{cap}`\n"
             text += "\n"
 
-        text += f"💡 {to_smallcaps('ᴜsᴇ')} `/setcaption <template>` {to_smallcaps('ᴛᴏ ᴜᴘᴅᴀᴛᴇ.')}"
-        text += f"{format_watermark()}"
+        text += f"💡 {to_smallcaps('use')} `/setcaption <template>` {to_smallcaps('to update.')}"
+        text += format_watermark()
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
     elif action == "reset_all":
@@ -400,13 +391,12 @@ async def settings_actions(client: Client, query: CallbackQuery):
             "thumb_id": None,
             "custom_caption": None,
             "captions_list": [],
-            "prefix": None,
-            "suffix": None,
+            "prefix": "",
+            "suffix": "",
+            "auto_rename": False,
+            "auto_compress": False,
+            "upload_mode": "video",
             "auto_delete_time": 0
         })
-        await query.answer(to_smallcaps("ᴀʟʟ sᴇᴛᴛɪɴɢs ʀᴇsᴇᴛ!"), show_alert=True)
-        await query.message.edit_text(
-            f"✅ **{to_smallcaps('ᴀʟʟ ʏᴏᴜʀ ᴄᴜsᴛᴏᴍ sᴇᴛᴛɪɴɢs ʜᴀᴠᴇ ʙᴇᴇɴ ʀᴇsᴇᴛ ᴛᴏ ᴅᴇғᴀᴜʟᴛ!')}**"
-            f"{format_watermark()}",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        await query.answer(to_smallcaps("all settings reset!"), show_alert=True)
+        await render_settings_menu(query.message, user, is_edit=True)

@@ -1,5 +1,4 @@
 import os
-import re
 import time
 import secrets
 from pyrogram import Client, filters
@@ -10,37 +9,70 @@ from pyrogram.types import (
     CallbackQuery
 )
 from config import Config
-from app.database.repositories.user_repo import user_repo
-from app.utils.cache import cache
-from app.utils.font import to_smallcaps, format_watermark
-from app.utils.helpers import humanbytes, time_formatter, clean_temp_files, sanitize_filename
-from app.utils.progress import progress_for_pyrogram
-from app.services.ffmpeg_service import (
+from plugins.core_db import user_repo
+from plugins.core_utils import (
+    cache,
+    to_smallcaps,
+    format_watermark,
+    humanbytes,
+    time_formatter,
+    clean_temp_files,
+    sanitize_filename,
+    progress_for_pyrogram,
+    logger
+)
+from plugins.core_services import (
     get_media_attributes,
     compress_media,
     compress_audio,
     compress_to_target_size,
-    check_media_streams
+    check_media_streams,
+    resolve_thumbnail,
+    extract_and_format_caption,
+    schedule_deletion
 )
-from app.services.thumb_service import resolve_thumbnail
-from app.services.caption_service import extract_and_format_caption
-from app.services.autodel_service import schedule_deletion
-from app.utils.logger import logger
 
 MAX_BOT_FILE_SIZE = 2000 * 1024 * 1024  # 2000 MiB (2GB limit)
+
+@Client.on_message(filters.private & filters.command(["autocompress", "auto_compress"]))
+async def toggle_autocompress_cmd(client: Client, message: Message):
+    user_id = message.from_user.id
+    u = await user_repo.get_or_create(user_id, message.from_user.first_name, message.from_user.username)
+    new_state = not bool(u.get("auto_compress", False))
+    await user_repo.update_user(user_id, {"auto_compress": new_state})
+    state_txt = "🟢 ᴇɴᴀʙʟᴇᴅ" if new_state else "⚪ ᴅɪsᴀʙʟᴇᴅ"
+    await message.reply_text(
+        f"✦ **{to_smallcaps('auto-compressor mode')}** ✦\n\n"
+        f"• 🗜️ **{to_smallcaps('status')}** : `{state_txt}`\n"
+        f"• ⚙️ **{to_smallcaps('default preset')}** : `720p HD (Superfast CRF 28)`\n\n"
+        f"💡 {to_smallcaps('when enabled, every video you send is automatically compressed with H.264 + custom thumbnail & caption!')}"
+        f"{format_watermark()}"
+    )
+
+async def run_auto_compress_workflow(client: Client, media_msg: Message, user_id: int):
+    status = await media_msg.reply_text(f"🗜️ **{to_smallcaps('auto-compressing video (720p hd superfast)...')}**", quote=True)
+    await perform_compression_job(
+        client=client,
+        original_msg=media_msg,
+        status=status,
+        user_id=user_id,
+        scale_h=720,
+        crf=28,
+        preset="superfast",
+        is_target_mode=False,
+        target_mb=None
+    )
 
 @Client.on_message(filters.private & filters.command("compress"))
 async def compress_command_handler(client: Client, message: Message):
     target = message.reply_to_message
     if not target or not (target.video or target.document or target.audio):
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴏʀ ᴀᴜᴅɪᴏ ғɪʟᴇ ᴛᴏ ᴄᴏᴍᴘʀᴇss.')}**\n\n"
-            f"• **{to_smallcaps('ᴜsᴀɢᴇ')}**: {to_smallcaps('ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇᴅɪᴀ ᴡɪᴛʜ')} `/compress` {to_smallcaps('ᴏʀ')} `/compress 100MB`\n"
-            f"• **{to_smallcaps('ᴇxᴀᴍᴘʟᴇ')}**: `/compress 100MB` ({to_smallcaps('ᴛᴀʀɢᴇᴛ-sɪᴢᴇ ᴄᴏᴍᴘʀᴇssɪᴏɴ')})"
+            f"⚠️ **{to_smallcaps('please reply to a video or audio file to compress.')}**\n\n"
+            f"• **{to_smallcaps('usage')}** : {to_smallcaps('reply to any media with')} `/compress` {to_smallcaps('or')} `/compress 100MB`"
             f"{format_watermark()}"
         )
 
-    # Check for target size argument (e.g. /compress 100MB or /compress 50M)
     target_mb = None
     if len(message.command) > 1:
         arg = message.command[1].upper().replace("MB", "").replace("M", "").strip()
@@ -61,7 +93,7 @@ async def compress_menu_callback(client: Client, query: CallbackQuery):
     msg_id = int(query.matches[0].group(1))
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     if not original_msg or not original_msg.media:
-        return await query.answer(to_smallcaps("ᴍᴇᴅɪᴀ ɴᴏᴛ ғᴏᴜɴᴅ!"), show_alert=True)
+        return await query.answer(to_smallcaps("media not found!"), show_alert=True)
     await show_compression_menu(original_msg, query.message, is_callback=True)
 
 async def show_compression_menu(media_msg: Message, target_msg: Message, is_callback: bool = False, custom_target_mb: float = None):
@@ -87,7 +119,6 @@ async def show_compression_menu(media_msg: Message, target_msg: Message, is_call
         ]
     ]
 
-    # If target MB is requested or cached
     t_mb = custom_target_mb or await cache.get(f"comp_target_{target_msg.chat.id}_{msg_id}")
     if t_mb:
         btn.append([
@@ -95,25 +126,14 @@ async def show_compression_menu(media_msg: Message, target_msg: Message, is_call
         ])
 
     btn.append([
-        InlineKeyboardButton(f"❌ {to_smallcaps('ᴄᴀɴᴄᴇʟ')}", callback_data="cancel_op")
+        InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")
     ])
 
-    size_note = ""
-    if file_size_bytes > MAX_BOT_FILE_SIZE:
-        size_note = f"\n⚠️ **{to_smallcaps('ɴᴏᴛᴇ')}** : {to_smallcaps('ᴏʀɪɢɪɴᴀʟ ɪs > 𝟸ɢʙ. ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴡɪʟʟ ʙʀɪɴɢ ɪᴛ ᴜɴᴅᴇʀ 𝟸ɢʙ sᴏ ɪᴛ ᴄᴀɴ ʙᴇ ᴜᴘʟᴏᴀᴅᴇᴅ.')}\n"
-
-    target_note = f"\n🎯 **{to_smallcaps('ᴛᴀʀɢᴇᴛ sɪᴢᴇ')}** : `{int(t_mb)} MB`\n" if t_mb else ""
-
     text = (
-        f"✦ **{to_smallcaps('ғғᴍᴘᴇɢ ᴠɪᴅᴇᴏ ᴄᴏᴍᴘʀᴇssᴏʀ')}** ✦\n\n"
-        f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
-        f"• 📦 **{to_smallcaps('ᴄᴜʀʀᴇɴᴛ sɪᴢᴇ')}** : `{file_size}`"
-        f"{size_note}{target_note}\n"
-        f"💡 **{to_smallcaps('sᴇʟᴇᴄᴛ ʏᴏᴜʀ ᴅᴇsɪʀᴇᴅ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴘʀᴇsᴇᴛ:')}**\n"
-        f"• 720ᴘ ʜᴅ : {to_smallcaps('ʙᴇsᴛ ʙᴀʟᴀɴᴄᴇ ᴏғ ǫᴜᴀʟɪᴛʏ ᴀɴᴅ sɪᴢᴇ')}\n"
-        f"• 480ᴘ sᴅ : {to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ ғᴀsᴛ & ʟᴏᴡ sɪᴢᴇ')}\n"
-        f"• 360ᴘ : {to_smallcaps('ᴍᴀxɪᴍᴜᴍ sɪᴢᴇ ʀᴇᴅᴜᴄᴛɪᴏɴ')}\n"
-        f"• 1080ᴘ : {to_smallcaps('ғᴜʟʟ ʜᴅ ǫᴜᴀʟɪᴛʏ ᴘʀᴇsᴇʀᴠᴀᴛɪᴏɴ')}"
+        f"✦ **{to_smallcaps('ffmpeg video compressor')}** ✦\n\n"
+        f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
+        f"• 📦 **{to_smallcaps('current size')}** : `{file_size}`\n\n"
+        f"💡 **{to_smallcaps('select your desired compression preset:')}**"
         f"{format_watermark()}"
     )
     if is_callback:
@@ -140,15 +160,37 @@ async def execute_compression(client: Client, query: CallbackQuery):
 
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     if not original_msg or not original_msg.media:
-        return await query.answer(to_smallcaps("ᴏʀɪɢɪɴᴀʟ ᴍᴇᴅɪᴀ ɴᴏᴛ ғᴏᴜɴᴅ!"), show_alert=True)
+        return await query.answer(to_smallcaps("original media not found!"), show_alert=True)
 
-    status = await query.message.edit_text(f"⏳ **{to_smallcaps('ɪɴɪᴛɪᴀʟɪᴢɪɴɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ᴡᴏʀᴋғʟᴏᴡ...')}**")
+    status = await query.message.edit_text(f"⏳ **{to_smallcaps('initializing compression workflow...')}**")
+    await perform_compression_job(
+        client=client,
+        original_msg=original_msg,
+        status=status,
+        user_id=user_id,
+        scale_h=scale_h,
+        crf=crf,
+        preset=preset,
+        is_target_mode=is_target_mode,
+        target_mb=target_mb
+    )
 
+async def perform_compression_job(
+    client: Client,
+    original_msg: Message,
+    status: Message,
+    user_id: int,
+    scale_h: int,
+    crf: int,
+    preset: str,
+    is_target_mode: bool = False,
+    target_mb: float = None
+):
+    msg_id = original_msg.id
     media = original_msg.video or original_msg.document or original_msg.audio
     raw_name = getattr(media, "file_name", None) or f"video_{msg_id}.mp4"
     clean_name = sanitize_filename(raw_name)
 
-    # Unique isolated directory for unlimited simultaneous operations per user
     unique_token = secrets.token_hex(4)
     download_dir = os.path.join(Config.DOWNLOAD_DIR, f"{user_id}_comp_{msg_id}_{unique_token}")
     os.makedirs(download_dir, exist_ok=True)
@@ -160,18 +202,16 @@ async def execute_compression(client: Client, query: CallbackQuery):
         await original_msg.download(
             file_name=input_path,
             progress=progress_for_pyrogram,
-            progress_args=("📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴇᴅɪᴀ", status, start_dl)
+            progress_args=("📥 downloading media", status, start_dl)
         )
     except Exception as e:
-        logger.error(f"Download error in compressor for user {user_id}: {e}", exc_info=True)
         clean_temp_files(input_path, output_path, download_dir)
-        return await status.edit_text(f"❌ **{to_smallcaps('ᴅᴏᴡɴʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{e}`")
+        return await status.edit_text(f"❌ **{to_smallcaps('download failed')}** : `{e}`")
 
     if not os.path.exists(input_path):
         clean_temp_files(download_dir)
-        return await status.edit_text(f"❌ **{to_smallcaps('ғɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ ᴀғᴛᴇʀ ᴅᴏᴡɴʟᴏᴀᴅ!')}**")
+        return await status.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
 
-    # Inspect media streams
     stream_info = await check_media_streams(input_path)
     has_video = stream_info.get("has_video", False)
     has_audio = stream_info.get("has_audio", False)
@@ -179,22 +219,19 @@ async def execute_compression(client: Client, query: CallbackQuery):
     if not has_video and not has_audio:
         clean_temp_files(input_path, output_path, download_dir)
         return await status.edit_text(
-            f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n\n"
-            f"⚠️ {to_smallcaps('ᴛʜɪs ғɪʟᴇ ʜᴀs ɴᴏ ᴀᴜᴅɪᴏ ᴏʀ ᴠɪᴅᴇᴏ sᴛʀᴇᴀᴍ ᴛʜᴀᴛ ғғᴍᴘᴇɢ ᴄᴀɴ ᴅᴇᴄᴏᴅᴇ.')}\n\n"
-            f"💡 {to_smallcaps('ᴛᴏ ʀᴇɴᴀᴍᴇ ᴛʜɪs ғɪʟᴇ (ᴘᴅғ, ᴢɪᴘ, ᴀᴘᴋ), ᴜsᴇ')} `/rename` {to_smallcaps('ɪɴsᴛᴇᴀᴅ.')}\n"
+            f"❌ **{to_smallcaps('ffmpeg compression failed')}**\n\n"
+            f"⚠️ {to_smallcaps('this file has no audio or video stream that ffmpeg can decode.')}"
             f"{format_watermark()}"
         )
 
     orig_size = os.path.getsize(input_path)
-
-    # Pre-probe duration from file so progress bar works even for documents
     pre_attrs = await get_media_attributes(input_path)
     total_duration = getattr(media, "duration", 0) or int(pre_attrs.get("duration", 0))
 
     comp_start = time.time()
     if has_video:
         if is_target_mode and target_mb:
-            await status.edit_text(f"🎯 **{to_smallcaps('ғғᴍᴘᴇɢ ᴛᴀʀɢᴇᴛ-sɪᴢᴇ ᴄᴏᴍᴘʀᴇssɪᴏɴ')} ({int(target_mb)} ᴍʙ)...**")
+            await status.edit_text(f"🎯 **{to_smallcaps('ffmpeg target-size compression')} ({int(target_mb)} ᴍʙ)...**")
             success = await compress_to_target_size(
                 input_path=input_path,
                 output_path=output_path,
@@ -203,7 +240,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
                 scale_height=scale_h
             )
         else:
-            await status.edit_text(f"🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ɪɴ ᴘʀᴏɢʀᴇss (ᴜɴɪᴠᴇʀsᴀʟ ʜ.𝟸𝟼𝟺)...')}**")
+            await status.edit_text(f"🗜️ **{to_smallcaps('ffmpeg compression in progress (h.264)...')}**")
             success = await compress_media(
                 input_path=input_path,
                 output_path=output_path,
@@ -214,8 +251,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
                 total_duration=total_duration
             )
     else:
-        # Audio only file
-        await status.edit_text(f"🗜️ **{to_smallcaps('ғғᴍᴘᴇɢ ᴀᴜᴅɪᴏ ᴄᴏᴍᴘʀᴇssɪᴏɴ ɪɴ ᴘʀᴏɢʀᴇss...')}**")
+        await status.edit_text(f"🗜️ **{to_smallcaps('ffmpeg audio compression in progress...')}**")
         base_no_ext = os.path.splitext(output_path)[0]
         output_path = f"{base_no_ext}.m4a"
         success = await compress_audio(input_path, output_path)
@@ -223,25 +259,13 @@ async def execute_compression(client: Client, query: CallbackQuery):
     comp_duration = time.time() - comp_start
 
     if not success or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
-        logger.error(f"Compression failed for user {user_id} on input {input_path}")
         clean_temp_files(input_path, output_path, download_dir)
         return await status.edit_text(
-            f"❌ **{to_smallcaps('ғғᴍᴘᴇɢ ᴄᴏᴍᴘʀᴇssɪᴏɴ ғᴀɪʟᴇᴅ')}**\n\n"
-            f"⚠️ {to_smallcaps('ᴇɴᴄᴏᴅɪɴɢ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ ᴅᴜʀɪɴɢ ᴍᴇᴅɪᴀ ᴄᴏᴍᴘʀᴇssɪᴏɴ. ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɴᴏᴛʜᴇʀ ᴘʀᴇsᴇᴛ (ᴇ.ɢ. 𝟺𝟾𝟶ᴘ ᴏʀ 𝟹𝟼𝟶ᴘ).')}\n\n"
-            f"💡 {to_smallcaps('ʏᴏᴜ ᴄᴀɴ ᴀʟsᴏ ᴜsᴇ')} `/stream` {to_smallcaps('ᴛᴏ ᴡᴀᴛᴄʜ ᴏʀ sʜᴀʀᴇ ᴛʜᴇ ғɪʟᴇ ᴅɪʀᴇᴄᴛʟʏ.')}\n"
+            f"❌ **{to_smallcaps('ffmpeg compression failed! please try another preset.')}**"
             f"{format_watermark()}"
         )
 
     comp_size = os.path.getsize(output_path)
-    if comp_size > MAX_BOT_FILE_SIZE:
-        clean_temp_files(input_path, output_path, download_dir)
-        return await status.edit_text(
-            f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ: ᴄᴏᴍᴘʀᴇssᴇᴅ ғɪʟᴇ sᴛɪʟʟ > 𝟸ɢʙ!')}**\n\n"
-            f"• 📦 **{to_smallcaps('sɪᴢᴇ')}** : `{humanbytes(comp_size)}`\n\n"
-            f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ʀᴇsᴛʀɪᴄᴛs ᴜᴘʟᴏᴀᴅs ᴛᴏ 𝟸ɢʙ. ᴘʟᴇᴀsᴇ sᴇʟᴇᴄᴛ ᴀ ʟᴏᴡᴇʀ ǫᴜᴀʟɪᴛʏ ᴘʀᴇsᴇᴛ (ᴇ.ɢ. 𝟺𝟾𝟶ᴘ ᴏʀ 𝟹𝟼𝟶ᴘ) ᴛᴏ ʀᴇᴅᴜᴄᴇ ɪᴛ ғᴜʀᴛʜᴇʀ.')}\n"
-            f"{format_watermark()}"
-        )
-
     savings = round(((orig_size - comp_size) / orig_size) * 100, 2) if orig_size > 0 else 0
 
     attrs = await get_media_attributes(output_path)
@@ -256,7 +280,6 @@ async def execute_compression(client: Client, query: CallbackQuery):
     if not isinstance(thumb_path, str) or not os.path.exists(thumb_path):
         thumb_path = None
 
-    # Deep metadata-driven caption
     orig_caption = original_msg.caption or ""
     base_caption = await extract_and_format_caption(
         user_id=user_id,
@@ -266,20 +289,16 @@ async def execute_compression(client: Client, query: CallbackQuery):
     )
 
     stats_summary = (
-        f"\n\n📊 **{to_smallcaps('ᴄᴏᴍᴘʀᴇssɪᴏɴ sᴛᴀᴛɪsᴛɪᴄs')}** :\n"
-        f"• 📦 **{to_smallcaps('ᴏʀɪɢɪɴᴀʟ sɪᴢᴇ')}** : `{humanbytes(orig_size)}`\n"
-        f"• 📦 **{to_smallcaps('ᴄᴏᴍᴘʀᴇssᴇᴅ sɪᴢᴇ')}** : `{humanbytes(comp_size)}`\n"
-        f"• 📉 **{to_smallcaps('sᴘᴀᴄᴇ sᴀᴠᴇᴅ')}** : `{savings}%`\n"
-        f"• ⏱️ **{to_smallcaps('ᴇɴᴄᴏᴅɪɴɢ ᴛɪᴍᴇ')}** : `{time_formatter(seconds=round(comp_duration))}`"
+        f"\n\n📊 **{to_smallcaps('compression stats')}** :\n"
+        f"• 📦 **{to_smallcaps('original')}** : `{humanbytes(orig_size)}` ➔ `{humanbytes(comp_size)}`\n"
+        f"• 📉 **{to_smallcaps('saved')}** : `{savings}%` | ⏱️ `{time_formatter(seconds=round(comp_duration))}`"
     )
     final_caption = base_caption + stats_summary
-
-    # Enforce Telegram 1024-character limit
     if len(final_caption) > 1024:
         final_caption = final_caption[:1020] + "..."
 
     upload_start = time.time()
-    await status.edit_text(f"📤 **{to_smallcaps('ᴜᴘʟᴏᴀᴅɪɴɢ ᴄᴏᴍᴘʀᴇssᴇᴅ ᴍᴇᴅɪᴀ...')}**")
+    await status.edit_text(f"📤 **{to_smallcaps('uploading compressed media...')}**")
 
     sent_video = None
     try:
@@ -288,7 +307,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
             h = int(attrs.get("height", 720)) or 720
             try:
                 sent_video = await client.send_video(
-                    chat_id=query.message.chat.id,
+                    chat_id=status.chat.id,
                     video=output_path,
                     caption=final_caption,
                     duration=dur,
@@ -297,40 +316,31 @@ async def execute_compression(client: Client, query: CallbackQuery):
                     thumb=thumb_path,
                     supports_streaming=True,
                     progress=progress_for_pyrogram,
-                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ", status, upload_start)
+                    progress_args=("📤 uploading video", status, upload_start)
                 )
-            except Exception as vid_err:
-                logger.warning(f"send_video failed for compressed video, falling back to send_document: {vid_err}")
+            except Exception:
                 sent_video = await client.send_document(
-                    chat_id=query.message.chat.id,
+                    chat_id=status.chat.id,
                     document=output_path,
                     caption=final_caption,
                     thumb=thumb_path,
                     force_document=True,
                     progress=progress_for_pyrogram,
-                    progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴅᴏᴄᴜᴍᴇɴᴛ", status, upload_start)
+                    progress_args=("📤 uploading document", status, upload_start)
                 )
         else:
             sent_video = await client.send_audio(
-                chat_id=query.message.chat.id,
+                chat_id=status.chat.id,
                 audio=output_path,
                 caption=final_caption,
                 duration=dur,
                 thumb=thumb_path,
                 progress=progress_for_pyrogram,
-                progress_args=("📤 ᴜᴘʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ", status, upload_start)
+                progress_args=("📤 uploading audio", status, upload_start)
             )
     except Exception as e:
-        logger.error(f"Upload error in compressor for user {user_id}: {e}", exc_info=True)
         clean_temp_files(input_path, output_path, thumb_path, download_dir)
-        err_str = str(e)
-        if "2000" in err_str or "bigger than" in err_str.lower():
-            return await status.edit_text(
-                f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ: ғɪʟᴇ ᴇxᴄᴇᴇᴅs 𝟸ɢʙ (𝟸𝟶𝟶𝟶 ᴍɪʙ) ʟɪᴍɪᴛ!')}**\n\n"
-                f"{to_smallcaps('ᴛᴇʟᴇɢʀᴀᴍ ʙᴏᴛ ᴀᴘɪ ᴅᴏᴇs ɴᴏᴛ ᴀʟʟᴏᴡ ʙᴏᴛs ᴛᴏ ᴜᴘʟᴏᴀᴅ ғɪʟᴇs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 𝟸ɢʙ.')}\n"
-                f"{format_watermark()}"
-            )
-        return await status.edit_text(f"❌ **{to_smallcaps('ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ')}**: `{err_str}`")
+        return await status.edit_text(f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
 
     clean_temp_files(input_path, output_path, thumb_path, download_dir)
     try:
