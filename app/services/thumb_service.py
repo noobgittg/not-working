@@ -30,22 +30,24 @@ async def resolve_thumbnail(
     user_id: int,
     temp_dir_or_thumb_id: Any = None,
     video_path: Optional[str] = None,
-    duration: int = 0
+    duration: int = 0,
+    temp_dir: Optional[str] = None
 ) -> Optional[str]:
     """
     Resolves thumbnail prioritizing:
-    1. User custom thumbnail (from Telegram)
+    1. User custom thumbnail photo (from Telegram)
     2. User custom tham_url or Config.THAM_URL
     3. Video frame screenshot extraction via FFmpeg
     """
-    # Resolve directory for storing temp thumbnail
-    if isinstance(temp_dir_or_thumb_id, str) and os.path.isdir(temp_dir_or_thumb_id):
-        temp_dir = temp_dir_or_thumb_id
-    elif video_path and os.path.exists(video_path):
-        temp_dir = os.path.dirname(video_path)
-    else:
-        temp_dir = os.path.join(Config.DOWNLOAD_DIR, str(user_id))
-    os.makedirs(temp_dir, exist_ok=True)
+    effective_dir = temp_dir
+    if not effective_dir:
+        if isinstance(temp_dir_or_thumb_id, str) and os.path.isdir(temp_dir_or_thumb_id):
+            effective_dir = temp_dir_or_thumb_id
+        elif video_path and os.path.exists(video_path):
+            effective_dir = os.path.dirname(video_path)
+        else:
+            effective_dir = os.path.join(Config.DOWNLOAD_DIR, str(user_id))
+    os.makedirs(effective_dir, exist_ok=True)
 
     user = await user_repo.get_user(user_id)
     thumb_id = None
@@ -56,14 +58,14 @@ async def resolve_thumbnail(
 
     if thumb_id:
         try:
-            custom_path = os.path.join(temp_dir, "custom_thumb.jpg")
+            custom_path = os.path.join(effective_dir, "custom_thumb.jpg")
             return await client.download_media(thumb_id, file_name=custom_path)
         except Exception as e:
             logger.warning(f"Error fetching user custom thumbnail: {e}")
 
     user_tham = user.get("tham_url") if user else None
     if user_tham:
-        user_thumb_path = os.path.join(temp_dir, "user_tham.jpg")
+        user_thumb_path = os.path.join(effective_dir, "user_tham.jpg")
         downloaded = await download_thumbnail_url(user_tham, user_thumb_path)
         if downloaded and os.path.exists(downloaded):
             return downloaded
@@ -76,6 +78,6 @@ async def resolve_thumbnail(
             return downloaded
 
     if video_path and os.path.exists(video_path):
-        return await extract_frame_screenshot(video_path, temp_dir, duration)
+        return await extract_frame_screenshot(video_path, effective_dir, duration)
 
     return None
