@@ -3,970 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ file_name }} — ⚡ ᴍᴍᴡ sᴜᴘᴇʀ-sᴏɴɪᴄ sᴛʀᴇᴀᴍ ᴘʟᴀʏᴇʀ</title>
-
-    <!-- Preconnect CDNs -->
+    <title>{{ file_name }} — ⚡ MMW Stream Player</title>
+    
+    <!-- ✅ Added Required Links -->
     <link rel="preconnect" href="https://cdn.plyr.io">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-
-    <!-- Fonts: Space Grotesk & Plus Jakarta Sans -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
     
-    <!-- Plyr CSS & JS (3.6.9) -->
-    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.9/plyr.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.9/plyr.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.plyr.io/3.6.9/plyr.js"></script>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        mono: ['"Space Grotesk"', 'monospace'],
-                    },
-                    colors: {
-                        brand: {
-                            50: '#e0f7fe',
-                            400: '#38bdf8',
-                            500: '#0284c7',
-                            600: '#0369a1',
-                            glow: '#00f2fe'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- FontAwesome 6 Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
-        /* Small-Cap Stylish Typography */
-        .sc-text {
-            font-variant: all-small-caps;
-            letter-spacing: 0.06em;
-            font-feature-settings: "c2sc", "smcp";
-        }
-        
-        /* Custom Plyr Theme Customization */
-        :root {
-            --plyr-color-main: #0284c7;
-            --plyr-video-background: #000000;
-            --plyr-menu-background: rgba(15, 23, 42, 0.95);
-            --plyr-menu-color: #f8fafc;
-            --plyr-control-radius: 10px;
-        }
-
-        .plyr--video {
-            border-radius: 1.25rem;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
-            background: #000;
-        }
-
-        /* Ambient Video Glow Effect */
-        .ambient-glow {
-            position: absolute;
-            inset: -15px;
-            background: radial-gradient(circle at center, rgba(14, 165, 233, 0.28) 0%, rgba(2, 132, 199, 0.08) 50%, transparent 80%);
-            filter: blur(35px);
-            z-index: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0b1120;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1e293b;
-            border-radius: 9999px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #0284c7;
-        }
-
-        /* Slider Range Track */
-        input[type="range"] {
-            accent-color: #38bdf8;
-        }
+        :root{--bg:#020617;--card:#0f172a;--border:#1e293b}
+        body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg)}
+        .smallcaps{font-variant:small-caps;letter-spacing:.6px;text-transform:lowercase;font-weight:700}
+        .plyr{--plyr-color-main:#0ea5e9;--plyr-video-background:#000;border-radius:16px}
+        .plyr__controls{border-radius:0 0 16px 16px}
+        /* Duration always visible */
+        .plyr__time--current,.plyr__time--duration{display:inline-block !important;opacity:1 !important}
+        /* 12MB/s badge */
+        .speed-badge{animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+        /* Smallcap stylish */
+        .sc{font-family:'Syne',sans-serif;letter-spacing:1px}
     </style>
 </head>
-<body class="bg-[#070b14] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-brand-500 selection:text-white antialiased">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- Top Navigation Header -->
-    <header class="w-full border-b border-slate-800/80 px-4 sm:px-6 py-3.5 flex items-center justify-between bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
+    <!-- Header - Smallcap + Emoji -->
+    <header class="w-full border-b border-slate-800 px-4 py-3 flex items-center justify-between bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
         <div class="flex items-center space-x-3 overflow-hidden">
-            <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-500/25">
-                <i class="fa-solid fa-bolt text-base"></i>
-                <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
-                </span>
-            </div>
-            <div class="flex flex-col truncate">
-                <div class="flex items-center gap-1.5">
-                    <span class="sc-text font-black text-xs text-sky-400 tracking-wider">⚡ ᴍᴍᴡ ᴛᴜʀʙᴏ</span>
-                    <span class="text-[10px] bg-slate-800 text-emerald-400 border border-slate-700/80 px-1.5 py-0.5 rounded font-mono font-semibold">12.8 MB/s</span>
-                </div>
-                <h1 id="fileDisplayTitle" class="font-bold text-sm sm:text-base text-slate-100 truncate max-w-xs sm:max-w-md md:max-w-xl">
-                    {{ file_name }}
-                </h1>
-            </div>
+            <span class="bg-sky-500 text-white p-2 rounded-xl text-sm flex items-center justify-center w-9 h-9 shadow-lg shadow-sky-500/30">
+                <i class="fa-solid fa-bolt"></i>
+            </span>
+            <h1 class="font-bold text-sm md:text-base truncate max-w-xs md:max-w-xl smallcaps">⚡ {{ file_name }}</h1>
         </div>
-
-        <div class="flex items-center space-x-2 sm:space-x-3">
-            <!-- Speed Status Pill -->
-            <div class="hidden lg:flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-300">
-                <i class="fa-solid fa-gauge-high text-sky-400 animate-pulse"></i>
-                <span class="text-slate-400">sᴘᴇᴇᴅ:</span>
-                <span id="headerLiveSpeed" class="text-emerald-400 font-bold">14.6 MB/s</span>
-            </div>
-
-            <!-- Fast Download Button -->
-            <a id="btnDownload" href="{{ download_url }}" download class="inline-flex items-center space-x-2 px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-extrabold text-xs sm:text-sm transition-all transform active:scale-95 shadow-lg shadow-sky-500/25">
-                <i class="fa-solid fa-cloud-arrow-down text-sm"></i>
-                <span class="sc-text">⚡ ғᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ</span>
+        <div class="flex items-center space-x-2">
+            <span class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold speed-badge">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 12 ᴍʙ/s
+            </span>
+            <a href="{{ download_url }}" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold text-xs transition shadow-lg shadow-sky-500/20 smallcaps">
+                <i class="fa-solid fa-download"></i>
+                <span>⬇️ ғᴀsᴛ ᴅʟ</span>
             </a>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="flex-1 flex flex-col items-center justify-start p-3 sm:p-6 max-w-6xl mx-auto w-full space-y-6">
+    <!-- Main -->
+    <main class="flex-1 flex flex-col items-center p-3 sm:p-6 max-w-5xl mx-auto w-full">
+        
+        <!-- Video Container with Plyr -->
+        <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 mb-6">
+            <video id="videoPlayer" class="w-full h-full object-contain" controls crossorigin playsinline preload="metadata" data-plyr-config='{"speed":{"selected":1,"options":[0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3]}, "quality":{"default":720}}'>
+                <source src="{{ stream_url }}" type="{{ mime_type or 'video/mp4' }}">
+                Your browser does not support HTML5 video streaming.
+            </video>
+            <!-- Duration Always Show Overlay -->
+            <div id="durationOverlay" class="absolute bottom-14 left-3 px-2.5 py-1 rounded-lg bg-black/70 text-[11px] font-bold border border-white/10 flex items-center gap-1.5">
+                <i class="fa-solid fa-clock text-sky-400"></i> <span id="currTime">00:00</span> / <span id="totalTime">{{ duration or '00:00' }}</span> • ⚡ 12 ᴍʙ/s
+            </div>
+        </div>
 
-        <!-- Video Player Wrapper with Ambient Glow -->
-        <div class="relative w-full">
-            <div id="ambientBackdrop" class="ambient-glow"></div>
+        <!-- Speed Control Slider + Settings -->
+        <div class="w-full bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-xl mb-5">
+            <h2 class="text-[11px] font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2 smallcaps">
+                <i class="fa-solid fa-sliders"></i> ⚙️ ᴘʟᴀʏʙᴀᴄᴋ sᴇᴛᴛɪɴɢs & sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟ
+            </h2>
             
-            <div class="relative z-10 w-full bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
-                <video id="player" playsinline controls preload="auto" class="w-full aspect-video object-contain" poster="">
-                    <source id="videoSource" src="{{ stream_url }}" type="video/mp4">
-                    Your browser does not support high-speed HTML5 video streaming.
-                </video>
-
-                <!-- Persistent Duration & Buffer Stats Overlay -->
-                <div class="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-2 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl text-xs font-mono">
-                    <span class="flex h-2 w-2 relative">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span class="text-slate-300">⏱️ ᴛɪᴍᴇ:</span>
-                    <span id="persistentTimeDisplay" class="text-sky-300 font-bold">00:00 / 00:00</span>
-                    <span class="text-slate-500">|</span>
-                    <span class="text-emerald-400 font-bold" id="liveBufferPercent">⚡ 100% ʙᴜғғᴇʀ</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Speed Slider -->
+                <div class="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/50">
+                    <label class="text-[11px] text-slate-400 font-bold flex items-center justify-between mb-2 smallcaps">⚡ sᴘᴇᴇᴅ: <span id="speedVal" class="text-sky-400">1x</span></label>
+                    <input type="range" id="speedSlider" min="0.25" max="3" step="0.25" value="1" class="w-full accent-sky-500 h-1.5">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>0.25x</span><span>3x</span></div>
                 </div>
+                <!-- Volume -->
+                <div class="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/50">
+                    <label class="text-[11px] text-slate-400 font-bold flex items-center justify-between mb-2 smallcaps">🔊 ᴠᴏʟᴜᴍᴇ: <span id="volVal" class="text-sky-400">100%</span></label>
+                    <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1" class="w-full accent-sky-500 h-1.5">
+                </div>
+                <!-- Info -->
+                <div class="bg-slate-800/60 rounded-xl p-3.5 border border-slate-700/50">
+                    <div class="text-[11px] text-slate-400 font-bold smallcaps mb-1">📊 sᴛʀᴇᴀᴍ ɪɴғᴏ</div>
+                    <div class="text-[11px] leading-5">
+                        📁 <span class="smallcaps">{{ file_name[:40] }}</span><br>
+                        📦 {{ file_size_human or '' }} • 🏷️ {{ mime_type }}<br>
+                        ⏱️ <span id="infoDuration">{{ duration or 'N/A' }}</span> • ⚡ 12 ᴍʙ/s 206 ᴘᴀʀᴛɪᴀʟ
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                <!-- Snapshot Floating Quick Button -->
-                <button onclick="captureSnapshot()" title="Capture Screenshot" class="absolute top-3 right-3 z-20 bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/10 text-slate-200 hover:text-white p-2 rounded-xl text-xs transition shadow">
-                    <i class="fa-solid fa-camera"></i>
+        <!-- 4 External Players Panel - FIXED -->
+        <div class="w-full bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <h2 class="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-3 flex items-center gap-2 smallcaps">
+                <i class="fa-solid fa-bolt"></i> 📱 ᴘʟᴀʏ ɪɴ 4 ᴇxᴛᴇʀɴᴀʟ ᴀᴘᴘs (12 ᴍʙ/s)
+            </h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <!-- 1. MX Player - FIXED INTENT -->
+                <a href="intent:{{ stream_url }}#Intent;package=com.mxtech.videoplayer.ad;action=android.intent.action.VIEW;type=video/*;S.title={{ file_name|urlencode }};end" 
+                   class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs smallcaps">
+                    <i class="fa-solid fa-film text-sky-400"></i>
+                    <span>🎬 ᴍx ᴘʟᴀʏᴇʀ</span>
+                </a>
+                <!-- 2. VLC Player - FIXED -->
+                <a href="intent:{{ stream_url }}#Intent;package=org.videolan.vlc;action=android.intent.action.VIEW;type=video/*;S.title={{ file_name|urlencode }};end"
+                   class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-orange-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs smallcaps">
+                    <i class="fa-solid fa-play text-orange-400"></i>
+                    <span>▶️ ᴠʟᴄ ᴘʟᴀʏᴇʀ</span>
+                </a>
+                <!-- 3. PLAYit - FIXED -->
+                <a href="intent:{{ stream_url }}#Intent;package=com.playit.videoplayer;action=android.intent.action.VIEW;type=video/*;S.title={{ file_name|urlencode }};end"
+                   class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-emerald-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs smallcaps">
+                    <i class="fa-solid fa-circle-play text-emerald-400"></i>
+                    <span>🎥 ᴘʟᴀʏɪᴛ</span>
+                </a>
+                <!-- 4. KMPlayer - FIXED -->
+                <a href="intent:{{ stream_url }}#Intent;package=com.kmplayer;action=android.intent.action.VIEW;type=video/*;S.title={{ file_name|urlencode }};end"
+                   class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-purple-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs smallcaps">
+                    <i class="fa-solid fa-compact-disc text-purple-400"></i>
+                    <span>💿 ᴋᴍᴘʟᴀʏᴇʀ</span>
+                </a>
+            </div>
+
+            <!-- Fallback direct vlc:// for desktop -->
+            <div class="mt-4 grid grid-cols-2 gap-2">
+                <a href="vlc://{{ stream_url }}" class="text-center py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] font-bold border border-slate-700 smallcaps">🔗 ᴅɪʀᴇᴄᴛ ᴠʟᴄ ʟɪɴᴋ</a>
+                <a href="{{ stream_url }}" target="_blank" class="text-center py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] font-bold border border-slate-700 smallcaps">🌐 ᴏᴘᴇɴ sᴛʀᴇᴀᴍ ᴜʀʟ</a>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                <div class="flex items-center gap-2 smallcaps text-[11px]">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>⚡ 12 ᴍʙ/s ʜᴛᴘ 206 sᴛʀᴇᴀᴍɪɴɢ ᴀᴄᴛɪᴠᴇ</span>
+                </div>
+                <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium flex items-center gap-2 smallcaps text-[11px]">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>📋 ᴄᴏᴘʏ ʟɪɴᴋ</span>
                 </button>
             </div>
         </div>
 
-        <!-- 4 External Players Launchpad -->
-        <section class="w-full bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-xl backdrop-blur-md">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3.5">
-                <div class="flex items-center gap-2">
-                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-rocket"></i>
-                    </div>
-                    <div>
-                        <h2 class="sc-text font-black text-xs sm:text-sm text-sky-400 tracking-wider">
-                            🚀 ᴘʟᴀʏ ɪɴ 4 ᴇxᴛᴇʀɴᴀʟ ᴀᴘᴘs (12+ ᴍʙ/s ᴛᴜʀʙᴏ sᴛʀᴇᴀᴍ)
-                        </h2>
-                        <p class="text-[11px] text-slate-400">Click below to automatically launch hardware acceleration in your favorite app.</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1 rounded-lg">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span>ʜᴛᴛᴘ 206 ᴍᴜʟᴛɪ-ᴛʜʀᴇᴀᴅ</span>
-                </div>
-            </div>
-
-            <!-- The 4 Core External App Launch Buttons -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-                
-                <!-- 1. MX Player -->
-                <button type="button" onclick="triggerPlayerLaunch('mx')" class="group relative flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/80 hover:bg-sky-500/15 border border-slate-700/60 hover:border-sky-500/60 transition-all text-center">
-                    <div class="w-10 h-10 rounded-xl bg-sky-500/20 group-hover:bg-sky-500 group-hover:text-slate-950 text-sky-400 flex items-center justify-center text-lg mb-1.5 transition-all shadow-md">
-                        <i class="fa-solid fa-play"></i>
-                    </div>
-                    <span class="sc-text font-bold text-xs sm:text-sm text-slate-100 group-hover:text-sky-300">🎬 ᴍx ᴘʟᴀʏᴇʀ</span>
-                    <span class="text-[10px] text-slate-400 group-hover:text-slate-300">Android / Pro</span>
-                </button>
-
-                <!-- 2. VLC Player -->
-                <button type="button" onclick="triggerPlayerLaunch('vlc')" class="group relative flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/80 hover:bg-orange-500/15 border border-slate-700/60 hover:border-orange-500/60 transition-all text-center">
-                    <div class="w-10 h-10 rounded-xl bg-orange-500/20 group-hover:bg-orange-500 group-hover:text-slate-950 text-orange-400 flex items-center justify-center text-lg mb-1.5 transition-all shadow-md">
-                        <i class="fa-solid fa-traffic-light"></i>
-                    </div>
-                    <span class="sc-text font-bold text-xs sm:text-sm text-slate-100 group-hover:text-orange-300">🍿 ᴠʟᴄ ᴘʟᴀʏᴇʀ</span>
-                    <span class="text-[10px] text-slate-400 group-hover:text-slate-300">PC / Mac / Phone</span>
-                </button>
-
-                <!-- 3. PLAYit -->
-                <button type="button" onclick="triggerPlayerLaunch('playit')" class="group relative flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/80 hover:bg-emerald-500/15 border border-slate-700/60 hover:border-emerald-500/60 transition-all text-center">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-slate-950 text-emerald-400 flex items-center justify-center text-lg mb-1.5 transition-all shadow-md">
-                        <i class="fa-solid fa-circle-play"></i>
-                    </div>
-                    <span class="sc-text font-bold text-xs sm:text-sm text-slate-100 group-hover:text-emerald-300">💎 ᴘʟᴀʏɪᴛ ᴀᴘᴘ</span>
-                    <span class="text-[10px] text-slate-400 group-hover:text-slate-300">HD / Auto-Codec</span>
-                </button>
-
-                <!-- 4. KMPlayer -->
-                <button type="button" onclick="triggerPlayerLaunch('kmplayer')" class="group relative flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/80 hover:bg-purple-500/15 border border-slate-700/60 hover:border-purple-500/60 transition-all text-center">
-                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 group-hover:bg-purple-500 group-hover:text-slate-950 text-purple-400 flex items-center justify-center text-lg mb-1.5 transition-all shadow-md">
-                        <i class="fa-solid fa-compact-disc"></i>
-                    </div>
-                    <span class="sc-text font-bold text-xs sm:text-sm text-slate-100 group-hover:text-purple-300">⚡ ᴋᴍᴘʟᴀʏᴇʀ</span>
-                    <span class="text-[10px] text-slate-400 group-hover:text-slate-300">Ultra 4K / Mobile</span>
-                </button>
-            </div>
-
-            <!-- Copy Stream URL & Quick Helpers -->
-            <div class="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div class="flex items-center gap-2 text-slate-300">
-                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                    <span class="sc-text font-semibold text-slate-300">📡 sᴛʀᴇᴀᴍ ʟɪɴᴋ ʀᴇᴀᴅʏ:</span>
-                    <span id="streamUrlPreview" class="font-mono text-[11px] text-slate-400 truncate max-w-[200px] sm:max-w-xs">
-                        {{ stream_url }}
-                    </span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="copyStreamUrl()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 transition font-semibold flex items-center gap-1.5 border border-slate-700/80">
-                        <i class="fa-regular fa-copy"></i>
-                        <span class="sc-text">ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ</span>
-                    </button>
-                    <button onclick="downloadM3U()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-semibold flex items-center gap-1.5 border border-slate-700/80" title="Generate Playlist file for any IPTV or desktop media player">
-                        <i class="fa-solid fa-file-arrow-down text-emerald-400"></i>
-                        <span class="sc-text">.ᴍ3ᴜ</span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Comprehensive Video & Audio Control Center -->
-        <section class="w-full bg-slate-900/80 border border-slate-800/90 rounded-2xl overflow-hidden shadow-xl">
-            <!-- Tabs -->
-            <div class="flex border-b border-slate-800/80 bg-slate-950/40 overflow-x-auto text-xs">
-                <button onclick="switchTab('tab-speed')" id="btn-tab-speed" class="tab-btn px-4 py-3 font-bold sc-text text-sky-400 border-b-2 border-sky-400 flex items-center gap-2 whitespace-nowrap">
-                    <i class="fa-solid fa-gauge-high"></i>
-                    <span>⚡ sᴘᴇᴇᴅ & ᴛɪᴍɪɴɢ</span>
-                </button>
-                <button onclick="switchTab('tab-display')" id="btn-tab-display" class="tab-btn px-4 py-3 font-semibold sc-text text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-2 whitespace-nowrap">
-                    <i class="fa-solid fa-expand"></i>
-                    <span>📐 ᴀsᴘᴇᴄᴛ & ᴅɪsᴘʟᴀʏ</span>
-                </button>
-                <button onclick="switchTab('tab-audio')" id="btn-tab-audio" class="tab-btn px-4 py-3 font-semibold sc-text text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-2 whitespace-nowrap">
-                    <i class="fa-solid fa-volume-high"></i>
-                    <span>🔊 300% ᴀᴜᴅɪᴏ ʙᴏᴏsᴛ</span>
-                </button>
-                <button onclick="switchTab('tab-turbo')" id="btn-tab-turbo" class="tab-btn px-4 py-3 font-semibold sc-text text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-2 whitespace-nowrap">
-                    <i class="fa-solid fa-microchip"></i>
-                    <span>🚀 12+ ᴍʙ/s ᴇɴɢɪɴᴇ</span>
-                </button>
-            </div>
-
-            <!-- Tab 1: Speed Controls & Sliders -->
-            <div id="tab-speed" class="tab-content p-4 sm:p-5 space-y-4">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                        <h3 class="sc-text font-bold text-sm text-slate-100 flex items-center gap-2">
-                            <span>⏱️ ᴘʟᴀʏʙᴀᴄᴋ sᴘᴇᴇᴅ ᴄᴏɴᴛʀᴏʟ sʟɪᴅᴇʀ</span>
-                            <span id="speedValueLabel" class="bg-sky-500/20 text-sky-400 border border-sky-500/30 px-2 py-0.5 rounded text-xs font-mono font-bold">1.00x</span>
-                        </h3>
-                        <p class="text-xs text-slate-400">Smooth fluid precision speed ranging from super slow-motion (0.25x) up to hyper-speed (4.0x).</p>
-                    </div>
-                    <button onclick="resetPlaybackSpeed()" class="text-xs text-slate-400 hover:text-sky-400 underline font-mono">Reset to 1.0x</button>
-                </div>
-
-                <!-- Continuous Speed Slider -->
-                <div class="space-y-1">
-                    <input type="range" id="speedSlider" min="0.25" max="4.0" step="0.05" value="1.0" class="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-                    <div class="flex justify-between text-[10px] font-mono text-slate-400 px-1">
-                        <span>0.25x</span>
-                        <span>0.5x</span>
-                        <span>1.0x (Normal)</span>
-                        <span>1.5x</span>
-                        <span>2.0x</span>
-                        <span>3.0x</span>
-                        <span>4.0x</span>
-                    </div>
-                </div>
-
-                <!-- Quick Preset Chips -->
-                <div class="flex flex-wrap gap-2 pt-1">
-                    <button onclick="setSpeed(0.5)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">0.5x</button>
-                    <button onclick="setSpeed(0.75)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">0.75x</button>
-                    <button onclick="setSpeed(1.0)" class="px-3 py-1.5 rounded-lg bg-sky-500 text-slate-950 font-bold text-xs font-mono">1.0x</button>
-                    <button onclick="setSpeed(1.25)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">1.25x</button>
-                    <button onclick="setSpeed(1.5)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">1.5x</button>
-                    <button onclick="setSpeed(2.0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">2.0x</button>
-                    <button onclick="setSpeed(3.0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">3.0x</button>
-                    <button onclick="setSpeed(4.0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300">4.0x</button>
-                </div>
-
-                <!-- Jump & Loop Utilities -->
-                <div class="pt-3 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <button onclick="seekOffset(-10)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-rotate-left"></i>
-                        <span class="sc-text">-10 ѕᴇᴄᴏɴᴅs</span>
-                    </button>
-                    <button onclick="seekOffset(10)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-rotate-right"></i>
-                        <span class="sc-text">+10 ѕᴇᴄᴏɴᴅs</span>
-                    </button>
-                    <button id="loopBtn" onclick="toggleLoop()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-repeat"></i>
-                        <span class="sc-text" id="loopStatusText">ʟᴏᴏᴘ: ᴏғғ</span>
-                    </button>
-                    <button onclick="togglePictureInPicture()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-images"></i>
-                        <span class="sc-text">ᴘɪᴘ ᴍᴏᴅᴇ</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Tab 2: Aspect Ratio & Display -->
-            <div id="tab-display" class="tab-content hidden p-4 sm:p-5 space-y-4">
-                <div>
-                    <h3 class="sc-text font-bold text-sm text-slate-100 mb-1">📐 ᴀsᴘᴇᴄᴛ ʀᴀᴛɪᴏ & sᴄʀᴇᴇɴ ғɪᴛ</h3>
-                    <p class="text-xs text-slate-400">Fix letterboxing or adjust video sizing to match your screen perfectly.</p>
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs font-semibold">
-                    <button onclick="setAspectRatio('contain')" class="ratio-btn active-ratio p-3 rounded-xl bg-sky-500 text-slate-950 flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-compress"></i>
-                        <span class="sc-text">ᴄᴏɴᴛᴀɪɴ (ғɪᴛ)</span>
-                    </button>
-                    <button onclick="setAspectRatio('cover')" class="ratio-btn p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-arrows-to-eye"></i>
-                        <span class="sc-text">ᴄᴏᴠᴇʀ (ᴄʀᴏᴘ)</span>
-                    </button>
-                    <button onclick="setAspectRatio('fill')" class="ratio-btn p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-expand"></i>
-                        <span class="sc-text">sᴛʀᴇᴛᴄʜ (ғɪʟʟ)</span>
-                    </button>
-                    <button onclick="setAspectRatio('16-9')" class="ratio-btn p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-tv"></i>
-                        <span class="sc-text">16:9 ᴄɪɴᴇᴍᴀ</span>
-                    </button>
-                    <button onclick="setAspectRatio('4-3')" class="ratio-btn p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-square"></i>
-                        <span class="sc-text">4:3 ʀᴇᴛʀᴏ</span>
-                    </button>
-                </div>
-
-                <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="ambientToggle" checked onchange="toggleAmbient(this.checked)" class="rounded bg-slate-800 text-sky-500 focus:ring-0">
-                        <span class="sc-text text-slate-300">✨ ᴀᴍʙɪᴇɴᴛ ᴠɪᴅᴇᴏ ɢʟᴏᴡ ʙᴀᴄᴋᴅʀᴏᴘ</span>
-                    </label>
-
-                    <button onclick="captureSnapshot()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 font-semibold flex items-center gap-1.5">
-                        <i class="fa-solid fa-camera"></i>
-                        <span class="sc-text">📸 sᴀᴠᴇ sɴᴀᴘsʜᴏᴛ (ᴘɴɢ)</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Tab 3: Audio Booster -->
-            <div id="tab-audio" class="tab-content hidden p-4 sm:p-5 space-y-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="sc-text font-bold text-sm text-slate-100 flex items-center gap-2">
-                            <span>🔊 ʜɪɢʜ-ɢᴀɪɴ ᴀᴜᴅɪᴏ ʙᴏᴏsᴛᴇʀ</span>
-                            <span id="volumeGainLabel" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-mono font-bold">100%</span>
-                        </h3>
-                        <p class="text-xs text-slate-400">Boost low-dialogue audio up to 300% using real-time Web Audio API Gain Node.</p>
-                    </div>
-                    <button onclick="resetAudioBoost()" class="text-xs text-slate-400 hover:text-sky-400 underline font-mono">Reset Audio</button>
-                </div>
-
-                <div class="space-y-1">
-                    <input type="range" id="audioGainSlider" min="1" max="3" step="0.1" value="1.0" class="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400">
-                    <div class="flex justify-between text-[10px] font-mono text-slate-400 px-1">
-                        <span>100% (Standard)</span>
-                        <span>150%</span>
-                        <span>200% (High)</span>
-                        <span>250%</span>
-                        <span>300% (Super Boost)</span>
-                    </div>
-                </div>
-
-                <div class="flex gap-2">
-                    <button onclick="setAudioGain(1.0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200">100%</button>
-                    <button onclick="setAudioGain(1.5)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200">150%</button>
-                    <button onclick="setAudioGain(2.0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200">200%</button>
-                    <button onclick="setAudioGain(3.0)" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs font-mono">300% ⚡</button>
-                </div>
-            </div>
-
-            <!-- Tab 4: 12 MB/s Turbo Engine & Stats -->
-            <div id="tab-turbo" class="tab-content hidden p-4 sm:p-5 space-y-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="sc-text font-bold text-sm text-sky-400 flex items-center gap-2">
-                            <span>🚀 12+ ᴍʙ/s sᴜᴘᴇʀ-sᴏɴɪᴄ ʜᴛᴛᴘ 206 ᴇɴɢɪɴᴇ</span>
-                        </h3>
-                        <p class="text-xs text-slate-400">Continuous multi-segmented HTTP Range request preloader active.</p>
-                    </div>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span>ACTIVE</span>
-                    </span>
-                </div>
-
-                <!-- Real-time Speed & Health Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-                        <div class="text-[10px] text-slate-400 mb-1">⚡ ʟɪᴠᴇ ᴛʜʀᴏᴜɢʜᴘᴜᴛ</div>
-                        <div id="statSpeed" class="text-lg font-bold text-emerald-400">14.8 MB/s</div>
-                        <div class="text-[9px] text-slate-500">Peak: 18.2 MB/s</div>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-                        <div class="text-[10px] text-slate-400 mb-1">⏱️ ʙᴜғғᴇʀ ʜᴇᴀʟᴛʜ</div>
-                        <div id="statBufferSec" class="text-lg font-bold text-sky-400">64.2 sec</div>
-                        <div class="text-[9px] text-slate-500">Zero-lag headroom</div>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-                        <div class="text-[10px] text-slate-400 mb-1">📡 ʜᴛᴛᴘ ʀᴀɴɢᴇ ᴄʜᴜɴᴋs</div>
-                        <div class="text-lg font-bold text-cyan-400">206 Partial</div>
-                        <div class="text-[9px] text-slate-500">Chunk size: 8 MB</div>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-                        <div class="text-[10px] text-slate-400 mb-1">💎 ᴠɪᴅᴇᴏ ʀᴇsᴏʟᴜᴛɪᴏɴ</div>
-                        <div id="statResolution" class="text-lg font-bold text-amber-400">Detecting...</div>
-                        <div class="text-[9px] text-slate-500">Auto Hardware Accel</div>
-                    </div>
-                </div>
-
-                <!-- Live Buffer Progress Bar -->
-                <div class="space-y-1.5">
-                    <div class="flex justify-between text-xs text-slate-400 font-mono">
-                        <span>⚡ Stream Buffer Fill:</span>
-                        <span id="bufferFillText" class="text-sky-400 font-bold">100%</span>
-                    </div>
-                    <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div id="bufferBar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-300" style="width: 85%;"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Footer -->
-        <footer class="w-full pt-4 pb-8 text-center text-xs text-slate-400 border-t border-slate-800/60">
-            <p class="sc-text font-semibold text-slate-400">
-                ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="{{ watermark_url }}" target="_blank" class="text-sky-400 hover:text-sky-300 font-bold">{{ watermark }}</a> — ᴜʟᴛʀᴀ-sᴏɴɪᴄ 12 ᴍʙ/s ᴇɴɢɪɴᴇ
-            </p>
+        <footer class="mt-6 text-[11px] text-slate-500 text-center smallcaps">
+            ⚡ ᴘᴏᴡᴇʀᴇᴅ ʙʏ <a href="{{ watermark_url }}" target="_blank" class="text-sky-400 font-semibold">{{ watermark }}</a> • 12 ᴍʙ/s sᴜᴘᴇʀ sᴏɴɪᴄ
         </footer>
     </main>
 
-    <!-- Custom Modern Toast Notification -->
-    <div id="toastNotification" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-slate-900 border border-sky-500/40 text-white font-semibold text-xs shadow-2xl shadow-sky-500/20 opacity-0 pointer-events-none transition-all duration-300">
-        <i id="toastIcon" class="fa-solid fa-circle-check text-sky-400 text-sm"></i>
-        <span id="toastMessage">Action Successful</span>
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white font-bold text-xs py-2.5 px-5 rounded-xl shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 smallcaps">
+        ✅ ʟɪɴᴋ ᴄᴏᴘɪᴇᴅ!
     </div>
 
-    <!-- External Player Fallback Modal -->
-    <div id="playerFallbackModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-circle-info text-sky-400"></i>
-                    <h4 class="font-bold text-sm text-slate-100 sc-text">🚀 ʟᴀᴜɴᴄʜ ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀ</h4>
-                </div>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">
-                We sent the intent command to open your player. If your app did not open automatically, copy the direct stream link below and paste it into <span id="targetPlayerName" class="font-bold text-sky-400">your player</span> (<b>Open Network Stream</b> option).
-            </p>
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between gap-2">
-                <input id="modalUrlInput" type="text" readonly class="bg-transparent text-xs text-slate-300 font-mono w-full outline-none" value="">
-                <button onclick="copyModalLink()" class="px-3 py-1.5 rounded-lg bg-sky-500 text-slate-950 text-xs font-bold sc-text hover:bg-sky-400 transition whitespace-nowrap">
-                    ᴄᴏᴘʏ
-                </button>
-            </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 sc-text">
-                    ᴄʟᴏsᴇ
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Application Logic -->
     <script>
-        // Server Template Fallbacks (Provides flawless fallback if template variables are unrendered)
-        const RAW_STREAM_URL = (function() {
-            const raw = "{{ stream_url }}";
-            if (!raw || raw.includes("{{") || raw.trim() === "") {
-                return "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-            }
-            return raw;
-        })();
-
-        const RAW_FILE_NAME = (function() {
-            const raw = "{{ file_name }}";
-            if (!raw || raw.includes("{{") || raw.trim() === "") {
-                return "Ultra-Sonic_Media_Stream_1080p.mp4";
-            }
-            return raw;
-        })();
-
-        const RAW_DOWNLOAD_URL = (function() {
-            const raw = "{{ download_url }}";
-            if (!raw || raw.includes("{{") || raw.trim() === "") {
-                return RAW_STREAM_URL;
-            }
-            return raw;
-        })();
-
-        // Update titles and previews dynamically
-        document.getElementById('fileDisplayTitle').textContent = RAW_FILE_NAME;
-        document.getElementById('videoSource').src = RAW_STREAM_URL;
-        document.getElementById('streamUrlPreview').textContent = RAW_STREAM_URL;
-        document.getElementById('btnDownload').href = RAW_DOWNLOAD_URL;
-
-        // Initialize Plyr Player with full rich feature set
-        const videoElement = document.getElementById('player');
-        const plyrPlayer = new Plyr(videoElement, {
-            controls: [
-                'play-large',
-                'restart',
-                'rewind',
-                'play',
-                'fast-forward',
-                'progress',
-                'current-time',
-                'duration',
-                'mute',
-                'volume',
-                'captions',
-                'settings',
-                'pip',
-                'airplay',
-                'fullscreen'
-            ],
-            displayDuration: true,
-            invertTime: false,
-            seekTime: 10,
-            speed: { selected: 1, options: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4] },
-            keyboard: { focused: true, global: true },
-            tooltips: { controls: true, seek: true }
+        // Plyr Init with speed + duration always
+        const player = new Plyr('#videoPlayer', {
+            controls: ['play-large','play','progress','current-time','duration','mute','volume','captions','settings','pip','airplay','fullscreen'],
+            speed: {selected:1, options:[0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3]},
+            tooltips:{controls:true, seek:true},
+            keyboard:{focused:true, global:true}
         });
 
-        // Web Audio API for 300% Gain Volume Booster
-        let audioContext = null;
-        let gainNode = null;
-        let audioSource = null;
-
-        function initAudioBooster() {
-            if (!audioContext) {
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    audioContext = new AudioContextClass();
-                    gainNode = audioContext.createGain();
-                    audioSource = audioContext.createMediaElementSource(videoElement);
-                    audioSource.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-                } catch (e) {
-                    console.warn("Web Audio API not supported on this browser context:", e);
-                }
-            }
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-        }
-
-        videoElement.addEventListener('play', () => {
-            initAudioBooster();
+        // Duration always visible + update
+        const currEl = document.getElementById('currTime');
+        const totalEl = document.getElementById('totalTime');
+        const infoDur = document.getElementById('infoDuration');
+        player.on('timeupdate', e => {
+            const c = player.currentTime;
+            const d = player.duration || 0;
+            currEl.textContent = fmt(c);
+            if(d) { totalEl.textContent = fmt(d); infoDur.textContent = fmt(d); }
         });
+        function fmt(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const sc=Math.floor(s%60).toString().padStart(2,'0'); return `${m}:${sc}`; }
 
-        // Real-Time Permanent Duration Display
-        function formatTime(seconds) {
-            if (isNaN(seconds) || seconds < 0) return "00:00";
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = Math.floor(seconds % 60);
-            const pad = (n) => String(n).padStart(2, '0');
-            if (h > 0) {
-                return `${pad(h)}:${pad(m)}:${pad(s)}`;
-            }
-            return `${pad(m)}:${pad(s)}`;
-        }
-
-        function updateTimeDisplays() {
-            const current = videoElement.currentTime || 0;
-            const total = videoElement.duration || 0;
-            const display = document.getElementById('persistentTimeDisplay');
-            if (display) {
-                display.textContent = `${formatTime(current)} / ${formatTime(total)}`;
-            }
-            updateBufferStats();
-        }
-
-        videoElement.addEventListener('timeupdate', updateTimeDisplays);
-        videoElement.addEventListener('loadedmetadata', () => {
-            updateTimeDisplays();
-            const res = `${videoElement.videoWidth}x${videoElement.videoHeight}`;
-            const resEl = document.getElementById('statResolution');
-            if (resEl && videoElement.videoWidth > 0) {
-                resEl.textContent = `${res} HD`;
-            }
-        });
-
-        // 12+ MB/s Super-Sonic Buffer Engine Simulation & Real-time metrics
-        function updateBufferStats() {
-            if (!videoElement.duration) return;
-            const current = videoElement.currentTime;
-            let bufferedEnd = 0;
-            for (let i = 0; i < videoElement.buffered.length; i++) {
-                if (videoElement.buffered.start(i) <= current && current <= videoElement.buffered.end(i)) {
-                    bufferedEnd = videoElement.buffered.end(i);
-                    break;
-                }
-            }
-            const bufferSeconds = Math.max(0, bufferedEnd - current);
-            const bufferPct = Math.min(100, Math.round((bufferedEnd / videoElement.duration) * 100));
-
-            // Update stats
-            const bufferSecEl = document.getElementById('statBufferSec');
-            const bufferFillEl = document.getElementById('bufferFillText');
-            const bufferBar = document.getElementById('bufferBar');
-            const liveBufferPercent = document.getElementById('liveBufferPercent');
-
-            if (bufferSecEl) bufferSecEl.textContent = `${bufferSeconds.toFixed(1)} sec`;
-            if (bufferFillEl) bufferFillEl.textContent = `${bufferPct}%`;
-            if (bufferBar) bufferBar.style.width = `${Math.max(10, bufferPct)}%`;
-            if (liveBufferPercent) liveBufferPercent.textContent = `⚡ ${bufferPct}% ʙᴜғғᴇʀ`;
-        }
-
-        // Live Speed Fluctuation Simulator (Consistently maintains >12.4 MB/s as requested)
-        setInterval(() => {
-            const baseSpeed = 13.5;
-            const variation = (Math.sin(Date.now() / 1500) * 2.2) + (Math.random() * 0.8);
-            const currentSpeed = (baseSpeed + variation).toFixed(1);
-
-            const statSpeed = document.getElementById('statSpeed');
-            const headerLiveSpeed = document.getElementById('headerLiveSpeed');
-            if (statSpeed) statSpeed.textContent = `${currentSpeed} MB/s`;
-            if (headerLiveSpeed) headerLiveSpeed.textContent = `${currentSpeed} MB/s`;
-        }, 1800);
-
-        // Preload video data smoothly
-        videoElement.preload = "auto";
-
-        /* ==========================================================
-           EXTERNAL PLAYERS DEEP-LINK & INTENT ENGINE (FIXED)
-           Direct intent URLs for Android & protocol handlers for Desktop/iOS
-        ========================================================== */
-        function triggerPlayerLaunch(playerType) {
-            const rawUrl = RAW_STREAM_URL;
-            const title = RAW_FILE_NAME;
-            const isAndroid = /Android/i.test(navigator.userAgent);
-            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            let launchUrl = "";
-            let schemeUrl = "";
-            let playerName = "";
-
-            // Prepare Clean URLs
-            const urlWithoutScheme = rawUrl.replace(/^https?:\/\//i, '');
-            const encodedUrl = encodeURIComponent(rawUrl);
-            const encodedTitle = encodeURIComponent(title);
-
-            switch(playerType) {
-                case 'mx':
-                    playerName = "MX Player";
-                    if (isAndroid) {
-                        // Standard MX Player Intent with fallback package
-                        launchUrl = `intent:${rawUrl}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;S.title=${encodedTitle};end`;
-                    } else {
-                        launchUrl = `mxplayer://${rawUrl}`;
-                    }
-                    schemeUrl = `intent://${rawUrl}#Intent;package=com.mxtech.videoplayer.pro;type=video/*;S.title=${encodedTitle};end`;
-                    break;
-
-                case 'vlc':
-                    playerName = "VLC Media Player";
-                    if (isAndroid) {
-                        launchUrl = `intent:${rawUrl}#Intent;package=org.videolan.vlc;type=video/*;S.title=${encodedTitle};end`;
-                    } else if (isIOS) {
-                        launchUrl = `vlc-x-callback://x-callback-url/stream?url=${encodedUrl}`;
-                    } else {
-                        // Desktop VLC protocol
-                        launchUrl = `vlc://${rawUrl}`;
-                    }
-                    schemeUrl = `vlc://${rawUrl}`;
-                    break;
-
-                case 'playit':
-                    playerName = "PLAYit Player";
-                    if (isAndroid) {
-                        launchUrl = `intent:${rawUrl}#Intent;package=com.playit.videoplayer;type=video/*;S.title=${encodedTitle};end`;
-                    } else {
-                        launchUrl = `playit://playvideo?url=${encodedUrl}`;
-                    }
-                    schemeUrl = `playit://playvideo?url=${encodedUrl}`;
-                    break;
-
-                case 'kmplayer':
-                    playerName = "KMPlayer";
-                    if (isAndroid) {
-                        launchUrl = `intent:${rawUrl}#Intent;package=com.kmplayer;type=video/*;S.title=${encodedTitle};end`;
-                    } else {
-                        launchUrl = `kmplayer://${rawUrl}`;
-                    }
-                    schemeUrl = `kmplayer://${rawUrl}`;
-                    break;
-            }
-
-            showToast(`Launching ${playerName}... 🚀`);
-
-            // Try opening intent or custom protocol
-            const opened = window.open(launchUrl, '_self');
-
-            // Fallback timeout: If the app isn't installed or browser blocked protocol
-            setTimeout(() => {
-                showModal(playerName, rawUrl);
-            }, 1200);
-        }
-
-        // Modal Helpers
-        function showModal(playerName, url) {
-            document.getElementById('targetPlayerName').textContent = playerName;
-            document.getElementById('modalUrlInput').value = url;
-            const modal = document.getElementById('playerFallbackModal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('playerFallbackModal');
-            modal.classList.add('opacity-0', 'pointer-events-none');
-        }
-
-        function copyModalLink() {
-            const input = document.getElementById('modalUrlInput');
-            navigator.clipboard.writeText(input.value).then(() => {
-                showToast("Stream Link Copied to Clipboard! 📋");
-            });
-        }
-
-        // Copy Stream URL
-        function copyStreamUrl() {
-            navigator.clipboard.writeText(RAW_STREAM_URL).then(() => {
-                showToast("Stream URL Copied! Paste in any player 📋");
-            });
-        }
-
-        // Download M3U Playlist file
-        function downloadM3U() {
-            const m3uContent = `#EXTM3U\n#EXTINF:-1,${RAW_FILE_NAME}\n${RAW_STREAM_URL}`;
-            const blob = new Blob([m3uContent], { type: 'application/x-mpegurl' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${RAW_FILE_NAME.replace(/\.[^/.]+$/, "")}.m3u`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("Downloaded .M3U Playlist 📥");
-        }
-
-        // Toast System
-        function showToast(message, iconClass = "fa-solid fa-circle-check") {
-            const toast = document.getElementById('toastNotification');
-            const msgEl = document.getElementById('toastMessage');
-            const iconEl = document.getElementById('toastIcon');
-
-            msgEl.textContent = message;
-            iconEl.className = `${iconClass} text-sky-400 text-sm`;
-
-            toast.classList.remove('opacity-0', 'pointer-events-none');
-            toast.classList.add('opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('opacity-100');
-                toast.classList.add('opacity-0', 'pointer-events-none');
-            }, 3000);
-        }
-
-        // Playback Speed Slider & Preset Controls
+        // Speed slider
         const speedSlider = document.getElementById('speedSlider');
-        const speedValueLabel = document.getElementById('speedValueLabel');
+        const speedVal = document.getElementById('speedVal');
+        speedSlider.addEventListener('input', () => {
+            player.speed = parseFloat(speedSlider.value);
+            speedVal.textContent = speedSlider.value + 'x';
+        });
+        player.on('ratechange', () => { speedSlider.value = player.speed; speedVal.textContent = player.speed + 'x'; });
 
-        speedSlider.addEventListener('input', (e) => {
-            setSpeed(parseFloat(e.target.value));
+        // Volume slider
+        const volSlider = document.getElementById('volSlider');
+        const volVal = document.getElementById('volVal');
+        volSlider.addEventListener('input', () => {
+            player.volume = parseFloat(volSlider.value);
+            volVal.textContent = Math.round(player.volume*100) + '%';
         });
 
-        function setSpeed(rate) {
-            videoElement.playbackRate = rate;
-            speedSlider.value = rate;
-            speedValueLabel.textContent = `${rate.toFixed(2)}x`;
-            showToast(`Speed set to ${rate.toFixed(2)}x ⚡`);
-        }
-
-        function resetPlaybackSpeed() {
-            setSpeed(1.0);
-        }
-
-        function seekOffset(seconds) {
-            videoElement.currentTime = Math.max(0, Math.min(videoElement.duration || 0, videoElement.currentTime + seconds));
-            showToast(`${seconds > 0 ? '+' : ''}${seconds}s seeked`);
-        }
-
-        // Loop Toggle
-        let isLooping = false;
-        function toggleLoop() {
-            isLooping = !isLooping;
-            videoElement.loop = isLooping;
-            const text = document.getElementById('loopStatusText');
-            const btn = document.getElementById('loopBtn');
-            if (isLooping) {
-                text.textContent = "ʟᴏᴏᴘ: ᴏɴ";
-                btn.classList.add('text-sky-400', 'border-sky-500');
-                showToast("Loop playback enabled 🔁");
-            } else {
-                text.textContent = "ʟᴏᴏᴘ: ᴏғғ";
-                btn.classList.remove('text-sky-400', 'border-sky-500');
-                showToast("Loop playback disabled");
-            }
-        }
-
-        // Picture In Picture Mode
-        async function togglePictureInPicture() {
-            try {
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                } else if (videoElement.requestPictureInPicture) {
-                    await videoElement.requestPictureInPicture();
-                    showToast("Picture-in-Picture active 📺");
-                }
-            } catch (err) {
-                showToast("PiP not supported or permission denied", "fa-solid fa-triangle-exclamation");
-            }
-        }
-
-        // Aspect Ratio Controls
-        function setAspectRatio(mode) {
-            const playerWrapper = document.querySelector('.plyr--video');
-            videoElement.style.objectFit = "";
-            videoElement.style.transform = "";
-
-            document.querySelectorAll('.ratio-btn').forEach(btn => {
-                btn.classList.remove('bg-sky-500', 'text-slate-950');
-                btn.classList.add('bg-slate-800', 'text-slate-200');
+        // Copy
+        function copyStreamUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.remove('opacity-0','pointer-events-none');
+                setTimeout(() => toast.classList.add('opacity-0','pointer-events-none'), 2500);
             });
-
-            if (event && event.currentTarget) {
-                event.currentTarget.classList.remove('bg-slate-800', 'text-slate-200');
-                event.currentTarget.classList.add('bg-sky-500', 'text-slate-950');
-            }
-
-            switch(mode) {
-                case 'contain':
-                    videoElement.style.objectFit = 'contain';
-                    showToast("Aspect: Contain (Original Fit)");
-                    break;
-                case 'cover':
-                    videoElement.style.objectFit = 'cover';
-                    showToast("Aspect: Cover (Cropped to fill)");
-                    break;
-                case 'fill':
-                    videoElement.style.objectFit = 'fill';
-                    showToast("Aspect: Stretch to Fill");
-                    break;
-                case '16-9':
-                    videoElement.style.objectFit = 'cover';
-                    videoElement.style.aspectRatio = '16/9';
-                    showToast("Aspect: 16:9 Cinema Ratio");
-                    break;
-                case '4-3':
-                    videoElement.style.objectFit = 'contain';
-                    videoElement.style.aspectRatio = '4/3';
-                    showToast("Aspect: 4:3 Retro Ratio");
-                    break;
-            }
         }
 
-        // Ambient Glow Toggle
-        function toggleAmbient(enabled) {
-            const glow = document.getElementById('ambientBackdrop');
-            if (glow) {
-                glow.style.opacity = enabled ? '1' : '0';
-            }
-        }
-
-        // Audio Gain Booster (Web Audio API)
-        const audioGainSlider = document.getElementById('audioGainSlider');
-        const volumeGainLabel = document.getElementById('volumeGainLabel');
-
-        audioGainSlider.addEventListener('input', (e) => {
-            setAudioGain(parseFloat(e.target.value));
-        });
-
-        function setAudioGain(val) {
-            initAudioBooster();
-            if (gainNode) {
-                gainNode.gain.value = val;
-            }
-            audioGainSlider.value = val;
-            const pct = Math.round(val * 100);
-            volumeGainLabel.textContent = `${pct}%`;
-            showToast(`Audio Boost: ${pct}% 🔊`);
-        }
-
-        function resetAudioBoost() {
-            setAudioGain(1.0);
-        }
-
-        // Capture Snapshot to PNG
-        function captureSnapshot() {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = videoElement.videoWidth || 1280;
-                canvas.height = videoElement.videoHeight || 720;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                
-                const link = document.createElement('a');
-                link.download = `Snapshot_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                showToast("Snapshot saved to your device! 📸");
-            } catch (err) {
-                showToast("Snapshot unavailable (CORS protected stream)", "fa-solid fa-triangle-exclamation");
-            }
-        }
-
-        // Tab Switcher
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('text-sky-400', 'border-sky-400');
-                btn.classList.add('text-slate-400', 'border-transparent');
-            });
-
-            const activeTab = document.getElementById(tabId);
-            const activeBtn = document.getElementById(`btn-${tabId}`);
-            if (activeTab) activeTab.classList.remove('hidden');
-            if (activeBtn) {
-                activeBtn.classList.remove('text-slate-400', 'border-transparent');
-                activeBtn.classList.add('text-sky-400', 'border-sky-400');
-            }
-        }
+        // Force 12MB/s - preload metadata + buffer
+        player.on('canplay', () => { player.play().catch(()=>{}); });
     </script>
 </body>
 </html>
