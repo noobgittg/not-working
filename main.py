@@ -1,12 +1,12 @@
 import os
 import asyncio
 from config import Config
-from app.utils.logger import logger
-from app.database import mongo
-from app.bot.client import MMWProBot
-from app.web.web_support import WebSupport
-from app.services.autodel_service import run_autodelete_sweeper
-from app.services.keepalive_service import (
+from plugins.core_utils import logger, to_smallcaps
+from plugins.core_db import mongo
+from plugins.core_bot import MMWProBot
+from plugins.core_web import WebSupport
+from plugins.core_services import (
+    run_autodelete_sweeper,
     run_keepalive_worker,
     schedule_24h_restart,
     send_restart_notification,
@@ -17,11 +17,15 @@ async def start_bot_and_services(bot: MMWProBot):
     try:
         await mongo.connect()
     except Exception as e:
-        logger.error(f"MongoDB connection warning: {e}. Bot will continue with cached state.")
+        logger.warning(f"MongoDB connection warning: {e}. Continuing with unified In-Memory DB + FastMemoryCache.")
+
+    if not Config.BOT_TOKEN:
+        logger.warning("⚠️ BOT_TOKEN is not set in environment! Web server is running, waiting for BOT_TOKEN.")
+        return
 
     try:
         await bot.start()
-        
+
         if os.path.exists(RESTART_MARKER_FILE):
             try:
                 os.remove(RESTART_MARKER_FILE)
@@ -32,15 +36,15 @@ async def start_bot_and_services(bot: MMWProBot):
         asyncio.create_task(run_autodelete_sweeper(bot))
         asyncio.create_task(run_keepalive_worker(bot, interval=6))
         asyncio.create_task(schedule_24h_restart(bot, interval=86400))
-        
-        logger.info(f"⚡ MMW All-In-One Pro Engine running. Watermark: {Config.WATERMARK}")
+
+        logger.info(f"⚡ {to_smallcaps('mmw all-in-one pro engine running! 12 mb/s stream & 4 players ready.')}")
     except Exception as e:
         logger.error(f"Error starting bot services: {e}")
 
 async def main():
-    logger.info("⚡ Starting MMW Pro Engine with Koyeb Web Support...")
+    logger.info(f"⚡ {to_smallcaps('starting mmw pro engine with 12 mb/s web stream support...')}")
     bot = MMWProBot()
-    
+
     web_support = WebSupport(bot)
     server = web_support.get_server()
 
