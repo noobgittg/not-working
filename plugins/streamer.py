@@ -92,7 +92,8 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
         [
             InlineKeyboardButton(f"🎬 {to_smallcaps('ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ')}", url=watch_url),
             InlineKeyboardButton(f"⬇️ {to_smallcaps('ғᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ')}", url=download_url)
-        ][
+        ],
+        [
             InlineKeyboardButton(f"📥 {to_smallcaps('ɢᴇᴛ ғɪʟᴇ')}", callback_data=f"getfile_{file_id}"),
             InlineKeyboardButton(f"🗑️ {to_smallcaps('ʀᴇᴠᴏᴋᴇ ʟɪɴᴋ')}", callback_data=f"revoke_{file_id}")
         ],
