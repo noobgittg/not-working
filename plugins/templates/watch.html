@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ file_name | default("Watch Video") }} — ⚡ 12 MB/s Stream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Header / Navbar -->
+    <header class="w-full border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="flex items-center space-x-3 overflow-hidden">
+            <span class="bg-brand-500 text-white p-2 rounded-xl text-sm shadow-lg shadow-brand-500/30 flex items-center justify-center w-9 h-9">
+                <i class="fa-solid fa-bolt"></i>
+            </span>
+            <div>
+                <h1 class="font-bold text-sm sm:text-base truncate max-w-xs md:max-w-xl" title="{{ file_name }}">{{ file_name | default("Streaming Media") }}</h1>
+                <div class="flex items-center space-x-2 text-xs text-emerald-500 font-semibold">
+                    <span>⚡ 12 MB/s Turbo Stream</span>
+                    <span>•</span>
+                    <span>{{ file_size | default("") }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button id="themeToggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-slate-600 dark:text-slate-300" aria-label="Toggle Theme">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:inline"></i>
+            </button>
+            <a href="{{ download_url }}" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold transition shadow-lg shadow-brand-500/25">
+                <i class="fa-solid fa-download"></i>
+                <span class="hidden sm:inline">Fast Download</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-start p-3 sm:p-6 max-w-5xl mx-auto w-full gap-6">
+        
+        <!-- Video Player Box -->
+        <div id="playerContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group border border-slate-200 dark:border-slate-800">
+            <video id="videoPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata" controls>
+                <source src="{{ stream_url }}" type="{{ mime_type | default('video/mp4') }}">
+                <source src="{{ stream_url }}" type="video/mp4">
+                Your browser does not support HTML5 video streaming. Use one of the 4 external players below!
+            </video>
+        </div>
+
+        <!-- 4 External Players ONLY Section (PLAYit, MX Player, VLC, S Player) -->
+        <section class="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold flex items-center gap-2">
+                        <span>📱</span>
+                        <span>ᴘʟᴀʏ ɪɴ 4 ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀs ᴏɴʟʏ</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        ⚡ 12 ᴍʙ/s ᴅɪʀᴇᴄᴛ ʜᴛᴛᴘ 206 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ — ᴢᴇʀᴏ ʙᴜғғᴇʀɪɴɢ (ᴍᴋᴠ / ᴍᴘ4 / ʜᴇᴠᴄ / ᴅᴜᴀʟ ᴀᴜᴅɪᴏ)
+                    </p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    🚀 12 MB/s READY
+                </span>
+            </div>
+
+            <!-- Strict 4 External Player Buttons Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- 1. PLAYit -->
+                <a href="{{ player_links.playit if player_links else ('playit://playerv2/video?url=' ~ stream_url) }}"
+                   class="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/30 transition group">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-lg shadow">
+                            ▶
+                        </span>
+                        <div>
+                            <div class="font-bold text-sm">1. PLAYit</div>
+                            <div class="text-[11px] text-amber-400 font-medium">⚡ 12 ᴍʙ/s ᴘʟᴀʏᴇʀ</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-400 group-hover:translate-x-0.5 transition"></i>
+                </a>
+
+                <!-- 2. MX Player -->
+                <a href="{{ player_links.mxplayer if player_links else ('intent:' ~ stream_url ~ '#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end') }}"
+                   class="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 hover:from-blue-500/25 hover:to-indigo-500/25 border border-blue-500/30 transition group">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-10 h-10 rounded-xl bg-blue-500 text-white flex items-center justify-center font-extrabold text-sm shadow">
+                            MX
+                        </span>
+                        <div>
+                            <div class="font-bold text-sm">2. MX Player</div>
+                            <div class="text-[11px] text-blue-400 font-medium">🎬 ʜᴡ+ ᴅᴇᴄᴏᴅᴇʀ</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-blue-400 group-hover:translate-x-0.5 transition"></i>
+                </a>
+
+                <!-- 3. VLC Player -->
+                <a href="{{ player_links.vlc if player_links else ('vlc://' ~ stream_url) }}"
+                   class="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-orange-500/15 to-red-500/15 hover:from-orange-500/25 hover:to-red-500/25 border border-orange-500/30 transition group">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-extrabold text-sm shadow">
+                            VLC
+                        </span>
+                        <div>
+                            <div class="font-bold text-sm">3. VLC Player</div>
+                            <div class="text-[11px] text-orange-400 font-medium">🔊 ᴀʟʟ ᴀᴜᴅɪᴏ / sᴜʙs</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-orange-400 group-hover:translate-x-0.5 transition"></i>
+                </a>
+
+                <!-- 4. S Player (4th External Player) -->
+                <a href="{{ player_links.splayer if player_links else ('intent:' ~ stream_url ~ '#Intent;package=com.young.simple.player;type=video/*;end') }}"
+                   class="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-purple-500/15 to-pink-500/15 hover:from-purple-500/25 hover:to-pink-500/25 border border-purple-500/30 transition group">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-10 h-10 rounded-xl bg-purple-500 text-white flex items-center justify-center font-extrabold text-sm shadow">
+                            SP
+                        </span>
+                        <div>
+                            <div class="font-bold text-sm">4. S Player</div>
+                            <div class="text-[11px] text-purple-400 font-medium">🚀 ᴜʟᴛʀᴀ sᴍᴏᴏᴛʜ</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-purple-400 group-hover:translate-x-0.5 transition"></i>
+                </a>
+            </div>
+
+            <!-- Direct Actions Row -->
+            <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ download_url }}" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition flex items-center gap-2">
+                        <i class="fa-solid fa-download"></i>
+                        <span>⬇️ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ (12 ᴍʙ/s)</span>
+                    </a>
+                    <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center gap-2">
+                        <i class="fa-solid fa-copy"></i>
+                        <span id="copyBtnText">📋 ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ</span>
+                    </button>
+                </div>
+                <a href="{{ watermark_url | default('https://t.me/mallumovieworldmain2') }}" target="_blank" class="text-xs text-brand-400 hover:underline font-semibold">
+                    📢 {{ watermark | default('t.me/mallumovieworldmain2') }}
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        function copyStreamUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                const el = document.getElementById('copyBtnText');
+                el.textContent = '✅ ᴄᴏᴘɪᴇᴅ!';
+                setTimeout(() => { el.textContent = '📋 ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ'; }, 2500);
+            });
+        }
+    </script>
+</body>
+</html>
