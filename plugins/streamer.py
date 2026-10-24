@@ -13,14 +13,6 @@ from app.utils.font import to_smallcaps, format_watermark
 from app.utils.helpers import humanbytes, time_formatter
 from app.utils.logger import logger
 
-def make_player_intents(stream_url: str):
-    return {
-        "mx": f"intent:{stream_url}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end",
-        "vlc": f"vlc://{stream_url.replace('https://', '').replace('http://', '')}",
-        "playit": f"playit://playvideo?link={quote(stream_url)}",
-        "km": f"intent:{stream_url}#Intent;package=com.kmplayer;type=video/*;end"
-    }
-
 @Client.on_message(filters.private & filters.command("stream"))
 async def stream_command_entry(client: Client, message: Message):
     if not message.reply_to_message or not message.reply_to_message.media:
@@ -100,16 +92,7 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
         [
             InlineKeyboardButton(f"🎬 {to_smallcaps('ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ')}", url=watch_url),
             InlineKeyboardButton(f"⬇️ {to_smallcaps('ғᴀsᴛ ᴅᴏᴡɴʟᴏᴀᴅ')}", url=download_url)
-        ],
-        [
-            InlineKeyboardButton(f"🎬 {to_smallcaps('ᴍx ᴘʟᴀʏᴇʀ')}", url=intents["mx"]),
-            InlineKeyboardButton(f"🟧 {to_smallcaps('ᴠʟᴄ ᴘʟᴀʏᴇʀ')}", url=intents["vlc"])
-        ],
-        [
-            InlineKeyboardButton(f"⚡ {to_smallcaps('ᴘʟᴀʏɪᴛ')}", url=intents["playit"]),
-            InlineKeyboardButton(f"🔮 {to_smallcaps('ᴋᴍᴘʟᴀʏᴇʀ')}", url=intents["km"])
-        ],
-        [
+        ][
             InlineKeyboardButton(f"📥 {to_smallcaps('ɢᴇᴛ ғɪʟᴇ')}", callback_data=f"getfile_{file_id}"),
             InlineKeyboardButton(f"🗑️ {to_smallcaps('ʀᴇᴠᴏᴋᴇ ʟɪɴᴋ')}", callback_data=f"revoke_{file_id}")
         ],
