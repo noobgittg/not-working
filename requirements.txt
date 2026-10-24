@@ -1,7 +1,11 @@
 pyrofork==2.3.45
 tgcrypto==1.2.5
+fastapi==0.111.0
+uvicorn==0.30.1
+motor==3.4.0
+pymongo==4.7.2
 aiohttp==3.9.5
+aiofiles==23.2.1
+jinja2==3.1.4
 python-dotenv==1.0.1
 uvloop==0.19.0; sys_platform != "win32"
-jinja2==3.1.4
-aiohttp-jinja2==1.6
