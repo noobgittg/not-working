@@ -29,7 +29,7 @@ async def command_start_family(client: Client, message: Message):
             if member.status in ["kicked", "left"]:
                 raise Exception()
         except Exception:
-            invite_link = Config.FORCE_SUB_CHANNEL if str(Config.FORCE_SUB_CHANNEL).startswith("http") else f"https://t.me/{Config.FORCE_SUB_CHANNEL.replace('@', '')}"
+            invite_link = Config.FORCE_SUB_CHANNEL if str(Config.FORCE_SUB_CHANNEL).startswith("http") else f"https://t.me/{Config.FORCE_SUB_CHANNEL}"
             btn = [
                 [InlineKeyboardButton(f"📢 {to_smallcaps('ᴊᴏɪɴ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟ')}", url=invite_link)],
                 [InlineKeyboardButton(f"🔄 {to_smallcaps('ᴠᴇʀɪғʏ & ᴄᴏɴᴛɪɴᴜᴇ')}", callback_data="nav_home")]
