@@ -10,7 +10,7 @@ class Config:
     API_HASH: str = os.environ.get("API_HASH", "")
     BOT_TOKEN: str = os.environ.get("BOT_TOKEN", "")
 
-    OWNER_ID: int = int(os.environ.get("OWNER_ID", "1892771262"))
+    OWNER_ID: int = int(os.environ.get("OWNER_ID", "970284861"))
     raw_admins = os.environ.get("ADMINS", str(OWNER_ID))
     ADMINS: List[int] = [int(x) for x in re.findall(r"\d+", raw_admins)]
     if OWNER_ID not in ADMINS:
