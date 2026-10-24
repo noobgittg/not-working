@@ -3,95 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ file_name }} — ⚡ MMW Stream Player</title>
+    <title>{{ file_name }} — MMW Stream Player</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .small-caps {
+            font-variant: small-caps;
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-sky-500 selection:text-slate-950">
 
     <!-- Header -->
-    <header class="w-full border-b border-slate-800 px-4 py-3 flex items-center justify-between bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+    <header class="w-full border-b border-slate-800/80 px-4 py-3.5 flex items-center justify-between bg-slate-900/90 backdrop-blur-md sticky top-0 z-50 shadow-lg">
         <div class="flex items-center space-x-3 overflow-hidden">
-            <span class="bg-sky-500 text-white p-2 rounded-xl text-sm flex items-center justify-center w-9 h-9">
+            <span class="bg-sky-500 text-slate-950 p-2.5 rounded-xl text-sm flex items-center justify-center w-10 h-10 shadow-md shadow-sky-500/20">
                 <i class="fa-solid fa-play"></i>
             </span>
-            <h1 class="font-bold text-sm md:text-base truncate max-w-xs md:max-w-xl">{{ file_name }}</h1>
+            <div class="overflow-hidden">
+                <h1 class="font-bold text-sm md:text-base truncate max-w-xs md:max-w-xl small-caps tracking-wide text-sky-200">{{ file_name }}</h1>
+                <p class="text-[10px] text-slate-400 font-medium small-caps">⚡ MMW Stream Engine v4.2</p>
+            </div>
         </div>
         <div class="flex items-center space-x-2">
-            <a href="{{ download_url }}" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold text-sm transition shadow-lg shadow-sky-500/20">
+            <a href="{{ download_url }}" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs md:text-sm transition shadow-lg shadow-sky-500/20 transform hover:-translate-y-0.5">
                 <i class="fa-solid fa-download"></i>
-                <span>Fast Download</span>
+                <span class="small-caps tracking-wide">📥 Fast Download</span>
             </a>
         </div>
     </header>
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 max-w-5xl mx-auto w-full">
+        
         <!-- Video Container -->
-        <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 mb-6">
-            <video id="videoPlayer" class="w-full h-full object-contain" controls playsinline preload="metadata">
+        <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800/80 mb-6 group">
+            <video id="videoPlayer" class="w-full h-full object-contain" playsinline preload="metadata">
                 <source src="{{ stream_url }}" type="video/mp4">
                 Your browser does not support HTML5 video streaming.
             </video>
+            
+            <!-- Video Overlay Watermark/Badge -->
+            <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 flex items-center gap-2 pointer-events-none opacity-90 shadow-lg">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="small-caps">🎬 Live Stream Active</span>
+            </div>
+        </div>
+
+        <!-- Advanced Video Settings & Playback Control Bar -->
+        <div class="w-full bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl mb-6 backdrop-blur-md">
+            <h2 class="text-xs md:text-sm font-bold text-sky-400 uppercase tracking-wider mb-4 flex items-center gap-2 small-caps">
+                <i class="fa-solid fa-sliders"></i> 🎛️ Advanced Playback Controls & Settings
+            </h2>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <!-- Play / Pause -->
+                <button onclick="togglePlay()" id="playPauseBtn" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs small-caps shadow-sm">
+                    <i class="fa-solid fa-play text-sky-400" id="playIcon"></i> <span id="playText">▶️ Play Video</span>
+                </button>
+                <!-- Rewind 10s -->
+                <button onclick="skipTime(-10)" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs small-caps shadow-sm">
+                    <i class="fa-solid fa-rotate-left text-sky-400"></i> ⏪ Rewind 10s
+                </button>
+                <!-- Forward 10s -->
+                <button onclick="skipTime(10)" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs small-caps shadow-sm">
+                    <i class="fa-solid fa-rotate-right text-sky-400"></i> ⏩ Forward 10s
+                </button>
+                <!-- Fullscreen -->
+                <button onclick="toggleFullscreen()" class="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs small-caps shadow-sm">
+                    <i class="fa-solid fa-expand text-sky-400"></i> 📺 Fullscreen
+                </button>
+            </div>
+
+            <!-- Secondary Controls Row (Speed Slider, Loop, PiP, Mute) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800/80 items-center">
+                <!-- Speed Slider -->
+                <div class="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                    <span class="text-xs font-semibold text-slate-300 small-caps flex items-center gap-1.5"><i class="fa-solid fa-gauge-high text-sky-400"></i> ⏱️ Speed: <span id="speedVal" class="text-sky-400 font-bold">1.0x</span></span>
+                    <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="changeSpeed(this.value)" class="w-full accent-sky-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                </div>
+
+                <!-- Loop & PiP Toggles -->
+                <div class="flex items-center gap-2 justify-center">
+                    <button onclick="toggleLoop()" id="loopBtn" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition font-semibold text-xs small-caps flex items-center justify-center gap-1.5 border border-slate-700/60">
+                        <i class="fa-solid fa-repeat text-emerald-400"></i> 🔁 <span id="loopStatus">Loop: Off</span>
+                    </button>
+                    <button onclick="togglePiP()" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition font-semibold text-xs small-caps flex items-center justify-center gap-1.5 border border-slate-700/60">
+                        <i class="fa-solid fa-clone text-purple-400"></i> 📌 PiP Mode
+                    </button>
+                </div>
+
+                <!-- Volume / Mute -->
+                <div class="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                    <button onclick="toggleMute()" id="muteBtn" class="text-sky-400 hover:text-sky-300 transition">
+                        <i class="fa-solid fa-volume-high text-sm" id="volumeIcon"></i>
+                    </button>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)" class="w-full accent-sky-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                </div>
+            </div>
         </div>
 
         <!-- 4 External Players Panel -->
-        <div class="w-full bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-xl">
-            <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-bolt"></i> Play in 4 External Apps (12 MB/s Super-Sonic Speed)
+        <div class="w-full bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 shadow-xl backdrop-blur-md">
+            <h2 class="text-xs md:text-sm font-bold text-sky-400 uppercase tracking-wider mb-3 flex items-center gap-2 small-caps">
+                <i class="fa-solid fa-bolt"></i> ⚡ Play in 4 External Apps (12 MB/s Super-Sonic Speed)
             </h2>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <!-- 1. MX Player -->
-                <a href="{{ mx_url }}" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm">
-                    <i class="fa-solid fa-film text-sky-400"></i>
-                    <span>MX Player</span>
+                <a href="intent://{{ stream_url }}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end" onclick="handleExternalPlayer(event, this.href)" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-sky-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm shadow-sm group">
+                    <i class="fa-solid fa-film text-sky-400 group-hover:text-slate-950"></i> <span class="small-caps">🎬 MX Player</span>
                 </a>
                 <!-- 2. VLC Player -->
-                <a href="{{ vlc_url }}" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-orange-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm">
-                    <i class="fa-solid fa-traffic-light text-orange-400"></i>
-                    <span>VLC Player</span>
+                <a href="intent://{{ stream_url }}#Intent;package=org.videolan.vlc;type=video/*;end" onclick="handleExternalPlayer(event, this.href)" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-orange-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm shadow-sm group">
+                    <i class="fa-solid fa-traffic-light text-orange-400 group-hover:text-slate-950"></i> <span class="small-caps">🍊 VLC Player</span>
                 </a>
                 <!-- 3. PLAYit -->
-                <a href="{{ playit_url }}" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-emerald-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm">
-                    <i class="fa-solid fa-circle-play text-emerald-400"></i>
-                    <span>PLAYit</span>
+                <a href="intent://{{ stream_url }}#Intent;package=com.playit.videoplayer;type=video/*;end" onclick="handleExternalPlayer(event, this.href)" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-emerald-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm shadow-sm group">
+                    <i class="fa-solid fa-circle-play text-emerald-400 group-hover:text-slate-950"></i> <span class="small-caps">▶️ PLAYit</span>
                 </a>
                 <!-- 4. KMPlayer -->
-                <a href="{{ kmplayer_url }}" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-purple-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm">
-                    <i class="fa-solid fa-compact-disc text-purple-400"></i>
-                    <span>KMPlayer</span>
+                <a href="intent://{{ stream_url }}#Intent;package=com.kmplayer;type=video/*;end" onclick="handleExternalPlayer(event, this.href)" class="flex items-center justify-center gap-2.5 p-3.5 rounded-xl bg-slate-800/80 hover:bg-purple-500 hover:text-slate-950 transition border border-slate-700/60 font-semibold text-xs md:text-sm shadow-sm group">
+                    <i class="fa-solid fa-compact-disc text-purple-400 group-hover:text-slate-950"></i> <span class="small-caps">💿 KMPlayer</span>
                 </a>
-            </div>
+            </div> 
 
-            <!-- Copy Stream URL Button -->
+            <!-- Copy Stream URL Button & Status -->
             <div class="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 font-medium small-caps">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>12 MB/s HTTP 206 Streaming Engine Active</span>
+                    <span>🌐 12 MB/s HTTP 206 Streaming Engine Active</span>
                 </div>
-                <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium flex items-center gap-2">
-                    <i class="fa-regular fa-copy"></i>
-                    <span>Copy Stream Link</span>
+                <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-medium flex items-center gap-2 small-caps shadow-sm">
+                    <i class="fa-regular fa-copy text-sky-400"></i> <span>📋 Copy Stream Link</span>
                 </button>
             </div>
-        </div>
+        </div> 
 
-        <footer class="mt-6 text-xs text-slate-500 text-center">
-            ⚡ Powered by <a href="{{ watermark_url }}" target="_blank" class="text-sky-400 font-semibold">{{ watermark }}</a>
+        <footer class="mt-6 text-xs text-slate-500 text-center small-caps">
+            ⚡ Powered by <a href="{{ watermark_url }}" target="_blank" class="text-sky-400 font-semibold hover:underline">{{ watermark }}</a>
         </footer>
-    </main>
+    </main> 
 
-    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white font-bold text-xs py-2.5 px-5 rounded-xl shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300">
-        Stream URL Copied!
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white font-bold text-xs py-2.5 px-5 rounded-xl shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 z-50 small-caps flex items-center gap-2">
+        <i class="fa-solid fa-check-circle"></i> <span>✨ Stream URL Copied Successfully!</span>
     </div>
 
+    <!-- JavaScript Controller -->
     <script>
+        const video = document.getElementById('videoPlayer');
+
+        // Play / Pause Toggle
+        function togglePlay() {
+            const playIcon = document.getElementById('playIcon');
+            const playText = document.getElementById('playText');
+            if (video.paused) {
+                video.play();
+                playIcon.className = "fa-solid fa-pause text-sky-400";
+                playText.textContent = "⏸️ Pause Video";
+            } else {
+                video.pause();
+                playIcon.className = "fa-solid fa-play text-sky-400";
+                playText.textContent = "▶️ Play Video";
+            }
+        }
+
+        video.addEventListener('play', () => {
+            document.getElementById('playIcon').className = "fa-solid fa-pause text-sky-400";
+            document.getElementById('playText').textContent = "⏸️ Pause Video";
+        });
+
+        video.addEventListener('pause', () => {
+            document.getElementById('playIcon').className = "fa-solid fa-play text-sky-400";
+            document.getElementById('playText').textContent = "▶️ Play Video";
+        });
+
+        // Skip Time (Rewind/Forward)
+        function skipTime(seconds) {
+            video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+        }
+
+        // Fullscreen Toggle
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                video.requestFullscreen().catch(err => {
+                    console.error("Error attempting to enable fullscreen:", err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Speed Control
+        function changeSpeed(val) {
+            video.playbackRate = parseFloat(val);
+            document.getElementById('speedVal').textContent = parseFloat(val).toFixed(1) + 'x';
+        }
+
+        // Loop Toggle
+        function toggleLoop() {
+            video.loop = !video.loop;
+            const loopStatus = document.getElementById('loopStatus');
+            loopStatus.textContent = video.loop ? "Loop: On" : "Loop: Off";
+            loopStatus.parentElement.classList.toggle('bg-sky-500/20', video.loop);
+            loopStatus.parentElement.classList.toggle('border-sky-500/50', video.loop);
+        }
+
+        // Picture-in-Picture Toggle
+        async function togglePiP() {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else if (document.pictureInPictureEnabled) {
+                    await video.requestPictureInPicture();
+                } else {
+                    alert("Picture-in-Picture is not supported by your browser.");
+                }
+            } catch (err) {
+                console.error("PiP error:", err);
+            }
+        }
+
+        // Volume & Mute Controls
+        function changeVolume(val) {
+            video.volume = parseFloat(val);
+            video.muted = (val == 0);
+            updateVolumeIcon();
+        }
+
+        function toggleMute() {
+            video.muted = !video.muted;
+            document.getElementById('volumeSlider').value = video.muted ? 0 : video.volume;
+            updateVolumeIcon();
+        }
+
+        function updateVolumeIcon() {
+            const volIcon = document.getElementById('volumeIcon');
+            if (video.muted || video.volume === 0) {
+                volIcon.className = "fa-solid fa-volume-xmark text-red-400";
+            } else if (video.volume < 0.5) {
+                volIcon.className = "fa-solid fa-volume-low text-sky-400";
+            } else {
+                volIcon.className = "fa-solid fa-volume-high text-sky-400";
+            }
+        }
+
+        // Copy Stream URL
         function copyStreamUrl(url) {
             navigator.clipboard.writeText(url).then(() => {
                 const toast = document.getElementById('toast');
                 toast.classList.remove('opacity-0', 'pointer-events-none');
-                setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 2500);
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'pointer-events-none');
+                }, 2500);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
             });
+        }
+
+        // External Player fallback handler
+        function handleExternalPlayer(event, intentUrl) {
+            // On desktop or iOS where intent:// might not be supported natively, fallback gracefully or notify user
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            if (!isAndroid) {
+                event.preventDefault();
+                alert("✨ External app intents (MX Player, VLC, etc.) are optimized for Android mobile devices. Use 'Copy Stream Link' to paste in your desktop media player!");
+            }
         }
     </script>
 </body>
