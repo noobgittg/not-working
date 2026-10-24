@@ -73,8 +73,7 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
     watch_url = f"{Config.BASE_URL}/watch/{file_id}"
     download_url = f"{Config.BASE_URL}/download/{file_id}"
     stream_url = f"{Config.BASE_URL}/stream/{file_id}"
-    intents = make_player_intents(stream_url)
-
+    
     text = (
         f"✦ **{to_smallcaps('sᴜᴘᴇʀ sᴏɴɪᴄ sᴛʀᴇᴀᴍ ʟɪɴᴋ (12 ᴍʙ/s)')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('ғɪʟᴇ ɴᴀᴍᴇ')}** : `{file_name}`\n"
