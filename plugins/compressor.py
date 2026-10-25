@@ -213,6 +213,7 @@ async def perform_compression_job(
         clean_temp_files(download_dir)
         return await status.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
 
+    await status.edit_text(f"🔍 **{to_smallcaps('download complete — checking media streams...')}**")
     stream_info = await check_media_streams(input_path)
     has_video = stream_info.get("has_video", False)
     has_audio = stream_info.get("has_audio", False)
@@ -231,6 +232,7 @@ async def perform_compression_job(
         # and some AVI/MKV files. Emit a broadly streamable MP4 instead.
         stem = sanitize_filename(os.path.splitext(clean_name)[0]) or f"video_{msg_id}"
         output_path = os.path.join(download_dir, f"compressed_{stem}.mp4")
+    await status.edit_text(f"🧾 **{to_smallcaps('reading media metadata...')}**")
     pre_attrs = await get_media_attributes(input_path)
     total_duration = getattr(media, "duration", 0) or int(pre_attrs.get("duration", 0))
 
@@ -272,8 +274,9 @@ async def perform_compression_job(
         )
 
     comp_size = os.path.getsize(output_path)
-    savings = round(((orig_size - comp_size) / orig_size) * 100, 2) if orig_size > 0 else 0
+    savings = round(((orig_size - comp_size) / orig_size) * 100, 2)
 
+    await status.edit_text(f"🖼️ **{to_smallcaps('preparing thumbnail and caption...')}**")
     attrs = await get_media_attributes(output_path)
     dur = int(attrs.get("duration", 0)) or total_duration
     thumb_path = await resolve_thumbnail(

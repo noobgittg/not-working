@@ -299,7 +299,12 @@ async def progress_for_pyrogram(
 
     msg_key = getattr(message, "id", 0)
     last_edit = _PROGRESS_THROTTLE.get(msg_key, 0.0)
-    if current != total and (now_ts - last_edit) < 3.5:
+    if current >= total:
+        # The caller immediately transitions to probing/compression/upload.
+        # Do not race that transition with a final download edit at 100%.
+        _PROGRESS_THROTTLE.pop(msg_key, None)
+        return
+    if (now_ts - last_edit) < 3.5:
         return
     _PROGRESS_THROTTLE[msg_key] = now_ts
 
@@ -327,8 +332,6 @@ async def progress_for_pyrogram(
         await message.edit_text(text=tmp)
     except Exception:
         pass
-    if current == total:
-        _PROGRESS_THROTTLE.pop(msg_key, None)
 
 
 # ==================== 6. TASK MANAGER ====================

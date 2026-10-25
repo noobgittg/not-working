@@ -436,6 +436,7 @@ async def run_rename_workflow(
         clean_temp_files(download_dir)
         return await status_msg.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
 
+    await status_msg.edit_text(f"🔍 **{to_smallcaps('download complete — preparing renamed file...')}**")
     source_mime = normalize_mime(getattr(source_media, "mime_type", ""))
     is_video_media = bool(original_msg.video) or is_video_mime(source_mime)
     if is_video_media:
@@ -456,6 +457,7 @@ async def run_rename_workflow(
         thumb_path = None
 
     orig_caption = original_msg.caption or ""
+    await status_msg.edit_text(f"🧾 **{to_smallcaps('generating caption and metadata...')}**")
     final_caption = await extract_and_format_caption(
         user_id=user_id,
         file_path=download_path,
