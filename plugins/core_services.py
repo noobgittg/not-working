@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 import datetime
+from plugins.media_types import is_audio_mime, is_video_mime, normalize_mime
 import socket
 import urllib.request
 from urllib.parse import urlparse
@@ -37,15 +38,15 @@ except ImportError:
 
 def telegram_media_metadata(media: Any, message: Any = None) -> Dict[str, Any]:
     """Normalize metadata available directly from a Telegram media object."""
-    mime_type = getattr(media, "mime_type", "") or "application/octet-stream"
-    if mime_type.startswith("video/") or getattr(message, "video", None):
-        media_kind = "video"
-    elif mime_type.startswith("audio/") or getattr(message, "audio", None):
-        media_kind = "audio"
+    mime_type = normalize_mime(getattr(media, "mime_type", "") or "application/octet-stream")
+    if getattr(message, "video", None) or is_video_mime(mime_type):
+        kind = "video"
+    elif getattr(message, "audio", None) or is_audio_mime(mime_type):
+        kind = "audio"
     elif mime_type.startswith("image/") or getattr(message, "photo", None):
-        media_kind = "image"
+        kind = "image"
     else:
-        media_kind = "document"
+        kind = "document"
 
     language = (
         getattr(media, "language_code", None)
@@ -57,7 +58,7 @@ def telegram_media_metadata(media: Any, message: Any = None) -> Dict[str, Any]:
     performer = getattr(media, "performer", None) or ""
     audio_track = " — ".join(part for part in (title, performer) if part) or "Default Audio"
     return {
-        "media_kind": media_kind,
+        "media_kind": kind,
         "mime_type": mime_type,
         "duration": int(getattr(media, "duration", 0) or 0),
         "width": int(getattr(media, "width", 0) or 0),
@@ -1212,7 +1213,7 @@ async def run_keepalive_worker(bot, interval: int = 6):
 async def send_restart_notification(bot):
     message_text = (
         f"🔄 **{to_smallcaps('bot restarted successfully!')}** ⚡\n\n"
-        f"• 🚀 **{to_smallcaps('engine')}** : `{to_smallcaps('12 mb/s stream & pro plugins ready')}`\n"
+        f"• 🚀 **{to_smallcaps('engine')}** : `{to_smallcaps('adaptive range stream & pro plugins ready')}`\n"
         f"• 🍃 **{to_smallcaps('database')}** : `{to_smallcaps('single unified db + fast cache')}`"
         f"{format_watermark()}"
     )

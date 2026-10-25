@@ -34,11 +34,11 @@ class Config:
     WATERMARK: str = "MMW BOTZ"
     WATERMARK_URL: str = "https://t.me/mallumovieworldmain2"
 
-    # Fast Cache & 12 MB/s Streaming Speed Configuration
+    # Fast cache and adaptive streaming configuration
     CACHE_TTL: int = int(os.environ.get("CACHE_TTL", "900"))
     CACHE_MAX_ENTRIES: int = int(os.environ.get("CACHE_MAX_ENTRIES", "5000"))
     STREAM_CHUNK_SIZE: int = int(os.environ.get("STREAM_CHUNK_SIZE", str(1024 * 1024)))  # 1 MB chunks
-    STREAM_SPEED_LIMIT_MBPS: int = int(os.environ.get("STREAM_SPEED_LIMIT_MBPS", "20"))  # 12 MB/s high-speed stream
+    STREAM_SPEED_LIMIT_MBPS: int = int(os.environ.get("STREAM_SPEED_LIMIT_MBPS", "20"))  # internal pacing hint only
     STREAM_BUFFER_CHUNKS: int = int(os.environ.get("STREAM_BUFFER_CHUNKS", "20"))        # 12 MB pre-fetch buffer
 
     DEFAULT_AUTO_DELETE: int = int(os.environ.get("AUTO_DELETE_TIME", "0"))

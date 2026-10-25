@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
-    <title>{{ file_name | default("Watch Video") }} — ⚡ 20 MB/s Stream</title>
+    <title>{{ file_name | default("Watch Media") }} — adaptive range stream</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
@@ -29,6 +29,9 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"></noscript>
+    <script defer src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.js"></script>
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
@@ -51,7 +54,7 @@
             <div>
                 <h1 class="font-bold text-sm sm:text-base truncate max-w-xs md:max-w-xl" title="{{ file_name }}">{{ file_name | default("Streaming Media") }}</h1>
                 <div class="flex items-center space-x-2 text-xs text-emerald-500 font-semibold">
-                    <span>⚡ 20 MB/s Turbo Stream</span>
+                    <span>⚡ ʟɪᴠᴇ ʜᴛᴛᴘ ʀᴀɴɢᴇ sᴛʀᴇᴀᴍ</span>
                     <span>•</span>
                     <span>{{ file_size | default("") }}</span>
                 </div>
@@ -73,12 +76,24 @@
     <main class="flex-1 flex flex-col items-center justify-start p-3 sm:p-6 max-w-5xl mx-auto w-full gap-6">
         
         <!-- Video Player Box -->
-        <div id="playerContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group border border-slate-200 dark:border-slate-800">
-            <video id="videoPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata" fetchpriority="high" controls>
+        <div id="playerContainer" class="relative w-full {% if metadata.media_kind == 'audio' %}min-h-56{% else %}aspect-video{% endif %} bg-black rounded-2xl overflow-hidden shadow-2xl group border border-slate-200 dark:border-slate-800">
+            {% if metadata.media_kind == 'audio' %}
+            <audio id="mediaPlayer" class="w-full" playsinline crossorigin="anonymous" preload="metadata" controls>
+                <source src="{{ stream_url }}" type="{{ mime_type | default('audio/mpeg') }}">
+            </audio>
+            {% elif metadata.media_kind == 'video' and metadata.browser_supported %}
+            <video id="mediaPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata" fetchpriority="high" controls>
                 <source src="{{ stream_url }}" type="{{ mime_type | default('video/mp4') }}">
-                <source src="{{ stream_url }}" type="video/mp4">
-                Your browser does not support HTML5 video streaming. Use one of the 4 external players below!
+                {% for track in metadata.subtitle_tracks %}{% if track.url %}<track kind="subtitles" src="{{ track.url }}" srclang="{{ track.lang_code | default('und') }}" label="{{ track.language | default('Subtitle ' ~ loop.index) }}">{% endif %}{% endfor %}
             </video>
+            {% else %}
+            <div class="h-full min-h-56 flex flex-col items-center justify-center gap-3 p-8 text-center text-white">
+                <i class="fa-solid fa-file-circle-question text-4xl text-brand-400"></i>
+                <p class="font-semibold">ᴛʜɪs ғɪʟᴇ ɪs ɴᴏᴛ ᴘʟᴀʏᴀʙʟᴇ ɪɴ ᴛʜɪs ʙʀᴏᴡsᴇʀ</p>
+                <a href="{{ download_url }}" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold">⬇️ ᴅᴏᴡɴʟᴏᴀᴅ ғɪʟᴇ</a>
+            </div>
+            {% endif %}
+            <div id="playerStatus" class="absolute left-3 right-3 bottom-3 hidden rounded-xl bg-slate-950/80 px-3 py-2 text-xs text-white" role="status" aria-live="polite"></div>
         </div>
 
         <!-- Metadata controls: values come from stored media metadata, never filenames. -->
@@ -92,6 +107,21 @@
                 {% if metadata.audio_track != 'Default Audio' or metadata.audio_tracks %}<button type="button" class="px-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold" onclick="toggleMetadata('audioPanel')">🎧 ᴇɴᴀʙʟᴇ / sᴇᴇ ᴀᴜᴅɪᴏ</button>{% endif %}
                 {% if metadata.language != 'Undetermined' or metadata.audio_tracks or metadata.subtitle_tracks %}<button type="button" class="px-3 py-2 rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/30 text-xs font-bold" onclick="toggleMetadata('languagePanel')">🌐 ᴇɴᴀʙʟᴇ / sᴇᴇ ʟᴀɴɢᴜᴀɢᴇ</button>{% endif %}
             </div>
+            {% if metadata.media_kind in ['audio', 'video'] %}
+            <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleLoop()">🔁 ʟᴏᴏᴘ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="captureFrame()">📸 ғʀᴀᴍᴇ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="togglePiP()">⛶ ᴘɪᴘ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleSleepTimer()">⏱️ sʟᴇᴇᴘ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="setABPoint()">⤴️ ᴀ–ʙ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="retryMedia()">↻ ʀᴇᴛʀʏ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleFit()">▣ ғɪᴛ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleMirror()">↔ ᴍɪʀʀᴏʀ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleWakeLock()">☀ ᴡᴀᴋᴇ</button>
+                <button type="button" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800" onclick="toggleScreenLock()">⌧ ʟᴏᴄᴋ</button>
+                <span id="networkState" class="px-3 py-2 text-slate-500 dark:text-slate-400">ᴄʜᴇᴄᴋɪɴɢ ɴᴇᴛᴡᴏʀᴋ…</span>
+            </div>
+            {% endif %}
             {% if metadata.caption %}<div id="captionPanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm whitespace-pre-wrap">{{ metadata.caption }}</div>{% endif %}
             {% if metadata.audio_track != 'Default Audio' or metadata.audio_tracks %}<div id="audioPanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm"><strong>🎧 ᴀᴜᴅɪᴏ:</strong> {{ metadata.audio_track }}{% for track in metadata.audio_tracks %}<div class="mt-1">• {{ track.title | default('Track ' ~ loop.index) }} · {{ track.language | default(track.lang | default('Undetermined')) }} · {{ track.codec | default('unknown') }} · {{ track.channels | default('') }}ch</div>{% endfor %}</div>{% endif %}
             {% if metadata.language != 'Undetermined' or metadata.audio_tracks or metadata.subtitle_tracks %}<div id="languagePanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm"><strong>🌐 ʟᴀɴɢᴜᴀɢᴇ:</strong> {{ metadata.language }}{% for track in metadata.subtitle_tracks %}<div class="mt-1">• ᴄᴀᴘᴛɪᴏɴ / sᴜʙᴛɪᴛʟᴇ: {{ track.title | default('Subtitle ' ~ loop.index) }} · {{ track.language | default(track.lang | default('Undetermined')) }}</div>{% endfor %}</div>{% endif %}
@@ -106,11 +136,11 @@
                         <span>ᴘʟᴀʏ ɪɴ 4 ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀs ᴏɴʟʏ</span>
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        ⚡ 20 ᴍʙ/s ᴅɪʀᴇᴄᴛ ʜᴛᴛᴘ 206 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ — ᴢᴇʀᴏ ʙᴜғғᴇʀɪɴɢ (ᴍᴋᴠ / ᴍᴘ4 / ʜᴇᴠᴄ / ᴅᴜᴀʟ ᴀᴜᴅɪᴏ)
+                        ⚡ ᴅɪʀᴇᴄᴛ ʜᴛᴛᴘ 206 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ — ᴍᴋᴠ / ᴍᴘ4 / ʜᴇᴠᴄ / ᴅᴜᴀʟ ᴀᴜᴅɪᴏ
                     </p>
                 </div>
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    🚀 20 MB/s READY
+                    🚀 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍ ʀᴇᴀᴅʏ
                 </span>
             </div>
 
@@ -125,7 +155,7 @@
                         </span>
                         <div>
                             <div class="font-bold text-sm">1. PLAYit</div>
-                            <div class="text-[11px] text-amber-400 font-medium">⚡ 20 ᴍʙ/s ᴘʟᴀʏᴇʀ</div>
+                            <div class="text-[11px] text-amber-400 font-medium">⚡ ʀᴀɴɢᴇ ᴘʟᴀʏᴇʀ</div>
                         </div>
                     </div>
                     <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-400 group-hover:translate-x-0.5 transition"></i>
@@ -182,7 +212,7 @@
                 <div class="flex flex-wrap gap-2">
                     <a href="{{ download_url }}" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition flex items-center gap-2">
                         <i class="fa-solid fa-download"></i>
-                        <span>⬇️ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ (20 ᴍʙ/s)</span>
+                        <span>⬇️ ᴅɪʀᴇᴄᴛ ʀᴀɴɢᴇ ᴅᴏᴡɴʟᴏᴀᴅ</span>
                     </a>
                     <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center gap-2">
                         <i class="fa-solid fa-copy"></i>
@@ -197,27 +227,103 @@
     </main>
 
     <script>
-        function toggleMetadata(id) {
-            const panel = document.getElementById(id);
-            if (panel) panel.classList.toggle('hidden');
-        }
-        const metadataHash = window.location.hash.replace('#', '');
-        if (metadataHash && ['captionPanel', 'audioPanel', 'languagePanel'].includes(metadataHash)) {
-            toggleMetadata(metadataHash);
-        }
-        const themeToggle = document.getElementById('themeToggle');
-        themeToggle.addEventListener('click', () => {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        });
+        (() => {
+            'use strict';
+            const media = document.getElementById('mediaPlayer');
+            const status = document.getElementById('playerStatus');
+            const network = document.getElementById('networkState');
+            const storageKey = `mmw-playback:${location.pathname}`;
+            let player = null;
+            let sleepTimer = null;
+            let statusTimer = null;
 
-        function copyStreamUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                const el = document.getElementById('copyBtnText');
-                el.textContent = '✅ ᴄᴏᴘɪᴇᴅ!';
-                setTimeout(() => { el.textContent = '📋 ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ'; }, 2500);
+            function notify(message, persistent = false) {
+                if (!status) return;
+                status.textContent = message;
+                status.classList.remove('hidden');
+                clearTimeout(statusTimer);
+                if (!persistent) statusTimer = setTimeout(() => status.classList.add('hidden'), 2600);
+            }
+
+            window.toggleMetadata = (id) => {
+                const panel = document.getElementById(id);
+                if (panel) panel.classList.toggle('hidden');
+            };
+
+            const metadataHash = window.location.hash.replace('#', '');
+            if (['captionPanel', 'audioPanel', 'languagePanel'].includes(metadataHash)) window.toggleMetadata(metadataHash);
+
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) themeToggle.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
             });
-        }
+
+            async function copyText(value) {
+                try {
+                    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(value);
+                    else { const input = document.createElement('textarea'); input.value = value; input.style.position = 'fixed'; input.style.opacity = '0'; document.body.appendChild(input); input.select(); document.execCommand('copy'); input.remove(); }
+                    const el = document.getElementById('copyBtnText');
+                    if (el) { el.textContent = '✅ ᴄᴏᴘɪᴇᴅ'; setTimeout(() => { el.textContent = '📋 ᴄᴏᴘʏ sᴛʀᴇᴀᴍ ᴜʀʟ'; }, 2500); }
+                } catch (_) { notify('ᴄᴏᴘʏ ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ — ᴜʀʟ ɪs ʀᴇᴀᴅʏ ᴛᴏ sᴇʟᴇᴄᴛ'); }
+            }
+            window.copyStreamUrl = copyText;
+
+            function restoreState() {
+                if (!media) return;
+                try {
+                    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    if (Number.isFinite(saved.volume)) media.volume = Math.max(0, Math.min(1, saved.volume));
+                    if (Number.isFinite(saved.position) && saved.position > 2) media.addEventListener('loadedmetadata', () => { if (saved.position < media.duration) media.currentTime = saved.position; }, { once: true });
+                } catch (_) {}
+            }
+
+            function saveState() {
+                if (!media) return;
+                try { localStorage.setItem(storageKey, JSON.stringify({ position: media.currentTime || 0, volume: media.volume })); } catch (_) {}
+            }
+
+            function initPlayer() {
+                if (!media) return;
+                if (media.dataset.ready && !(window.Plyr && player === media)) return;
+                if (media.dataset.ready && window.Plyr && player === media) {
+                    try { player = new Plyr(media, { ratio: '16:9', seekTime: 10, keyboard: { focused: true, global: true }, tooltips: { controls: true }, settings: ['captions', 'quality', 'speed', 'loop'] }); } catch (_) {}
+                    return;
+                }
+                media.dataset.ready = '1';
+                restoreState();
+                if (window.Plyr) {
+                    try { player = new Plyr(media, { ratio: '16:9', seekTime: 10, keyboard: { focused: true, global: true }, tooltips: { controls: true }, settings: ['captions', 'quality', 'speed', 'loop'] }); }
+                    catch (_) { player = media; notify('ᴘʟᴀʏᴇʀ ғᴀʟʟʙᴀᴄᴋ ᴇɴᴀʙʟᴇᴅ'); }
+                } else { player = media; }
+                media.addEventListener('timeupdate', saveState, { passive: true });
+                media.addEventListener('volumechange', saveState, { passive: true });
+                media.addEventListener('waiting', () => notify('⏳ ʙᴜғғᴇʀɪɴɢ…', true));
+                media.addEventListener('playing', () => { if (status) status.classList.add('hidden'); });
+                media.addEventListener('error', () => notify('⚠️ ᴛʜɪs ᴍᴇᴅɪᴀ ᴄᴏᴜʟᴅ ɴᴏᴛ ʙᴇ ᴘʟᴀʏᴇᴅ — ᴜsᴇ ᴅᴏᴡɴʟᴏᴀᴅ ᴏʀ ᴀɴ ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀ', true));
+                media.addEventListener('loadedmetadata', () => notify('✅ ᴍᴇᴛᴀᴅᴀᴛᴀ ʀᴇᴀᴅʏ'));
+            }
+
+            window.toggleLoop = () => { if (!media) return; media.loop = !media.loop; notify(media.loop ? '🔁 ʟᴏᴏᴘ ᴇɴᴀʙʟᴇᴅ' : '⏹️ ʟᴏᴏᴘ ᴅɪsᴀʙʟᴇᴅ'); };
+            window.togglePiP = async () => { try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else if (media && document.pictureInPictureEnabled) await media.requestPictureInPicture(); else notify('ᴘɪᴘ ɴᴏᴛ sᴜᴘᴘᴏʀᴛᴇᴅ ɪɴ ᴛʜɪs ʙʀᴏᴡsᴇʀ'); } catch (_) { notify('ᴘɪᴘ ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ'); } };
+            window.captureFrame = () => { if (!media || media.tagName !== 'VIDEO') return notify('ғʀᴀᴍᴇ ᴄᴀᴘᴛᴜʀᴇ ɪs ᴏɴʟʏ ᴀᴠᴀɪʟᴀʙʟᴇ ғᴏʀ ᴠɪᴅᴇᴏ'); try { const canvas = document.createElement('canvas'); canvas.width = media.videoWidth; canvas.height = media.videoHeight; canvas.getContext('2d').drawImage(media, 0, 0); const a = document.createElement('a'); a.href = canvas.toDataURL('image/jpeg', .9); a.download = 'mmw-frame.jpg'; a.click(); } catch (_) { notify('ғʀᴀᴍᴇ ᴄᴀᴘᴛᴜʀᴇ ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ'); } };
+            window.toggleSleepTimer = () => { if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; return notify('⏱️ sʟᴇᴇᴘ ᴛɪᴍᴇʀ ᴄᴀɴᴄᴇʟʟᴇᴅ'); } const minutes = Number(window.prompt('Sleep timer minutes', '30')); if (Number.isFinite(minutes) && minutes > 0) { sleepTimer = setTimeout(() => { media?.pause(); notify('⏱️ sʟᴇᴇᴘ ᴛɪᴍᴇʀ ᴘᴀᴜsᴇᴅ ᴘʟᴀʏʙᴀᴄᴋ'); }, minutes * 60000); notify(`⏱️ sʟᴇᴇᴘ ɪɴ ${minutes} ᴍɪɴ`); } };
+            let abStart = null;
+            let abEnd = null;
+            let wakeLock = null;
+            window.setABPoint = () => { if (!media) return; if (abStart === null) { abStart = media.currentTime || 0; notify(`ᴀ–ʙ ᴀ sᴇᴛ: ${Math.round(abStart)}s`); } else if (abEnd === null) { abEnd = media.currentTime || 0; if (abEnd <= abStart) { abStart = null; abEnd = null; return notify('ᴀ–ʙ ʙ ᴍᴜsᴛ ʙᴇ ᴀғᴛᴇʀ ᴀ'); } notify(`ᴀ–ʙ ʟᴏᴏᴘ sᴇᴛ: ${Math.round(abStart)}s → ${Math.round(abEnd)}s`); } else { abStart = null; abEnd = null; notify('ᴀ–ʙ ʟᴏᴏᴘ ᴄʟᴇᴀʀᴇᴅ'); } };
+            window.retryMedia = () => { if (!media) return; const position = media.currentTime || 0; media.load(); media.addEventListener('loadedmetadata', () => { media.currentTime = position; media.play().catch(() => {}); }, { once: true }); notify('↻ ʀᴇᴛʀʏɪɴɢ ᴍᴇᴅɪᴀ…'); };
+            window.toggleFit = () => { if (!media) return; media.classList.toggle('object-cover'); media.classList.toggle('object-contain'); notify('▣ ғɪᴛ ᴛᴏɢɢʟᴇᴅ'); };
+            window.toggleMirror = () => { if (!media) return; media.style.transform = media.style.transform === 'scaleX(-1)' ? '' : 'scaleX(-1)'; notify('↔ ᴍɪʀʀᴏʀ ᴛᴏɢɢʟᴇᴅ'); };
+            window.toggleWakeLock = async () => { try { if (wakeLock) { await wakeLock.release(); wakeLock = null; return notify('☀ ᴡᴀᴋᴇ ʟᴏᴄᴋ ᴏғғ'); } if (!('wakeLock' in navigator)) return notify('ᴡᴀᴋᴇ ʟᴏᴄᴋ ɴᴏᴛ sᴜᴘᴘᴏʀᴛᴇᴅ'); wakeLock = await navigator.wakeLock.request('screen'); notify('☀ ᴡᴀᴋᴇ ʟᴏᴄᴋ ᴏɴ'); } catch (_) { notify('ᴡᴀᴋᴇ ʟᴏᴄᴋ ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ'); } };
+            window.toggleScreenLock = () => { document.body.classList.toggle('select-none'); notify(document.body.classList.contains('select-none') ? '⌧ ᴛᴏᴜᴄʜ sᴄʀᴇᴇɴ ʟᴏᴄᴋᴇᴅ' : '⌧ ᴛᴏᴜᴄʜ sᴄʀᴇᴇɴ ᴜɴʟᴏᴄᴋᴇᴅ'); };
+            if (media) media.addEventListener('timeupdate', () => { if (abStart !== null && abEnd !== null && media.currentTime >= abEnd) media.currentTime = abStart; });
+            document.addEventListener('keydown', (event) => { if (!media || ['INPUT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement?.tagName)) return; if (event.code === 'Space') { event.preventDefault(); media.paused ? media.play().catch(() => {}) : media.pause(); } else if (event.key === 'ArrowRight') media.currentTime += 10; else if (event.key === 'ArrowLeft') media.currentTime = Math.max(0, media.currentTime - 10); else if (event.key.toLowerCase() === 'm') media.muted = !media.muted; else if (event.key.toLowerCase() === 'l') window.toggleLoop(); });
+
+            function updateNetwork() { if (network) network.textContent = navigator.onLine ? '🟢 ᴏɴʟɪɴᴇ' : '🔴 ᴏғғʟɪɴᴇ'; }
+            window.addEventListener('online', updateNetwork); window.addEventListener('offline', updateNetwork); updateNetwork();
+            if (media) { initPlayer(); window.addEventListener('load', initPlayer, { once: true }); }
+        })();
     </script>
 </body>
 </html>

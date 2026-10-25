@@ -29,6 +29,7 @@ from plugins.core_services import (
     extract_and_format_caption,
     schedule_deletion
 )
+from plugins.media_types import is_audio_mime, is_video_mime, normalize_mime
 
 MAX_BOT_FILE_SIZE = 2000 * 1024 * 1024  # 2000 MiB (2GB Telegram Bot API Limit)
 
@@ -56,11 +57,12 @@ async def incoming_file_entry(client: Client, message: Message):
     dur_val = getattr(media, "duration", 0)
     duration = time_formatter(seconds=dur_val) if dur_val > 0 else "N/A"
 
-    is_video = bool(message.video or (message.document and mime_type and mime_type.startswith("video/")))
-    is_compressible = is_video or bool(mime_type and mime_type.startswith("audio/"))
+    normalized_mime = normalize_mime(mime_type)
+    is_video = bool(message.video or is_video_mime(normalized_mime))
+    is_compressible = is_video or is_audio_mime(normalized_mime)
     media_metadata = telegram_media_metadata(media, message)
 
-    # Auto-Index file in DB for instant 12 MB/s streaming & 4 External Players
+    # Auto-index file in DB for instant adaptive streaming and 4 external players
     bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else message.chat.id
     try:
         log_msg = await message.forward(bin_chan) if bin_chan != message.chat.id else message
@@ -98,19 +100,19 @@ async def incoming_file_entry(client: Client, message: Message):
 
     if file_size_bytes > MAX_BOT_FILE_SIZE:
         text = (
-            f"✦ **{to_smallcaps('smart media inspector (12 mb/s)')}** ✦\n\n"
+            f"✦ **{to_smallcaps('smart media inspector (adaptive range)')}** ✦\n\n"
             f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
             f"• 📦 **{to_smallcaps('file size')}** : `{file_size}`\n"
-            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s Turbo`\n"
+            f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range`\n"
             f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
             f"• ⏱️ **{to_smallcaps('duration')}** : `{duration}`\n\n"
-            f"⚠️ **{to_smallcaps('note')}** : {to_smallcaps('file exceeds 2gb bot upload limit, but 12 mb/s stream & 4 external players are ready!')}"
+            f"⚠️ **{to_smallcaps('note')}** : {to_smallcaps('file exceeds 2gb bot upload limit, but adaptive range stream & 4 external players are ready!')}"
             f"{format_watermark()}"
         )
         buttons = [
             [
                 InlineKeyboardButton(f"🎬 {to_smallcaps('watch (4 players)')}", url=watch_url),
-                InlineKeyboardButton(f"⬇️ {to_smallcaps('12 mb/s download')}", url=download_url)
+                InlineKeyboardButton(f"⬇️ {to_smallcaps('adaptive range download')}", url=download_url)
             ],
             [InlineKeyboardButton(f"🗜️ {to_smallcaps('compress or stream only')}", callback_data=f"compress_menu_{message.id}")],
             [InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")]
@@ -123,10 +125,10 @@ async def incoming_file_entry(client: Client, message: Message):
     auto_comp_status = "🟢 ᴏɴ" if u.get("auto_compress") else "⚪ ᴏғғ"
 
     text = (
-        f"✦ **{to_smallcaps('smart media studio & 12 mb/s stream')}** ✦\n\n"
+        f"✦ **{to_smallcaps('smart media studio & adaptive range stream')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
         f"• 📦 **{to_smallcaps('file size')}** : `{file_size}`\n"
-        f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s (PLAYit • MX • VLC • S Player)`\n"
+        f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range (PLAYit • MX • VLC • S Player)`\n"
         f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
         f"• ⏱️ **{to_smallcaps('duration')}** : `{duration}`\n"
         f"• 🖼️ **{to_smallcaps('thumbnail')}** : `{has_thumb}` | 📝 **{to_smallcaps('caption')}** : `{has_caption}`\n"
@@ -143,7 +145,7 @@ async def incoming_file_entry(client: Client, message: Message):
         ],
         [
             InlineKeyboardButton(f"🎬 {to_smallcaps('watch (4 players)')}", url=watch_url),
-            InlineKeyboardButton(f"⬇️ {to_smallcaps('12 mb/s download')}", url=download_url)
+            InlineKeyboardButton(f"⬇️ {to_smallcaps('adaptive range download')}", url=download_url)
         ]
     ]
     row3 = []
@@ -234,7 +236,7 @@ async def rename_cmd_handler(client: Client, message: Message):
     if getattr(media, "file_size", 0) > MAX_BOT_FILE_SIZE:
         return await message.reply_text(
             f"⚠️ **{to_smallcaps('file too large (> 2gb)!')}**\n\n"
-            f"💡 {to_smallcaps('use')} `/stream` {to_smallcaps('to generate a 12 mb/s streaming link instead!')}"
+            f"💡 {to_smallcaps('use')} `/stream` {to_smallcaps('to generate a adaptive range streaming link instead!')}"
             f"{format_watermark()}"
         )
 
@@ -267,7 +269,7 @@ async def rename_callback_ask(client: Client, query: CallbackQuery):
     if getattr(media, "file_size", 0) > MAX_BOT_FILE_SIZE:
         return await query.message.edit_text(
             f"⚠️ **{to_smallcaps('file too large (> 2gb)!')}**\n\n"
-            f"💡 {to_smallcaps('use the stream link button to watch or download at 12 mb/s!')}"
+            f"💡 {to_smallcaps('use the stream link button to watch or download at adaptive range!')}"
             f"{format_watermark()}",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"⚡ {to_smallcaps('stream link')}", callback_data=f"stream_{msg_id}")]])
         )

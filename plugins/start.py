@@ -73,11 +73,11 @@ async def command_start_family(client: Client, message: Message):
         text = (
             f"✦ **{to_smallcaps('mmw all-in-one pro')}** ✦\n\n"
             f"👋 **{to_smallcaps('hello')} {user.mention}** !\n\n"
-            f"🚀 **{to_smallcaps('welcome to your ultra-fast multi-purpose pro bot!')}**\n\n"
+            f"🚀 **{to_smallcaps('welcome to your fast multi-purpose pro bot!')}**\n\n"
             f"💎 **{to_smallcaps('all auto & pro features')}** :\n"
             f"• ✏️ **{to_smallcaps('auto & pro renamer')}** : {to_smallcaps('rename with custom prefix, suffix & thumb')}\n"
             f"• 🗜️ **{to_smallcaps('auto & pro compressor')}** : {to_smallcaps('ffmpeg h.264 presets & target size')}\n"
-            f"• ⚡ **{to_smallcaps('12 mb/s fast streamer')}** : {to_smallcaps('http 206 range + 4 external players only (playit, mx, vlc, s player)')}\n"
+            f"• ⚡ **{to_smallcaps('adaptive fast streamer')}** : {to_smallcaps('http 206 range + 4 external players (playit, mx, vlc, s player)')}\n"
             f"• 📝 **{to_smallcaps('auto dynamic captions')}** : {to_smallcaps('full templating ({filename}, {filesize}, cap[])')}\n"
             f"• 🤝 **{to_smallcaps('auto accept joins')}** : {to_smallcaps('instantly accept channel & group requests')}\n"
             f"• 🖼️ **{to_smallcaps('smart thumbnails')}** : {to_smallcaps('custom photo + tham_url auto-fallback')}\n"
@@ -121,13 +121,13 @@ async def command_start_family(client: Client, message: Message):
         text = (
             f"✦ **{to_smallcaps('system & bot status')}** ✦\n\n"
             f"• 🤖 **{to_smallcaps('bot name')}** : `MMW All-In-One Pro`\n"
-            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s (HTTP 206 Range)`\n"
+            f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP 206 byte-range`\n"
             f"• 📱 **{to_smallcaps('4 external players')}** : `PLAYit • MX • VLC • S Player`\n"
             f"• 👥 **{to_smallcaps('total users')}** : `{users_count}`\n"
             f"• 📢 **{to_smallcaps('total chats')}** : `{chats_count}`\n"
             f"• 📁 **{to_smallcaps('indexed files')}** : `{files_count}`\n"
-            f"• 🍃 **{to_smallcaps('database')}** : `Single Unified MongoDB + O(1) Cache`\n"
-            f"• 🚀 **{to_smallcaps('server health')}** : `Operational & Ultra-Fast`"
+            f"• 🍃 **{to_smallcaps('database & cache')}** : `persistent MongoDB + isolated O(1) memory cache`\n"
+            f"• 🚀 **{to_smallcaps('server health')}** : `Operational & Fast`"
             f"{format_watermark()}"
         )
         buttons = [

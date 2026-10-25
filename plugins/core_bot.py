@@ -18,7 +18,7 @@ class MMWProBot(Client):
         await super().start()
         me = await self.get_me()
         logger.info(f"⚡ {to_smallcaps('bot connected as')} @{me.username} ({me.id})")
-        logger.info(f"🚀 {to_smallcaps('12 mb/s stream & watermark engine')}: {Config.WATERMARK}")
+        logger.info(f"🚀 {to_smallcaps('adaptive range stream & watermark engine')}: {Config.WATERMARK}")
     async def stop(self, *args):
         await super().stop()
         logger.info("Bot disconnected gracefully.")

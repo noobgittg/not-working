@@ -16,7 +16,7 @@ from plugins.core_services import telegram_media_metadata
 async def stream_command_entry(client: Client, message: Message):
     if not message.reply_to_message or not message.reply_to_message.media:
         return await message.reply_text(
-            f"⚠️ **{to_smallcaps('please reply to a video or file to generate a 12 mb/s stream link.')}**\n\n"
+            f"⚠️ **{to_smallcaps('please reply to a video or file to generate a adaptive range stream link.')}**\n\n"
             f"• 📝 **{to_smallcaps('usage')}** : {to_smallcaps('reply to any media with')} `/stream`"
             f"{format_watermark()}"
         )
@@ -31,7 +31,7 @@ async def stream_callback_entry(client: Client, query: CallbackQuery):
     await generate_stream_response(client, original, query.message)
 
 async def generate_stream_response(client: Client, media_msg: Message, target_reply: Message):
-    status = await target_reply.reply_text(f"⚡ **{to_smallcaps('generating 12 mb/s turbo stream link...')}**")
+    status = await target_reply.reply_text(f"⚡ **{to_smallcaps('generating adaptive range stream link...')}**")
 
     bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else media_msg.chat.id
     try:
@@ -72,10 +72,10 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
     download_url = f"{Config.BASE_URL}/download/{file_id}"
 
     text = (
-        f"✦ **{to_smallcaps('12 mb/s super sonic stream link')}** ✦\n\n"
+        f"✦ **{to_smallcaps('adaptive range adaptive stream link')}** ✦\n\n"
         f"• 📁 **{to_smallcaps('file name')}** : `{file_name}`\n"
         f"• 📦 **{to_smallcaps('file size')}** : `{humanbytes(file_size)}`\n"
-        f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s (HTTP 206 Range)`\n"
+        f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP 206 byte-range`\n"
         f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
         f"• ⏱️ **{to_smallcaps('duration')}** : `{duration}`\n"
         f"• 🆔 **{to_smallcaps('file id')}** : `{file_id}`\n\n"
@@ -85,7 +85,7 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
         f"  `3.` 🔊 **{to_smallcaps('vlc player')}**\n"
         f"  `4.` 🚀 **{to_smallcaps('s player')}**\n\n"
         f"🔗 **{to_smallcaps('watch & external players page')}** :\n{watch_url}\n\n"
-        f"⚡ **{to_smallcaps('direct 12 mb/s stream url')}** :\n`{stream_url}`\n\n"
+        f"⚡ **{to_smallcaps('direct adaptive range stream url')}** :\n`{stream_url}`\n\n"
         f"⬇️ **{to_smallcaps('fast download link')}** :\n{download_url}"
         f"{format_watermark()}"
     )

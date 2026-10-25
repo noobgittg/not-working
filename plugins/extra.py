@@ -101,8 +101,8 @@ async def ping_command_handler(client: Client, message: Message):
         f"✦ **{to_smallcaps('system latency & uptime')}** ✦\n\n"
         f"• ⚡ **{to_smallcaps('ping')}** : `{latency_ms} ms`\n"
         f"• ⏱️ **{to_smallcaps('uptime')}** : `{uptime_str}`\n"
-        f"• 🚀 **{to_smallcaps('stream speed')}** : `12 MB/s (4 Players)`\n"
-        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Ultra-Fast)`"
+        f"• 🚀 **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range (4 Players)`\n"
+        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Fast)`"
         f"{format_watermark()}"
     )
     btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('refresh')}", callback_data="ping_refresh")]]
@@ -120,8 +120,8 @@ async def ping_refresh_callback(client: Client, query: CallbackQuery):
         f"✦ **{to_smallcaps('system latency & uptime')}** ✦\n\n"
         f"• ⚡ **{to_smallcaps('ping')}** : `{latency_ms} ms`\n"
         f"• ⏱️ **{to_smallcaps('uptime')}** : `{uptime_str}`\n"
-        f"• 🚀 **{to_smallcaps('stream speed')}** : `12 MB/s (4 Players)`\n"
-        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Ultra-Fast)`"
+        f"• 🚀 **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range (4 Players)`\n"
+        f"• 🌐 **{to_smallcaps('status')}** : `Operational (Fast)`"
         f"{format_watermark()}"
     )
     btn = [[InlineKeyboardButton(f"🔄 {to_smallcaps('refresh')}", callback_data="ping_refresh")]]
@@ -156,7 +156,7 @@ async def speedtest_command_handler(client: Client, message: Message):
         val = f"`{ms} ms`" if ms > 0 else "`Timeout / Blocked`"
         text += f"• 🌐 **{to_smallcaps(label)}** : {val}\n"
     text += (
-        f"\n• ⚡ **{to_smallcaps('stream bandwidth')}** : `12 MB/s Turbo Ready`\n"
+        f"\n• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range ready`\n"
         f"• ⏱️ **{to_smallcaps('server status')}** : `Operational & Ultra-Responsive`"
         f"{format_watermark()}"
     )
@@ -202,11 +202,11 @@ async def generate_mediainfo_response(client: Client, media_msg: Message, target
             f"• 🏷️ **{to_smallcaps('mime type')}** : `{mime_type}`\n"
             f"• ⏱️ **{to_smallcaps('duration')}** : `{dur_str}`\n"
             f"• 📐 **{to_smallcaps('resolution')}** : `{res_str}`\n\n"
-            f"💡 {to_smallcaps('for 12 mb/s playback in playit, mx, vlc, or s player, use the stream button below:')}"
+            f"💡 {to_smallcaps('for external playback in playit, mx, vlc, or s player, use the stream button below:')}"
             f"{format_watermark()}"
         )
         buttons = [
-            [InlineKeyboardButton(f"⚡ {to_smallcaps('12mb/s stream link')}", callback_data=f"stream_{media_msg.id}")],
+            [InlineKeyboardButton(f"⚡ {to_smallcaps('adaptive stream link')}", callback_data=f"stream_{media_msg.id}")],
             [InlineKeyboardButton(f"❌ {to_smallcaps('close')}", callback_data="cancel_op")]
         ]
         return await target_reply.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
@@ -289,7 +289,7 @@ async def search_command_handler(client: Client, message: Message):
         return await message.reply_text(
             f"📝 **{to_smallcaps('usage')}** : `/search <keyword>`\n\n"
             f"• **{to_smallcaps('example')}** : `/search sample`\n\n"
-            f"💡 {to_smallcaps('searches your indexed 12 mb/s stream files instantly.')}"
+            f"💡 {to_smallcaps('searches your indexed stream files instantly.')}"
             f"{format_watermark()}"
         )
 

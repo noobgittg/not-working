@@ -216,7 +216,7 @@ class InMemoryDB:
 class MongoManager:
     """
     Single unified database manager (MongoDB Motor with automatic in-memory fallback).
-    Guarantees zero crashes and ultra-fast cache-backed queries across all plugins.
+    Guarantees zero crashes and fast cache-backed queries across all plugins.
     """
     def __init__(self):
         self.client = None

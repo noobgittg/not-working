@@ -11,7 +11,7 @@ async def render_help_menu(target_msg: Message, user, is_admin: bool, is_edit: b
         f"{to_smallcaps('explore our categorized guides below for all auto & pro features:')}\n\n"
         f"• ✏️ **{to_smallcaps('auto & pro renamer')}** : {to_smallcaps('rename, auto-rename, prefix & suffix')}\n"
         f"• 🗜️ **{to_smallcaps('auto & pro compressor')}** : {to_smallcaps('h.264 presets, auto-compress & target mb')}\n"
-        f"• ⚡ **{to_smallcaps('12 mb/s streamer')}** : {to_smallcaps('4 external players (playit, mx, vlc, s player)')}\n"
+        f"• ⚡ **{to_smallcaps('adaptive range streamer')}** : {to_smallcaps('4 external players (playit, mx, vlc, s player)')}\n"
         f"• 📝 **{to_smallcaps('auto captions')}** : {to_smallcaps('dynamic templates & cap[] queue manager')}\n"
         f"• 🤝 **{to_smallcaps('auto accept')}** : {to_smallcaps('auto-approve channel & group join requests')}\n"
         f"• 🖼️ **{to_smallcaps('thumbnail')}** : {to_smallcaps('custom photo & tham_url caching')}\n"
@@ -29,7 +29,7 @@ async def render_help_menu(target_msg: Message, user, is_admin: bool, is_edit: b
             InlineKeyboardButton(f"🗜️ {to_smallcaps('compressor')}", callback_data="help_compressor")
         ],
         [
-            InlineKeyboardButton(f"⚡ {to_smallcaps('12mb/s stream')}", callback_data="help_streamer"),
+            InlineKeyboardButton(f"⚡ {to_smallcaps('adaptive range stream')}", callback_data="help_streamer"),
             InlineKeyboardButton(f"📝 {to_smallcaps('captions')}", callback_data="help_caption")
         ],
         [
@@ -115,11 +115,11 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
         text = (
             f"✦ **{to_smallcaps('mmw all-in-one pro')}** ✦\n\n"
             f"👋 **{to_smallcaps('hello')} {user.mention}** !\n\n"
-            f"🚀 **{to_smallcaps('welcome to your ultra-fast multi-purpose pro bot!')}**\n\n"
+            f"🚀 **{to_smallcaps('welcome to your fast multi-purpose pro bot!')}**\n\n"
             f"💎 **{to_smallcaps('all auto & pro features')}** :\n"
             f"• ✏️ **{to_smallcaps('auto & pro renamer')}** : {to_smallcaps('rename with custom prefix, suffix & thumb')}\n"
             f"• 🗜️ **{to_smallcaps('auto & pro compressor')}** : {to_smallcaps('ffmpeg h.264 presets & target size')}\n"
-            f"• ⚡ **{to_smallcaps('12 mb/s fast streamer')}** : {to_smallcaps('http 206 range + 4 external players only (playit, mx, vlc, s player)')}\n"
+            f"• ⚡ **{to_smallcaps('adaptive range fast streamer')}** : {to_smallcaps('http 206 range + 4 external players only (playit, mx, vlc, s player)')}\n"
             f"• 📝 **{to_smallcaps('auto dynamic captions')}** : {to_smallcaps('full templating ({filename}, {filesize}, cap[])')}\n"
             f"• 🤝 **{to_smallcaps('auto accept joins')}** : {to_smallcaps('instantly accept channel & group requests')}\n"
             f"• 🖼️ **{to_smallcaps('smart thumbnails')}** : {to_smallcaps('custom photo + tham_url auto-fallback')}\n"
@@ -155,7 +155,7 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"✦ **{to_smallcaps('about mmw all-in-one pro')}** ✦\n\n"
             f"• 🤖 **{to_smallcaps('bot name')}** : `MMW All-In-One Pro`\n"
             f"• 💎 **{to_smallcaps('edition')}** : `v3.0.0 Unified Plugin Architecture`\n"
-            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s ByteStreamer (HTTP 206 Range)`\n"
+            f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive ByteStreamer (HTTP 206 Range)`\n"
             f"• 📱 **{to_smallcaps('external players')}** : `PLAYit, MX Player, VLC, S Player (4 Only)`\n"
             f"• 🍃 **{to_smallcaps('database')}** : `Single Unified MongoDB + O(1) Memory Cache`\n"
             f"• 🗜️ **{to_smallcaps('compressor')}** : `FFmpeg YUV420p Even-Dimension Engine`\n"
@@ -174,10 +174,10 @@ async def navigation_callbacks(client: Client, query: CallbackQuery):
             f"• 👥 **{to_smallcaps('total users')}** : `{users_count}`\n"
             f"• 📢 **{to_smallcaps('total chats')}** : `{chats_count}`\n"
             f"• 📁 **{to_smallcaps('indexed files')}** : `{files_count}`\n"
-            f"• ⚡ **{to_smallcaps('stream speed')}** : `12 MB/s Turbo`\n"
+            f"• ⚡ **{to_smallcaps('stream mode')}** : `adaptive HTTP byte-range`\n"
             f"• 📱 **{to_smallcaps('4 external players')}** : `PLAYit • MX • VLC • S Player`\n"
             f"• 🧠 **{to_smallcaps('caching')}** : `O(1) FastMemoryCache Active`\n"
-            f"• 🚀 **{to_smallcaps('server status')}** : `Online & Ultra-Fast`"
+            f"• 🚀 **{to_smallcaps('server status')}** : `Online & Fast`"
             f"{format_watermark()}"
         )
         buttons = [
@@ -228,9 +228,9 @@ async def help_subpages(client: Client, query: CallbackQuery):
         )
     elif cat == "streamer":
         text = (
-            f"✦ **{to_smallcaps('12 mb/s streamer & 4 players — guide')}** ✦\n\n"
-            f"• ⚡ **{to_smallcaps('12 mb/s stream response')}** :\n"
-            f"  • {to_smallcaps('every file gets an instant 12 mb/s http 206 range stream & download link.')}\n"
+            f"✦ **{to_smallcaps('adaptive range streamer & 4 players — guide')}** ✦\n\n"
+            f"• ⚡ **{to_smallcaps('adaptive range stream response')}** :\n"
+            f"  • {to_smallcaps('every file gets an instant adaptive range http 206 range stream & download link.')}\n"
             f"  • {to_smallcaps('or reply to any file with')} `/stream`.\n\n"
             f"• 📱 **{to_smallcaps('4 external players supported only')}** :\n"
             f"  `1.` ▶️ **PLAYit**\n"

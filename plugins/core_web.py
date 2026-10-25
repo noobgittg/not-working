@@ -13,13 +13,14 @@ from fastapi.templating import Jinja2Templates
 from config import Config
 from plugins.core_utils import logger, cache, humanbytes, time_formatter
 from plugins.core_db import user_repo, chat_repo, file_repo, FileRepository
+from plugins.media_types import media_kind, normalize_mime, browser_media_supported
 
-# ==================== 1. 12 MB/s TURBO BYTESTREAMER ENGINE ====================
+# ==================== 1. ADAPTIVE ASYNC BYTESTREAMER ENGINE ====================
 
 CHUNK_SIZE = 1024 * 1024  # 1 MiB Telegram chunk size
 STREAM_SPEED_MBPS = max(1, int(getattr(Config, "STREAM_SPEED_LIMIT_MBPS", 20)))
-TARGET_SPEED_BPS = STREAM_SPEED_MBPS * 1024 * 1024  # 12 MB/s (12,582,912 B/s)
-PREFETCH_QUEUE_SIZE = int(getattr(Config, "STREAM_BUFFER_CHUNKS", 12))  # 12 MB pre-fetch buffer
+TARGET_SPEED_BPS = STREAM_SPEED_MBPS * 1024 * 1024  # internal pacing hint, not a throughput promise
+PREFETCH_QUEUE_SIZE = int(getattr(Config, "STREAM_BUFFER_CHUNKS", 12))  # adaptive pre-fetch buffer
 
 
 def parse_range_header(value: Optional[str], file_size: int):
@@ -44,10 +45,15 @@ def parse_range_header(value: Optional[str], file_size: int):
     except (TypeError, ValueError):
         return None
 
+
+def content_disposition(disposition: str, file_name: str) -> str:
+    safe = "".join(ch if ch.isprintable() and ch not in '\"\\\r\n' else "_" for ch in (file_name or "download.bin"))
+    return f"{disposition}; filename=\"{safe}\"; filename*=UTF-8''{quote(safe)}"
+
 # External 4 Players ONLY configuration:
 # 1. PLAYit  2. MX Player  3. VLC  4. S Player (4th Player)
 FOUR_EXTERNAL_PLAYERS = [
-    {"id": "playit", "name": "PLAYit", "badge": "12 MB/s Fast"},
+    {"id": "playit", "name": "PLAYit", "badge": "adaptive range"},
     {"id": "mxplayer", "name": "MX Player", "badge": "HW+ Decoder"},
     {"id": "vlc", "name": "VLC Player", "badge": "All Codecs"},
     {"id": "splayer", "name": "S Player", "badge": "Ultra Smooth"}
@@ -81,8 +87,9 @@ def media_metadata_view(file_doc: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize stored metadata for templates and JSON clients."""
     raw = dict(file_doc.get("metadata") or {})
     return {
-        "media_kind": raw.get("media_kind") or "document",
-        "mime_type": file_doc.get("mime_type") or raw.get("mime_type") or "application/octet-stream",
+        "media_kind": raw.get("media_kind") or media_kind(file_doc.get("mime_type") or raw.get("mime_type")),
+        "mime_type": normalize_mime(file_doc.get("mime_type") or raw.get("mime_type")),
+        "browser_supported": browser_media_supported(file_doc.get("mime_type") or raw.get("mime_type")),
         "duration": int(raw.get("duration") or 0),
         "width": int(raw.get("width") or 0),
         "height": int(raw.get("height") or 0),
@@ -128,14 +135,14 @@ async def iter_12mbps_file_stream(
     end: int
 ) -> AsyncGenerator[bytes, None]:
     """
-    12 MB/s High-Speed Async Byte Streamer!
-    1. If local file exists on disk (`file_path`), streams in 1 MB chunks with 12 MB/s pacing & zero-blocking I/O.
+    Adaptive Async Byte Streamer
+    1. If local file exists on disk (`file_path`), streams in 1 MB chunks with adaptive pacing & zero-blocking I/O.
     2. Otherwise, streams directly from Telegram (`bot.stream_media`) using an async pre-fetch queue
-       of 12 x 1 MiB chunks (12 MB/s pipeline) with exact byte slicing for HTTP 206 Range requests.
+       of prefetched 1 MiB chunks with exact byte slicing for HTTP 206 Range requests.
     """
     content_length = (end - start) + 1
 
-    # Route A: Local disk file (fast 1 MB chunks up to 12 MB/s)
+    # Route A: Local disk file (fast 1 MB chunks with adaptive pacing)
     if file_path and os.path.exists(file_path):
         chunk_size = 1024 * 1024  # 1 MB chunk
         with open(file_path, "rb") as f:
@@ -150,7 +157,7 @@ async def iter_12mbps_file_stream(
                 yield data
         return
 
-    # Route B: Direct Telegram MTProto Streaming via Pyrofork stream_media with 12 MB/s Pre-Fetch Buffer
+    # Route B: Direct Telegram MTProto Streaming via Pyrofork stream_media with adaptive pre-fetch buffer
     msg = await resolve_telegram_message(bot, file_doc)
     if not msg:
         return
@@ -181,7 +188,7 @@ async def iter_12mbps_file_stream(
                 if current_part > part_count:
                     break
         except Exception as e:
-            logger.error(f"12MB/s Telegram Stream producer error: {e}")
+            logger.error(f"adaptive range Telegram Stream producer error: {e}")
         finally:
             await queue.put(None)
 
@@ -224,7 +231,7 @@ async def root_health():
     return {
         "status": "healthy",
         "service": "MMW-BOT-PRO",
-        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
+        "stream_speed": "adaptive HTTP byte-range streaming",
         "external_players": 4,
         "timestamp": float(time.time()),
         "watermark": Config.WATERMARK
@@ -276,7 +283,7 @@ async def watch_page(request: Request, file_id: str):
         "stream_url": stream_url,
         "download_url": download_url,
         "player_links": player_links,
-        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
+        "stream_speed": "adaptive HTTP byte-range streaming",
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
@@ -308,13 +315,13 @@ async def download_page(request: Request, file_id: str):
         "download_url": download_url,
         "watch_url": watch_url,
         "player_links": player_links,
-        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
+        "stream_speed": "adaptive HTTP byte-range streaming",
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
 
 
-# --- 12 MB/s STREAM & DOWNLOAD ENDPOINTS ---
+# --- RANGE STREAM & DOWNLOAD ENDPOINTS ---
 
 @stream_router.get("/stream/{file_id}")
 @stream_router.head("/stream/{file_id}")
@@ -345,8 +352,8 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Type": mime_type,
-        "Content-Disposition": f'inline; filename="{file_name}"',
-        "X-Stream-Speed-Limit": f"{STREAM_SPEED_MBPS}MB/s",
+        "Content-Disposition": content_disposition("inline", file_name),
+        "X-Stream-Mode": "adaptive-http-byte-range",
         "X-Stream-Chunk-Size": "1048576",
         "Cache-Control": "public, max-age=86400, immutable",
         "Vary": "Range",
@@ -374,7 +381,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
 @stream_router.head("/download/{file_id}")
 @stream_router.head("/file/{file_id}")
 async def download_media_endpoint(request: Request, file_id: str, range: str = Header(None)):
-    """Handles 12 MB/s direct file downloads with Range support for ADM / IDM / 1DM & external players."""
+    """Handles asynchronous direct file downloads with Range support for external players."""
     file_doc = await FileRepository.get_file_by_id(file_id)
     if not file_doc:
         raise HTTPException(status_code=404, detail="File not found or revoked.")
@@ -399,9 +406,12 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
     status_code = 206 if range else 200
     headers = {
         "Accept-Ranges": "bytes",
-        "Content-Disposition": f'attachment; filename="{file_name}"',
-        "X-Stream-Speed-Limit": f"{STREAM_SPEED_MBPS}MB/s",
-        "Access-Control-Allow-Origin": "*"
+        "Content-Type": mimetypes.guess_type(file_name)[0] or "application/octet-stream",
+        "Content-Disposition": content_disposition("attachment", file_name),
+        "X-Stream-Mode": "adaptive-http-byte-range",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400, immutable",
+        "Vary": "Range"
     }
 
     if range:
@@ -435,7 +445,7 @@ async def api_status(request: Request):
         "status": "operational",
         "service": "MMW All-In-One Pro Engine",
         "version": "3.0.0-pro",
-        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
+        "stream_speed": "adaptive HTTP byte-range streaming",
         "external_players": ["PLAYit", "MX Player", "VLC", "S Player"],
         "uptime_seconds": uptime_sec,
         "users": users_count,
@@ -452,7 +462,7 @@ async def api_health():
     return {
         "status": "healthy",
         "service": "MMW-BOT-PRO",
-        "engine": f"{STREAM_SPEED_MBPS} MB/s Super-Sonic Streamer",
+        "engine": "adaptive asynchronous HTTP byte-range streamer",
         "timestamp": float(time.time()),
         "watermark": Config.WATERMARK
     }
@@ -483,7 +493,7 @@ async def api_file_info(file_id: str):
         "file_size_formatted": humanbytes(file_doc.get("file_size", 0)),
         "mime_type": file_doc.get("mime_type"),
         "created_at": file_doc.get("created_at"),
-        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
+        "stream_speed": "adaptive HTTP byte-range streaming",
         "stream_url": stream_url,
         "watch_url": f"{Config.BASE_URL}/watch/{file_id}",
         "download_url": f"{Config.BASE_URL}/download/{file_id}",
@@ -520,7 +530,7 @@ async def api_search_files(q: str = ""):
 
 def create_app(bot_instance=None) -> FastAPI:
     fastapi_app = FastAPI(
-        title=f"MMW All-In-One Pro {STREAM_SPEED_MBPS} MB/s Stream Server",
+        title="MMW All-In-One Pro Adaptive Stream Server",
         version="3.0.0",
         docs_url="/docs",
         redoc_url=None
@@ -572,5 +582,5 @@ class WebSupport:
 
     async def start(self):
         server = self.get_server()
-        logger.info(f"⚡ {STREAM_SPEED_MBPS} MB/s Web Stream Server active on {Config.BIND_ADDRESS}:{Config.PORT}")
+        logger.info(f"⚡ Adaptive Web Stream Server active on {Config.BIND_ADDRESS}:{Config.PORT}")
         await server.serve()
