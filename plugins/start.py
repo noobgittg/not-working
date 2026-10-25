@@ -4,7 +4,7 @@ from config import Config
 from plugins.core_db import user_repo, chat_repo, file_repo
 from plugins.core_utils import to_smallcaps, format_watermark, logger
 
-@Client.on_message(filters.private & filters.command(["start", "help", "about", "status", "settings"]))
+@Client.on_message(filters.private & filters.command(["start", "help", "commands", "guide", "about", "status", "settings"]))
 async def command_start_family(client: Client, message: Message):
     user = message.from_user
     cmd = message.command[0].lower() if message.command else "start"
@@ -106,7 +106,7 @@ async def command_start_family(client: Client, message: Message):
 
         await message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
-    elif cmd == "help":
+    elif cmd in ["help", "commands", "guide"]:
         from plugins.callbacks import render_help_menu
         await render_help_menu(message, user, is_admin, is_edit=False)
 

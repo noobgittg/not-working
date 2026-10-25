@@ -184,14 +184,6 @@ async def iter_12mbps_file_stream(
             producer_task.cancel()
 
 
-async def iter_with_client_release(stream, release):
-    try:
-        async for chunk in stream:
-            yield chunk
-    finally:
-        await release()
-
-
 # ==================== 2. FASTAPI ROUTERS ====================
 
 pages_router = APIRouter()
@@ -349,11 +341,8 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     if request.method == "HEAD":
         return Response(status_code=status_code, headers=headers)
 
-    selected_bot, release = (await bot.acquire_stream_client()) if hasattr(bot, "acquire_stream_client") else (bot, None)
-    stream = iter_12mbps_file_stream(file_path, selected_bot, file_doc, start, end)
-    body = iter_with_client_release(stream, release) if release else stream
     return StreamingResponse(
-        body,
+        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
         status_code=status_code,
         headers=headers,
         media_type=mime_type
@@ -402,11 +391,8 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
     if request.method == "HEAD":
         return Response(status_code=status_code, headers=headers)
 
-    selected_bot, release = (await bot.acquire_stream_client()) if hasattr(bot, "acquire_stream_client") else (bot, None)
-    stream = iter_12mbps_file_stream(file_path, selected_bot, file_doc, start, end)
-    body = iter_with_client_release(stream, release) if release else stream
     return StreamingResponse(
-        body,
+        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
         status_code=status_code,
         media_type="application/octet-stream",
         headers=headers

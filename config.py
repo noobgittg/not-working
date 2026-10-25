@@ -9,15 +9,6 @@ class Config:
     API_ID: int = int(os.environ.get("API_ID", "2040"))
     API_HASH: str = os.environ.get("API_HASH", "b18441a1ff607e10a989891a5462e627")
     BOT_TOKEN: str = os.environ.get("BOT_TOKEN", "")
-    MULTI_TOKENS: List[str] = [
-        token.strip() for token in os.environ.get("MULTI_TOKENS", "").split(",")
-        if token.strip()
-    ]
-    for _index in range(1, 100):
-        _token = os.environ.get(f"MULTI_TOKEN{_index}", "").strip()
-        if _token and _token not in MULTI_TOKENS:
-            MULTI_TOKENS.append(_token)
-
     OWNER_ID: int = int(os.environ.get("OWNER_ID", "1892771262"))
     raw_admins = os.environ.get("ADMINS", str(OWNER_ID))
     ADMINS: List[int] = [int(x) for x in re.findall(r"\d+", raw_admins)]

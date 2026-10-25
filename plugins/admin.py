@@ -35,6 +35,26 @@ async def admin_panel_handler(client: Client, message: Message):
         return
     await render_admin_dashboard(message)
 
+@Client.on_message(filters.private & filters.command("adminhelp"))
+async def admin_help_handler(client: Client, message: Message):
+    if not await check_admin(client, message):
+        return
+    text = (
+        f"✦ **{to_smallcaps('admin command guide')}** ✦\n\n"
+        f"👑 `/admin` — {to_smallcaps('open the control panel')}\n"
+        f"📊 `/stats` — {to_smallcaps('view runtime metrics')}\n"
+        f"👥 `/users` — {to_smallcaps('browse registered users')}\n"
+        f"🔎 `/userinfo <id>` — {to_smallcaps('inspect one user')}\n"
+        f"🚫 `/ban <id>` / `/unban <id>` — {to_smallcaps('manage access')}\n"
+        f"📣 `/broadcast <text>` — {to_smallcaps('send an announcement')}\n"
+        f"🧹 `/cache` — {to_smallcaps('inspect cache')}\n"
+        f"🗃️ `/database` — {to_smallcaps('inspect database status')}\n"
+        f"🧾 `/logs` — {to_smallcaps('view recent service logs')}\n"
+        f"🔄 `/restart` — {to_smallcaps('restart after confirmation')}\n\n"
+        f"⚠️ {to_smallcaps('keep admin commands private and verify ids before moderation actions.')}{format_watermark()}"
+    )
+    await message.reply_text(text, disable_web_page_preview=True)
+
 async def render_admin_dashboard(target_msg: Message, is_edit: bool = False):
     total_users = await user_repo.get_total_users()
     total_chats = await chat_repo.get_total_chats()
