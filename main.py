@@ -34,8 +34,8 @@ async def start_bot_and_services(bot: MMWProBot):
             await send_restart_notification(bot)
 
         asyncio.create_task(run_autodelete_sweeper(bot))
-        asyncio.create_task(run_keepalive_worker(bot, interval=6))
-        asyncio.create_task(schedule_24h_restart(bot, interval=86400))
+        asyncio.create_task(run_keepalive_worker(bot, interval=Config.KEEPALIVE_INTERVAL))
+        asyncio.create_task(schedule_24h_restart(bot, interval=Config.RESTART_INTERVAL))
 
         logger.info(f"⚡ {to_smallcaps('mmw all-in-one pro engine running! 12 mb/s stream & 4 players ready.')}")
     except Exception as e:

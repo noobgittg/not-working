@@ -46,6 +46,8 @@ class Config:
     WORKERS: int = int(os.environ.get("WORKERS", "64"))
     TG_TRANSMISSION_WORKERS: int = max(1, int(os.environ.get("TG_TRANSMISSION_WORKERS", "32")))
     MAX_CONCURRENT_TASKS: int = int(os.environ.get("MAX_CONCURRENT_TASKS", "10"))
+    KEEPALIVE_INTERVAL: int = max(5, int(os.environ.get("KEEPALIVE_INTERVAL", "10")))
+    RESTART_INTERVAL: int = max(3600, int(os.environ.get("RESTART_INTERVAL", "86400")))
 
     DOWNLOAD_DIR: str = os.path.join(os.getcwd(), "downloads")
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)

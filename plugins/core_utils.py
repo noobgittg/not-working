@@ -194,6 +194,27 @@ async def safe_forward_message(message: Any, chat_id: Any) -> Any:
         return message
 
 
+async def safe_delete_messages(client: Any, chat_id: Any, message_ids: Any) -> bool:
+    """Delete batches without turning rate limits into a tight retry loop."""
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    now = time.time()
+    if now < _TELEGRAM_WRITE_BLOCK_UNTIL:
+        return False
+    try:
+        await client.delete_messages(chat_id=chat_id, message_ids=message_ids)
+        return True
+    except FloodWait as error:
+        wait_for = _flood_wait_seconds(error)
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        logger.warning(f"Telegram delete cooldown active for {wait_for}s; deferring auto-delete batch")
+        return False
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.debug(f"Optional Telegram delete skipped: {error}")
+        return False
+
+
 # ==================== 3. ULTRA-FAST O(1) LRU TTL CACHE ====================
 
 class FastMemoryCache:

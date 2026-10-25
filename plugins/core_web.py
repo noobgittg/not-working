@@ -303,7 +303,7 @@ async def watch_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
-    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
     return response
 
 @pages_router.get("/dl/{file_id}")
@@ -337,7 +337,7 @@ async def download_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
-    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
     return response
 
 
@@ -571,7 +571,15 @@ def create_app(bot_instance=None) -> FastAPI:
         response = await call_next(request)
         path = request.url.path
         if path in {"/", "/stats"} or path.startswith("/watch/") or path.startswith("/dl/"):
-            response.headers.setdefault("Cache-Control", "public, max-age=30, stale-while-revalidate=120")
+            response.headers.setdefault("Cache-Control", "public, max-age=300, stale-while-revalidate=3600")
+        elif path.startswith("/api/info/"):
+            response.headers.setdefault("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+        elif path.startswith("/api/search"):
+            response.headers.setdefault("Cache-Control", "public, max-age=15, stale-while-revalidate=60")
+        elif path == "/api/status":
+            response.headers.setdefault("Cache-Control", "private, max-age=5, stale-while-revalidate=15")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
     fastapi_app.include_router(pages_router)
@@ -595,7 +603,10 @@ class WebSupport:
             host=Config.BIND_ADDRESS,
             port=Config.PORT,
             log_level="warning",
-            access_log=False
+            access_log=False,
+            timeout_keep_alive=30,
+            server_header=False,
+            date_header=False
         )
         self.server = uvicorn.Server(config)
         return self.server

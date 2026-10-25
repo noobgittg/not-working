@@ -7,6 +7,7 @@
     <title>{{ file_name | default("Watch Media") }} — adaptive range stream</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
     <link rel="preload" as="script" href="https://cdn.tailwindcss.com">
@@ -23,11 +24,13 @@
             }
         }
     </script>
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" as="style" fetchpriority="high" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css" onload="this.onload=null;this.rel='stylesheet'">
+    {% if metadata.media_kind in ['audio', 'video'] %}
+    <link rel="preload" as="style" fetchpriority="high" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"></noscript>
     <script defer src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.js"></script>
+    {% endif %}
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');

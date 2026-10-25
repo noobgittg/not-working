@@ -21,7 +21,9 @@ from plugins.core_utils import (
     is_devil_mode_active,
     set_devil_mode,
     logger,
-    MEMORY_LOGS
+    MEMORY_LOGS,
+    safe_reply_text,
+    safe_edit_text
 )
 from plugins.core_services import RESTART_MARKER_FILE
 
@@ -463,7 +465,7 @@ async def broadcast_command_handler(client: Client, message: Message):
         )
 
     users = await user_repo.get_all_users()
-    status = await message.reply_text(f"📢 **{to_smallcaps(f'starting broadcast to {len(users)} users...')}**")
+    status = await safe_reply_text(message, f"📢 **{to_smallcaps(f'starting broadcast to {len(users)} users...')}**")
 
     success = 0
     failed = 0
@@ -474,20 +476,17 @@ async def broadcast_command_handler(client: Client, message: Message):
         try:
             await message.reply_to_message.copy(uid)
             success += 1
-            await asyncio.sleep(0.04)
+            await asyncio.sleep(0.35)
         except FloodWait as fw:
-            await asyncio.sleep(fw.value)
-            try:
-                await message.reply_to_message.copy(uid)
-                success += 1
-            except Exception:
-                failed += 1
+            failed += 1
+            logger.warning(f"Broadcast stopped by Telegram FloodWait ({getattr(fw, 'value', 0)}s)")
+            break
         except (UserIsBlocked, InputUserDeactivated):
             blocked += 1
         except Exception:
             failed += 1
 
-    await status.edit_text(
+    await safe_edit_text(status,
         f"✦ **{to_smallcaps('broadcast completed')}** ✦\n\n"
         f"• ✅ **{to_smallcaps('successful')}** : `{success}`\n"
         f"• 🚫 **{to_smallcaps('blocked / deactivated')}** : `{blocked}`\n"

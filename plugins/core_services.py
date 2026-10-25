@@ -30,7 +30,9 @@ from plugins.core_utils import (
     time_formatter,
     is_valid_url,
     sanitize_filename,
-    safe_send_message
+    safe_send_message,
+    safe_edit_text,
+    safe_delete_messages
 )
 from plugins.core_db import user_repo, chat_repo
 
@@ -395,7 +397,7 @@ async def compress_media(
 ) -> bool:
     even_h = scale_height if scale_height % 2 == 0 else scale_height - 1
     if even_h > 0:
-        vf_filter = f"scale=-2:{even_h}:flags=lanczos,setsar=1"
+        vf_filter = f"scale=-2:{even_h}:flags=fast_bilinear,setsar=1"
     else:
         vf_filter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
@@ -458,7 +460,7 @@ async def compress_media(
                         f"{format_watermark()}"
                     )
                     try:
-                        await progress_message.edit_text(text)
+                        await safe_edit_text(progress_message, text)
                     except Exception:
                         pass
 
@@ -807,7 +809,7 @@ async def compress_to_target_size(
 
     even_h = scale_height if scale_height % 2 == 0 else scale_height - 1
     if even_h > 0:
-        vf_filter = f"scale=-2:{even_h}:flags=lanczos,setsar=1"
+        vf_filter = f"scale=-2:{even_h}:flags=fast_bilinear,setsar=1"
     else:
         vf_filter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
@@ -1135,14 +1137,15 @@ async def run_autodelete_sweeper(client: Any):
                     chat_buckets[item["chat_id"]].append(item["message_id"])
 
                 for chat_id, msg_ids in chat_buckets.items():
+                    delete_ok = True
                     for i in range(0, len(msg_ids), 100):
                         chunk = msg_ids[i:i+100]
-                        try:
-                            await client.delete_messages(chat_id=chat_id, message_ids=chunk)
-                        except Exception as e:
-                            logger.debug(f"Failed deleting batch in {chat_id}: {e}")
-                    for mid in msg_ids:
-                        await chat_repo.delete_auto_delete_task(chat_id, mid)
+                        if not await safe_delete_messages(client, chat_id, chunk):
+                            delete_ok = False
+                            break
+                    if delete_ok:
+                        for mid in msg_ids:
+                            await chat_repo.delete_auto_delete_task(chat_id, mid)
         except Exception as e:
             logger.error(f"Auto-delete sweeper exception: {e}")
         await asyncio.sleep(6)
@@ -1153,12 +1156,33 @@ async def run_autodelete_sweeper(client: Any):
 RESTART_MARKER_FILE = os.path.join(Config.DOWNLOAD_DIR, ".restarted_marker")
 
 class KeepAliveManager:
-    def __init__(self, bot, target_url: str = None, interval: int = 6):
+    def __init__(self, bot, target_url: str = None, interval: int = 10):
         self.bot = bot
         self.target_url = (target_url or Config.BASE_URL).rstrip("/")
         self.local_url = f"http://127.0.0.1:{Config.PORT}"
         self.interval = interval
         self._current_type_idx = 0
+
+    async def ping_stream_base(self, session) -> bool:
+        """Probe the public stream base URL, falling back to the local server."""
+        targets = [f"{self.target_url}/health", f"{self.local_url}/health"]
+        for target in targets:
+            try:
+                async with session.get(target, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    if response.status in (200, 204, 301, 302):
+                        return True
+            except Exception:
+                continue
+        return False
+
+    async def ping_bot(self) -> bool:
+        try:
+            if self.bot and getattr(self.bot, "is_connected", False):
+                await asyncio.wait_for(self.bot.get_me(), timeout=5)
+                return True
+        except Exception:
+            pass
+        return False
 
     async def ping_type_1_aiohttp_get(self) -> bool:
         try:
@@ -1253,16 +1277,36 @@ class KeepAliveManager:
         handler = handlers.get(ptype, self.ping_type_1_aiohttp_get)
         return await handler()
 
-async def run_keepalive_worker(bot, interval: int = 6):
+async def run_keepalive_worker(bot, interval: int = 10):
     manager = KeepAliveManager(bot=bot, interval=interval)
     logger.info(f"💓 KeepAlive Engine active (interval: {interval}s).")
     await asyncio.sleep(5)
-    while True:
-        try:
-            await manager.execute_ping()
-        except Exception:
-            pass
-        await asyncio.sleep(interval)
+    if aiohttp is None:
+        logger.warning("KeepAlive HTTP probes disabled because aiohttp is unavailable")
+        while True:
+            await manager.ping_bot()
+            await asyncio.sleep(interval)
+    else:
+        connector = aiohttp.TCPConnector(limit=4, ttl_dns_cache=300)
+        timeout = aiohttp.ClientTimeout(total=6)
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            failure_count = 0
+            while True:
+                service_ok, bot_ok = await asyncio.gather(
+                    manager.ping_stream_base(session),
+                    manager.ping_bot(),
+                    return_exceptions=False
+                )
+                if service_ok and bot_ok:
+                    failure_count = 0
+                else:
+                    failure_count += 1
+                    if failure_count == 1 or failure_count % 6 == 0:
+                        logger.warning(
+                            f"KeepAlive probe incomplete: stream={'ok' if service_ok else 'down'}, "
+                            f"telegram={'ok' if bot_ok else 'down'}"
+                        )
+                await asyncio.sleep(max(5, interval))
 
 async def send_restart_notification(bot):
     message_text = (
@@ -1292,4 +1336,8 @@ async def schedule_24h_restart(bot, interval: int = 86400):
             await bot.stop()
         except Exception:
             pass
-        os.execl(sys.executable, sys.executable, *sys.argv)
+        try:
+            os.execv(sys.executable, [sys.executable, *sys.argv])
+        except Exception as error:
+            logger.error(f"24-hour restart exec failed; scheduler will retry: {error}")
+            await asyncio.sleep(60)
