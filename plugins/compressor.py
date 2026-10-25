@@ -2,6 +2,7 @@ import os
 import time
 import secrets
 from pyrogram import Client, filters
+from pyrogram.errors import FloodWait
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -19,7 +20,9 @@ from plugins.core_utils import (
     clean_temp_files,
     sanitize_filename,
     progress_for_pyrogram,
-    logger
+    logger,
+    safe_edit_text,
+    safe_reply_text
 )
 from plugins.core_services import (
     get_media_attributes,
@@ -49,7 +52,7 @@ async def toggle_autocompress_cmd(client: Client, message: Message):
     )
 
 async def run_auto_compress_workflow(client: Client, media_msg: Message, user_id: int):
-    status = await media_msg.reply_text(f"🗜️ **{to_smallcaps('auto-compressing video (720p hd superfast)...')}**", quote=True)
+    status = await safe_reply_text(media_msg, f"🗜️ **{to_smallcaps('auto-compressing video (720p hd superfast)...')}**", quote=True)
     await perform_compression_job(
         client=client,
         original_msg=media_msg,
@@ -136,9 +139,9 @@ async def show_compression_menu(media_msg: Message, target_msg: Message, is_call
         f"{format_watermark()}"
     )
     if is_callback:
-        await target_msg.edit_text(text, reply_markup=InlineKeyboardMarkup(btn))
+        await safe_edit_text(target_msg, text, reply_markup=InlineKeyboardMarkup(btn))
     else:
-        await target_msg.reply_text(text, reply_markup=InlineKeyboardMarkup(btn))
+        await safe_reply_text(target_msg, text, reply_markup=InlineKeyboardMarkup(btn))
 
 @Client.on_callback_query(filters.regex(r"^do_comp(target)?_(\d+)_(\d+)(?:_(\d+)_([a-z]+))?"))
 async def execute_compression(client: Client, query: CallbackQuery):
@@ -161,7 +164,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
     if not original_msg or not original_msg.media:
         return await query.answer(to_smallcaps("original media not found!"), show_alert=True)
 
-    status = await query.message.edit_text(f"⏳ **{to_smallcaps('initializing compression workflow...')}**")
+    status = await safe_edit_text(query.message, f"⏳ **{to_smallcaps('initializing compression workflow...')}**")
     await perform_compression_job(
         client=client,
         original_msg=original_msg,
@@ -207,20 +210,20 @@ async def perform_compression_job(
         )
     except Exception as e:
         clean_temp_files(input_path, output_path, download_dir)
-        return await status.edit_text(f"❌ **{to_smallcaps('download failed')}** : `{e}`")
+        return await safe_edit_text(status, f"❌ **{to_smallcaps('download failed')}** : `{e}`")
 
     if not os.path.exists(input_path):
         clean_temp_files(download_dir)
-        return await status.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
+        return await safe_edit_text(status, f"❌ **{to_smallcaps('file not found after download!')}**")
 
-    await status.edit_text(f"🔍 **{to_smallcaps('download complete — checking media streams...')}**")
+    await safe_edit_text(status, f"🔍 **{to_smallcaps('download complete — checking media streams...')}**")
     stream_info = await check_media_streams(input_path)
     has_video = stream_info.get("has_video", False)
     has_audio = stream_info.get("has_audio", False)
 
     if not has_video and not has_audio:
         clean_temp_files(input_path, output_path, download_dir)
-        return await status.edit_text(
+        return await safe_edit_text(status,
             f"❌ **{to_smallcaps('ffmpeg compression failed')}**\n\n"
             f"⚠️ {to_smallcaps('this file has no audio or video stream that ffmpeg can decode.')}"
             f"{format_watermark()}"
@@ -232,14 +235,14 @@ async def perform_compression_job(
         # and some AVI/MKV files. Emit a broadly streamable MP4 instead.
         stem = sanitize_filename(os.path.splitext(clean_name)[0]) or f"video_{msg_id}"
         output_path = os.path.join(download_dir, f"compressed_{stem}.mp4")
-    await status.edit_text(f"🧾 **{to_smallcaps('reading media metadata...')}**")
+    await safe_edit_text(status, f"🧾 **{to_smallcaps('reading media metadata...')}**")
     pre_attrs = await get_media_attributes(input_path)
     total_duration = getattr(media, "duration", 0) or int(pre_attrs.get("duration", 0))
 
     comp_start = time.time()
     if has_video:
         if is_target_mode and target_mb:
-            await status.edit_text(f"🎯 **{to_smallcaps('ffmpeg target-size compression')} ({int(target_mb)} ᴍʙ)...**")
+            await safe_edit_text(status, f"🎯 **{to_smallcaps('ffmpeg target-size compression')} ({int(target_mb)} ᴍʙ)...**")
             success = await compress_to_target_size(
                 input_path=input_path,
                 output_path=output_path,
@@ -248,7 +251,7 @@ async def perform_compression_job(
                 scale_height=scale_h
             )
         else:
-            await status.edit_text(f"🗜️ **{to_smallcaps('ffmpeg compression in progress (h.264)...')}**")
+            await safe_edit_text(status, f"🗜️ **{to_smallcaps('ffmpeg compression in progress (h.264)...')}**")
             success = await compress_media(
                 input_path=input_path,
                 output_path=output_path,
@@ -259,7 +262,7 @@ async def perform_compression_job(
                 total_duration=total_duration
             )
     else:
-        await status.edit_text(f"🗜️ **{to_smallcaps('ffmpeg audio compression in progress...')}**")
+        await safe_edit_text(status, f"🗜️ **{to_smallcaps('ffmpeg audio compression in progress...')}**")
         base_no_ext = os.path.splitext(output_path)[0]
         output_path = f"{base_no_ext}.m4a"
         success = await compress_audio(input_path, output_path)
@@ -268,7 +271,7 @@ async def perform_compression_job(
 
     if not success or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
         clean_temp_files(input_path, output_path, download_dir)
-        return await status.edit_text(
+        return await safe_edit_text(status,
             f"❌ **{to_smallcaps('ffmpeg compression failed! please try another preset.')}**"
             f"{format_watermark()}"
         )
@@ -276,7 +279,7 @@ async def perform_compression_job(
     comp_size = os.path.getsize(output_path)
     savings = round(((orig_size - comp_size) / orig_size) * 100, 2)
 
-    await status.edit_text(f"🖼️ **{to_smallcaps('preparing thumbnail and caption...')}**")
+    await safe_edit_text(status, f"🖼️ **{to_smallcaps('preparing thumbnail and caption...')}**")
     attrs = await get_media_attributes(output_path)
     dur = int(attrs.get("duration", 0)) or total_duration
     thumb_path = await resolve_thumbnail(
@@ -307,7 +310,7 @@ async def perform_compression_job(
         final_caption = final_caption[:1020] + "..."
 
     upload_start = time.time()
-    await status.edit_text(f"📤 **{to_smallcaps('uploading compressed media...')}**")
+    await safe_edit_text(status, f"📤 **{to_smallcaps('uploading compressed media...')}**")
 
     sent_video = None
     try:
@@ -316,7 +319,7 @@ async def perform_compression_job(
             h = int(attrs.get("height", 720)) or 720
             try:
                 sent_video = await client.send_video(
-                    chat_id=status.chat.id,
+                    chat_id=getattr(getattr(status, "chat", None), "id", getattr(original_msg.chat, "id", user_id)),
                     video=output_path,
                     caption=final_caption,
                     duration=dur,
@@ -327,9 +330,12 @@ async def perform_compression_job(
                     progress=progress_for_pyrogram,
                     progress_args=("📤 uploading video", status, upload_start)
                 )
+            except FloodWait as error:
+                clean_temp_files(input_path, output_path, thumb_path, download_dir)
+                return await safe_edit_text(status, f"⚠️ **{to_smallcaps('telegram upload cooldown active; retry this file later')}** (`{getattr(error, 'value', 0)}s`)")
             except Exception:
                 sent_video = await client.send_document(
-                    chat_id=status.chat.id,
+                    chat_id=getattr(getattr(status, "chat", None), "id", getattr(original_msg.chat, "id", user_id)),
                     document=output_path,
                     caption=final_caption,
                     thumb=thumb_path,
@@ -339,7 +345,7 @@ async def perform_compression_job(
                 )
         else:
             sent_video = await client.send_audio(
-                chat_id=status.chat.id,
+                chat_id=getattr(getattr(status, "chat", None), "id", getattr(original_msg.chat, "id", user_id)),
                 audio=output_path,
                 caption=final_caption,
                 duration=dur,
@@ -349,11 +355,12 @@ async def perform_compression_job(
             )
     except Exception as e:
         clean_temp_files(input_path, output_path, thumb_path, download_dir)
-        return await status.edit_text(f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
+        return await safe_edit_text(status, f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
 
     clean_temp_files(input_path, output_path, thumb_path, download_dir)
     try:
-        await status.delete()
+        if status is not None:
+            await status.delete()
     except Exception:
         pass
 

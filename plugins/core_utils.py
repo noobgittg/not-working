@@ -11,6 +11,11 @@ from collections import OrderedDict
 from urllib.parse import urlparse
 from typing import Any, Optional, Dict, List, Tuple
 from config import Config
+try:
+    from pyrogram.errors import FloodWait, MessageNotModified
+except ImportError:
+    FloodWait = type("FloodWait", (Exception,), {})
+    MessageNotModified = type("MessageNotModified", (Exception,), {})
 
 # ==================== 1. SMALLCAPS STYLISH FONT & EMOJIS ====================
 
@@ -92,6 +97,101 @@ def setup_logger(name: str = "MMW_PRO") -> logging.Logger:
     return log
 
 logger = setup_logger()
+
+_TELEGRAM_WRITE_BLOCK_UNTIL = 0.0
+
+
+def _flood_wait_seconds(error: Exception) -> int:
+    try:
+        return max(1, int(getattr(error, "value", 1)))
+    except (TypeError, ValueError):
+        return 1
+
+
+async def safe_edit_text(message: Any, text: str, **kwargs: Any) -> Any:
+    """Best-effort status edit; never lets FloodWait abort a media job."""
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    if message is None:
+        return None
+    now = time.time()
+    if now < _TELEGRAM_WRITE_BLOCK_UNTIL:
+        return message
+    try:
+        return await message.edit_text(text=text, **kwargs)
+    except FloodWait as error:
+        wait_for = _flood_wait_seconds(error)
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        logger.warning(f"Telegram write cooldown active for {wait_for}s; skipping optional status edits")
+        return message
+    except MessageNotModified:
+        return message
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.debug(f"Optional Telegram status edit skipped: {error}")
+        return message
+
+
+async def safe_reply_text(target: Any, text: str, **kwargs: Any) -> Any:
+    """Best-effort status creation; a media job may continue without it."""
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    if target is None:
+        return None
+    now = time.time()
+    if now < _TELEGRAM_WRITE_BLOCK_UNTIL:
+        return None
+    try:
+        return await target.reply_text(text, **kwargs)
+    except FloodWait as error:
+        wait_for = _flood_wait_seconds(error)
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        logger.warning(f"Telegram write cooldown active for {wait_for}s; continuing without a status message")
+        return None
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.debug(f"Optional Telegram status creation skipped: {error}")
+        return None
+
+
+async def safe_send_message(client: Any, **kwargs: Any) -> Any:
+    """Best-effort text send that never turns a FloodWait into a crash."""
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    now = time.time()
+    if now < _TELEGRAM_WRITE_BLOCK_UNTIL:
+        return None
+    try:
+        return await client.send_message(**kwargs)
+    except FloodWait as error:
+        wait_for = _flood_wait_seconds(error)
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        logger.warning(f"Telegram write cooldown active for {wait_for}s; skipping optional message send")
+        return None
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.debug(f"Optional Telegram message send skipped: {error}")
+        return None
+
+
+async def safe_forward_message(message: Any, chat_id: Any) -> Any:
+    """Forward for indexing without delaying the main media workflow on FloodWait."""
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    now = time.time()
+    if now < _TELEGRAM_WRITE_BLOCK_UNTIL:
+        return message
+    try:
+        return await message.forward(chat_id)
+    except FloodWait as error:
+        wait_for = _flood_wait_seconds(error)
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        logger.warning(f"Telegram forward cooldown active for {wait_for}s; indexing original message instead")
+        return message
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        logger.debug(f"Optional Telegram forward skipped: {error}")
+        return message
 
 
 # ==================== 3. ULTRA-FAST O(1) LRU TTL CACHE ====================
@@ -329,7 +429,7 @@ async def progress_for_pyrogram(
         f"{format_watermark()}"
     )
     try:
-        await message.edit_text(text=tmp)
+        await safe_edit_text(message, tmp)
     except Exception:
         pass
 

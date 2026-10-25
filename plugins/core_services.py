@@ -29,7 +29,8 @@ from plugins.core_utils import (
     humanbytes,
     time_formatter,
     is_valid_url,
-    sanitize_filename
+    sanitize_filename,
+    safe_send_message
 )
 from plugins.core_db import user_repo, chat_repo
 
@@ -1272,7 +1273,7 @@ async def send_restart_notification(bot):
     )
     for admin_id in Config.ADMINS:
         try:
-            await bot.send_message(chat_id=admin_id, text=message_text)
+            await safe_send_message(bot, chat_id=admin_id, text=message_text)
         except Exception:
             pass
 

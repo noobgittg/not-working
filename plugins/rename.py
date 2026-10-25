@@ -2,6 +2,7 @@ import os
 import time
 import secrets
 from pyrogram import Client, filters
+from pyrogram.errors import FloodWait
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -20,7 +21,11 @@ from plugins.core_utils import (
     clean_temp_files,
     sanitize_filename,
     progress_for_pyrogram,
-    logger
+    logger,
+    safe_edit_text,
+    safe_reply_text,
+    safe_send_message,
+    safe_forward_message
 )
 from plugins.core_services import (
     get_media_attributes,
@@ -65,10 +70,7 @@ async def incoming_file_entry(client: Client, message: Message):
 
     # Auto-index file in DB for instant adaptive streaming and 4 external players
     bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else message.chat.id
-    try:
-        log_msg = await message.forward(bin_chan) if bin_chan != message.chat.id else message
-    except Exception:
-        log_msg = message
+    log_msg = await safe_forward_message(message, bin_chan) if bin_chan != message.chat.id else message
 
     file_id = secrets.token_urlsafe(10)
     await file_repo.save_file(
@@ -278,7 +280,8 @@ async def rename_callback_ask(client: Client, query: CallbackQuery):
     old_name = getattr(media, "file_name", None) or "file.mp4"
 
     await query.message.delete()
-    await client.send_message(
+    await safe_send_message(
+        client,
         chat_id=query.message.chat.id,
         text=(
             f"✏️ **{to_smallcaps('enter new file name')}** ✦\n\n"
@@ -387,12 +390,12 @@ async def run_rename_workflow(
 ):
     source_media = original_msg.document or original_msg.video or original_msg.audio
     if getattr(source_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
-        return await reply_msg.reply_text(
+        return await safe_reply_text(reply_msg,
             f"🚫 **{to_smallcaps('rename is limited to files below 2 gb.')}**\n\n"
             f"⚡ {to_smallcaps('use stream for oversized files, or compress them after reducing the size.')}{format_watermark()}"
         )
-    status_msg = await (reply_msg.edit_text if is_edit else reply_msg.reply_text)(
-        f"⏳ **{to_smallcaps('initializing fast rename workflow...')}**"
+    status_msg = await safe_edit_text(reply_msg, f"⏳ **{to_smallcaps('initializing fast rename workflow...')}**") if is_edit else await safe_reply_text(
+        reply_msg, f"⏳ **{to_smallcaps('initializing fast rename workflow...')}**"
     )
 
     media = source_media
@@ -430,13 +433,13 @@ async def run_rename_workflow(
         )
     except Exception as e:
         clean_temp_files(download_path, download_dir)
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('download failed')}** : `{e}`")
+        return await safe_edit_text(status_msg, f"❌ **{to_smallcaps('download failed')}** : `{e}`")
 
     if not os.path.exists(download_path):
         clean_temp_files(download_dir)
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
+        return await safe_edit_text(status_msg, f"❌ **{to_smallcaps('file not found after download!')}**")
 
-    await status_msg.edit_text(f"🔍 **{to_smallcaps('download complete — preparing renamed file...')}**")
+    await safe_edit_text(status_msg, f"🔍 **{to_smallcaps('download complete — preparing renamed file...')}**")
     source_mime = normalize_mime(getattr(source_media, "mime_type", ""))
     is_video_media = bool(original_msg.video) or is_video_mime(source_mime)
     if is_video_media:
@@ -457,7 +460,7 @@ async def run_rename_workflow(
         thumb_path = None
 
     orig_caption = original_msg.caption or ""
-    await status_msg.edit_text(f"🧾 **{to_smallcaps('generating caption and metadata...')}**")
+    await safe_edit_text(status_msg, f"🧾 **{to_smallcaps('generating caption and metadata...')}**")
     final_caption = await extract_and_format_caption(
         user_id=user_id,
         file_path=download_path,
@@ -467,7 +470,7 @@ async def run_rename_workflow(
     )
 
     upload_start = time.time()
-    await status_msg.edit_text(f"📤 **{to_smallcaps('uploading renamed file...')}**")
+    await safe_edit_text(status_msg, f"📤 **{to_smallcaps('uploading renamed file...')}**")
 
     sent_msg = None
     try:
@@ -487,6 +490,9 @@ async def run_rename_workflow(
                     progress=progress_for_pyrogram,
                     progress_args=("📤 uploading video", status_msg, upload_start)
                 )
+            except FloodWait as error:
+                clean_temp_files(download_path, thumb_path, download_dir)
+                return await safe_edit_text(status_msg, f"⚠️ **{to_smallcaps('telegram upload cooldown active; retry this file later')}** (`{getattr(error, 'value', 0)}s`)")
             except Exception:
                 sent_msg = await client.send_document(
                     chat_id=reply_msg.chat.id,
@@ -509,7 +515,7 @@ async def run_rename_workflow(
             )
     except Exception as e:
         clean_temp_files(download_path, thumb_path, download_dir)
-        return await status_msg.edit_text(f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
+        return await safe_edit_text(status_msg, f"❌ **{to_smallcaps('upload failed')}** : `{e}`")
 
     clean_temp_files(download_path, thumb_path, download_dir)
     try:
