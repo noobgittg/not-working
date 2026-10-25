@@ -25,7 +25,15 @@ async def set_caption_handler(client: Client, message: Message):
         )
         return await message.reply_text(help_text)
 
-    caption = message.text.split(None, 1)[1]
+    caption = message.text.split(None, 1)[1].strip()
+    if not caption:
+        return await message.reply_text(
+            f"⚠️ **{to_smallcaps('caption template cannot be empty.')}**{format_watermark()}"
+        )
+    if len(caption) > 900:
+        return await message.reply_text(
+            f"⚠️ **{to_smallcaps('caption template is too long (maximum 900 characters).')}**{format_watermark()}"
+        )
     await user_repo.update_user(message.from_user.id, {"custom_caption": caption})
     await message.reply_text(
         f"✦ **{to_smallcaps('custom caption saved')}** ✦\n\n"

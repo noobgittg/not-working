@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>{{ file_name | default("Watch Video") }} — ⚡ 12 MB/s Stream</title>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -63,7 +68,7 @@
         
         <!-- Video Player Box -->
         <div id="playerContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl group border border-slate-200 dark:border-slate-800">
-            <video id="videoPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata" controls>
+            <video id="videoPlayer" class="w-full h-full object-contain" playsinline crossorigin="anonymous" preload="metadata" fetchpriority="high" controls>
                 <source src="{{ stream_url }}" type="{{ mime_type | default('video/mp4') }}">
                 <source src="{{ stream_url }}" type="video/mp4">
                 Your browser does not support HTML5 video streaming. Use one of the 4 external players below!

@@ -39,6 +39,20 @@ async def join_request_approver(client: Client, request: ChatJoinRequest):
 @Client.on_message(filters.command(["autoapprove", "accept", "autoaccept"]) & (filters.group | filters.private))
 async def auto_approve_command(client: Client, message: Message):
     chat_id = message.chat.id
+    if message.chat.type not in ("private", "bot"):
+        try:
+            member = await client.get_chat_member(chat_id, message.from_user.id)
+            if member.status not in ("administrator", "owner"):
+                return await message.reply_text(
+                    f"🚫 **{to_smallcaps('only chat administrators can change auto-accept settings.')}**"
+                    f"{format_watermark()}"
+                )
+        except Exception as exc:
+            logger.warning("Unable to verify auto-accept permissions in %s: %s", chat_id, exc)
+            return await message.reply_text(
+                f"⚠️ **{to_smallcaps('unable to verify administrator permissions.')}**"
+                f"{format_watermark()}"
+            )
     chat_doc = await chat_repo.get_or_create_chat(chat_id, message.chat.title or "Chat", str(message.chat.type))
     curr = bool(chat_doc.get("auto_approve_joins", True))
 

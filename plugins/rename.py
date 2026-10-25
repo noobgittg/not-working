@@ -82,7 +82,8 @@ async def incoming_file_entry(client: Client, message: Message):
     # Check if Auto-Rename is enabled & user has prefix/suffix configured
     if u.get("auto_rename") and (u.get("prefix") or u.get("suffix")) and file_size_bytes <= MAX_BOT_FILE_SIZE:
         name_parts = os.path.splitext(raw_file_name)
-        auto_target = sanitize_filename(f"{u.get('prefix', '')}{name_parts[0]}{u.get('suffix', '')}{name_parts[1] or '.mp4'}")
+        # run_rename_workflow applies the configured prefix/suffix exactly once.
+        auto_target = sanitize_filename(f"{name_parts[0]}{name_parts[1] or '.mp4'}")
         await cache.set(f"rename_name_{user.id}_{message.id}", auto_target, ttl=600)
         upload_mode = "vid" if u.get("upload_mode", "video") == "video" else "doc"
         return await run_rename_workflow(client, message, message, user.id, message.id, auto_target, upload_mode, watch_url, download_url)

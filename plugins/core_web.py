@@ -20,6 +20,29 @@ CHUNK_SIZE = 1024 * 1024  # 1 MiB Telegram chunk size
 TARGET_SPEED_BPS = int(getattr(Config, "STREAM_SPEED_LIMIT_MBPS", 12)) * 1024 * 1024  # 12 MB/s (12,582,912 B/s)
 PREFETCH_QUEUE_SIZE = int(getattr(Config, "STREAM_BUFFER_CHUNKS", 12))  # 12 MB pre-fetch buffer
 
+
+def parse_range_header(value: Optional[str], file_size: int):
+    """Parse one byte range, including open-ended and suffix ranges."""
+    if not value:
+        return 0, file_size - 1
+    try:
+        unit, raw = value.strip().split("=", 1)
+        if unit.lower() != "bytes" or "," in raw:
+            return None
+        first, last = raw.split("-", 1)
+        if not first and not last:
+            return None
+        if not first:
+            length = min(int(last), file_size)
+            return (file_size - length, file_size - 1) if length > 0 else None
+        start = int(first)
+        end = int(last) if last else file_size - 1
+        if start < 0 or start >= file_size or end < start:
+            return None
+        return start, min(end, file_size - 1)
+    except (TypeError, ValueError):
+        return None
+
 # External 4 Players ONLY configuration:
 # 1. PLAYit  2. MX Player  3. VLC  4. S Player (4th Player)
 FOUR_EXTERNAL_PLAYERS = [
@@ -160,6 +183,14 @@ async def iter_12mbps_file_stream(
             producer_task.cancel()
 
 
+async def iter_with_client_release(stream, release):
+    try:
+        async for chunk in stream:
+            yield chunk
+    finally:
+        await release()
+
+
 # ==================== 2. FASTAPI ROUTERS ====================
 
 pages_router = APIRouter()
@@ -292,9 +323,11 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     file_name = file_doc.get("file_name", "video.mp4")
     mime_type = file_doc.get("mime_type") or mimetypes.guess_type(file_name)[0] or "video/mp4"
 
-    start = 0
-    end = file_size - 1
-    status_code = 200
+    parsed_range = parse_range_header(range, file_size)
+    if parsed_range is None:
+        return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+    start, end = parsed_range
+    status_code = 206 if range else 200
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Type": mime_type,
@@ -306,25 +339,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     }
 
     if range:
-        try:
-            range_type, range_val = range.strip().split("=", 1)
-            if range_type == "bytes":
-                range_parts = range_val.split(",")[0].split("-")
-                if range_parts[0]:
-                    start = int(range_parts[0])
-                if len(range_parts) > 1 and range_parts[1]:
-                    end = int(range_parts[1])
-
-                if start >= file_size or end >= file_size or start > end:
-                    return Response(
-                        status_code=416,
-                        headers={"Content-Range": f"bytes */{file_size}"}
-                    )
-
-                status_code = 206
-                headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
-        except Exception:
-            pass
+        headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
 
     content_length = (end - start) + 1
     headers["Content-Length"] = str(content_length)
@@ -332,8 +347,11 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     if request.method == "HEAD":
         return Response(status_code=status_code, headers=headers)
 
+    selected_bot, release = (await bot.acquire_stream_client()) if hasattr(bot, "acquire_stream_client") else (bot, None)
+    stream = iter_12mbps_file_stream(file_path, selected_bot, file_doc, start, end)
+    body = iter_with_client_release(stream, release) if release else stream
     return StreamingResponse(
-        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
+        body,
         status_code=status_code,
         headers=headers,
         media_type=mime_type
@@ -362,9 +380,11 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
 
     file_name = file_doc.get("file_name", "download.mp4")
 
-    start = 0
-    end = file_size - 1
-    status_code = 200
+    parsed_range = parse_range_header(range, file_size)
+    if parsed_range is None:
+        return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+    start, end = parsed_range
+    status_code = 206 if range else 200
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Disposition": f'attachment; filename="{file_name}"',
@@ -373,27 +393,18 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
     }
 
     if range:
-        try:
-            range_type, range_val = range.strip().split("=", 1)
-            if range_type == "bytes":
-                range_parts = range_val.split(",")[0].split("-")
-                if range_parts[0]:
-                    start = int(range_parts[0])
-                if len(range_parts) > 1 and range_parts[1]:
-                    end = int(range_parts[1])
-                if start < file_size and end < file_size and start <= end:
-                    status_code = 206
-                    headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
-        except Exception:
-            pass
+        headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
 
     headers["Content-Length"] = str((end - start) + 1)
 
     if request.method == "HEAD":
         return Response(status_code=status_code, headers=headers)
 
+    selected_bot, release = (await bot.acquire_stream_client()) if hasattr(bot, "acquire_stream_client") else (bot, None)
+    stream = iter_12mbps_file_stream(file_path, selected_bot, file_doc, start, end)
+    body = iter_with_client_release(stream, release) if release else stream
     return StreamingResponse(
-        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
+        body,
         status_code=status_code,
         media_type="application/octet-stream",
         headers=headers
