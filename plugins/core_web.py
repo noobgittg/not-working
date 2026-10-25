@@ -144,7 +144,7 @@ async def iter_12mbps_file_stream(
 
     # Route A: Local disk file (fast 1 MB chunks with adaptive pacing)
     if file_path and os.path.exists(file_path):
-        chunk_size = 1024 * 1024  # 1 MB chunk
+        chunk_size = max(CHUNK_SIZE, int(getattr(Config, "STREAM_CHUNK_SIZE", 4 * 1024 * 1024)))
         with open(file_path, "rb") as f:
             f.seek(start)
             remaining = content_length
@@ -272,7 +272,7 @@ async def watch_page(request: Request, file_id: str):
     download_url = f"{base_url}/download/{file_id}"
     player_links = build_4_external_player_links(stream_url, file_name)
 
-    return templates.TemplateResponse("watch.html", {
+    response = templates.TemplateResponse("watch.html", {
         "request": request,
         "file_id": file_id,
         "file_name": file_name,
@@ -287,6 +287,8 @@ async def watch_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    return response
 
 @pages_router.get("/dl/{file_id}")
 async def download_page(request: Request, file_id: str):
@@ -304,7 +306,7 @@ async def download_page(request: Request, file_id: str):
     watch_url = f"{base_url}/watch/{file_id}"
     player_links = build_4_external_player_links(stream_url, file_name)
 
-    return templates.TemplateResponse("dl.html", {
+    response = templates.TemplateResponse("dl.html", {
         "request": request,
         "file_id": file_id,
         "file_name": file_name,
@@ -319,6 +321,8 @@ async def download_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    return response
 
 
 # --- RANGE STREAM & DOWNLOAD ENDPOINTS ---
@@ -354,7 +358,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
         "Content-Type": mime_type,
         "Content-Disposition": content_disposition("inline", file_name),
         "X-Stream-Mode": "adaptive-http-byte-range",
-        "X-Stream-Chunk-Size": "1048576",
+        "X-Stream-Chunk-Size": str(CHUNK_SIZE),
         "Cache-Control": "public, max-age=86400, immutable",
         "Vary": "Range",
         "Access-Control-Allow-Origin": "*"

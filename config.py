@@ -37,9 +37,9 @@ class Config:
     # Fast cache and adaptive streaming configuration
     CACHE_TTL: int = int(os.environ.get("CACHE_TTL", "900"))
     CACHE_MAX_ENTRIES: int = int(os.environ.get("CACHE_MAX_ENTRIES", "5000"))
-    STREAM_CHUNK_SIZE: int = int(os.environ.get("STREAM_CHUNK_SIZE", str(1024 * 1024)))  # 1 MB chunks
+    STREAM_CHUNK_SIZE: int = int(os.environ.get("STREAM_CHUNK_SIZE", str(4 * 1024 * 1024)))  # 4 MB local chunks
     STREAM_SPEED_LIMIT_MBPS: int = int(os.environ.get("STREAM_SPEED_LIMIT_MBPS", "20"))  # internal pacing hint only
-    STREAM_BUFFER_CHUNKS: int = int(os.environ.get("STREAM_BUFFER_CHUNKS", "20"))        # 12 MB pre-fetch buffer
+    STREAM_BUFFER_CHUNKS: int = int(os.environ.get("STREAM_BUFFER_CHUNKS", "32"))        # adaptive pre-fetch buffer
 
     DEFAULT_AUTO_DELETE: int = int(os.environ.get("AUTO_DELETE_TIME", "0"))
     FORCE_SUB_CHANNEL: str = os.environ.get("FORCE_SUB_CHANNEL", os.environ.get("FORCE_SUB", ""))
