@@ -324,6 +324,7 @@ async def extract_frame_screenshot(video_path: str, output_dir: str, duration: i
 async def compress_audio(input_path: str, output_path: str) -> bool:
     cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-vn",
         "-c:a", "aac",
@@ -361,6 +362,7 @@ async def compress_media(
 
     primary_cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-map", "0:v:0?",
         "-map", "0:a?",
@@ -386,6 +388,7 @@ async def compress_media(
         )
 
         last_update = 0
+        error_lines = []
         time_regex = re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
 
         while True:
@@ -393,6 +396,9 @@ async def compress_media(
             if not line:
                 break
             decoded = line.decode('utf-8', errors='ignore')
+            if decoded.strip():
+                error_lines.append(decoded.strip())
+                del error_lines[:-8]
             match = time_regex.search(decoded)
             if match and total_duration > 0 and progress_message:
                 hours, minutes, seconds = map(float, match.groups())
@@ -416,13 +422,16 @@ async def compress_media(
                         pass
 
         await process.wait()
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+        if process.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             return True
+        if error_lines:
+            logger.error("FFmpeg compression failed: " + " | ".join(error_lines[-3:]))
     except Exception as e:
         logger.warning(f"Primary compression attempt failed: {e}")
 
     fallback_cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264",
@@ -444,13 +453,14 @@ async def compress_media(
             stderr=asyncio.subprocess.PIPE
         )
         await proc.communicate()
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+        if proc.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             return True
     except Exception:
         pass
 
     video_only_cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-map", "0:v:0?",
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
@@ -469,7 +479,7 @@ async def compress_media(
             stderr=asyncio.subprocess.PIPE
         )
         await proc.communicate()
-        return os.path.exists(output_path) and os.path.getsize(output_path) > 1000
+        return proc.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000
     except Exception:
         return False
 
@@ -762,6 +772,7 @@ async def compress_to_target_size(
 
     cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-map", "0:v:0?",
         "-map", "0:a?",
@@ -771,7 +782,7 @@ async def compress_to_target_size(
         "-maxrate", f"{int(video_bitrate_kb * 1.5)}k",
         "-bufsize", f"{int(video_bitrate_kb * 2)}k",
         "-pix_fmt", "yuv420p",
-        "-preset", "veryfast",
+        "-preset", "ultrafast",
         "-c:a", "aac",
         "-b:a", f"{audio_bitrate_kb}k",
         "-ac", "2",
@@ -792,6 +803,7 @@ async def compress_to_target_size(
 
     fb_cmd = [
         FFMPEG_BIN, "-y",
+        "-nostdin", "-threads", "0",
         "-i", input_path,
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264",
@@ -1038,14 +1050,15 @@ async def extract_and_format_caption(
     user_id: int,
     file_path: str,
     original_caption: str = "",
-    file_id: str = ""
+    file_id: str = "",
+    metadata: Optional[Dict[str, Any]] = None
 ) -> str:
     file_name = os.path.basename(file_path)
     file_size_bytes = os.path.getsize(file_path) if os.path.exists(file_path) else 0
     file_size_str = humanbytes(file_size_bytes)
     ext = os.path.splitext(file_name)[1].replace(".", "").lower()
 
-    metadata = await get_detailed_mediainfo(file_path)
+    metadata = metadata if metadata is not None else await get_detailed_mediainfo(file_path)
     dur_sec = metadata.get("duration", 0)
     duration_str = time_formatter(seconds=dur_sec) if dur_sec > 0 else "0s"
 

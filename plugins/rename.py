@@ -433,16 +433,23 @@ async def run_rename_workflow(
         clean_temp_files(download_dir)
         return await status_msg.edit_text(f"❌ **{to_smallcaps('file not found after download!')}**")
 
-    attrs = await get_media_attributes(download_path)
-    dur = int(attrs.get("duration", 0))
-    thumb_path = await resolve_thumbnail(
-        client=client,
-        user_id=user_id,
-        temp_dir=download_dir,
-        video_path=download_path,
-        duration=dur
-    )
-    if not isinstance(thumb_path, str) or not os.path.exists(thumb_path):
+    source_mime = normalize_mime(getattr(source_media, "mime_type", ""))
+    is_video_media = bool(original_msg.video) or is_video_mime(source_mime)
+    if is_video_media:
+        attrs = await get_media_attributes(download_path)
+        dur = int(attrs.get("duration", 0))
+        thumb_path = await resolve_thumbnail(
+            client=client,
+            user_id=user_id,
+            temp_dir=download_dir,
+            video_path=download_path,
+            duration=dur
+        )
+        if not isinstance(thumb_path, str) or not os.path.exists(thumb_path):
+            thumb_path = None
+    else:
+        attrs = {"width": 0, "height": 0, "duration": int(getattr(source_media, "duration", 0) or 0)}
+        dur = int(attrs["duration"])
         thumb_path = None
 
     orig_caption = original_msg.caption or ""
@@ -450,7 +457,8 @@ async def run_rename_workflow(
         user_id=user_id,
         file_path=download_path,
         original_caption=orig_caption,
-        file_id=str(target_id)
+        file_id=str(target_id),
+        metadata=None if is_video_media else {"duration": dur, "video_streams": [], "audio_streams": []}
     )
 
     upload_start = time.time()

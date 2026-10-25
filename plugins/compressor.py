@@ -223,6 +223,11 @@ async def perform_compression_job(
         )
 
     orig_size = os.path.getsize(input_path)
+    if has_video:
+        # H.264/AAC is not valid in every source container, especially WebM
+        # and some AVI/MKV files. Emit a broadly streamable MP4 instead.
+        stem = sanitize_filename(os.path.splitext(clean_name)[0]) or f"video_{msg_id}"
+        output_path = os.path.join(download_dir, f"compressed_{stem}.mp4")
     pre_attrs = await get_media_attributes(input_path)
     total_duration = getattr(media, "duration", 0) or int(pre_attrs.get("duration", 0))
 
