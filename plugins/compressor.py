@@ -73,6 +73,13 @@ async def compress_command_handler(client: Client, message: Message):
             f"{format_watermark()}"
         )
 
+    target_media = target.video or target.document or target.audio
+    if getattr(target_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
+        return await message.reply_text(
+            f"🚫 **{to_smallcaps('compression is limited to files below 2 gb because telegram download access is limited.')}**\n\n"
+            f"⚡ {to_smallcaps('use stream for this oversized file, then compress a smaller copy.')}{format_watermark()}"
+        )
+
     target_mb = None
     if len(message.command) > 1:
         arg = message.command[1].upper().replace("MB", "").replace("M", "").strip()
@@ -161,6 +168,13 @@ async def execute_compression(client: Client, query: CallbackQuery):
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     if not original_msg or not original_msg.media:
         return await query.answer(to_smallcaps("original media not found!"), show_alert=True)
+
+    source_media = original_msg.video or original_msg.document or original_msg.audio
+    if getattr(source_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
+        return await query.answer(
+            to_smallcaps("oversized files can only be streamed; compression requires a file below 2 gb."),
+            show_alert=True
+        )
 
     status = await query.message.edit_text(f"⏳ **{to_smallcaps('initializing compression workflow...')}**")
     await perform_compression_job(

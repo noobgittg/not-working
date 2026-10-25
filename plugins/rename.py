@@ -24,6 +24,7 @@ from plugins.core_utils import (
 )
 from plugins.core_services import (
     get_media_attributes,
+    telegram_media_metadata,
     resolve_thumbnail,
     extract_and_format_caption,
     schedule_deletion
@@ -56,6 +57,8 @@ async def incoming_file_entry(client: Client, message: Message):
     duration = time_formatter(seconds=dur_val) if dur_val > 0 else "N/A"
 
     is_video = bool(message.video or (message.document and mime_type and mime_type.startswith("video/")))
+    is_compressible = is_video or bool(mime_type and mime_type.startswith("audio/"))
+    media_metadata = telegram_media_metadata(media, message)
 
     # Auto-Index file in DB for instant 12 MB/s streaming & 4 External Players
     bin_chan = Config.BIN_CHANNEL if Config.BIN_CHANNEL != 0 else message.chat.id
@@ -73,7 +76,7 @@ async def incoming_file_entry(client: Client, message: Message):
         file_size=file_size_bytes,
         mime_type=mime_type,
         user_id=user.id if user else 0,
-        metadata={"duration": dur_val, "width": getattr(media, "width", 0), "height": getattr(media, "height", 0)},
+        metadata=media_metadata,
         tg_file_id=getattr(media, "file_id", None)
     )
     watch_url = f"{Config.BASE_URL}/watch/{file_id}"
@@ -89,7 +92,7 @@ async def incoming_file_entry(client: Client, message: Message):
         return await run_rename_workflow(client, message, message, user.id, message.id, auto_target, upload_mode, watch_url, download_url)
 
     # Check if Auto-Compress is enabled for videos
-    if u.get("auto_compress") and is_video and file_size_bytes <= MAX_BOT_FILE_SIZE:
+    if u.get("auto_compress") and is_compressible and file_size_bytes <= MAX_BOT_FILE_SIZE:
         from plugins.compressor import run_auto_compress_workflow
         return await run_auto_compress_workflow(client, message, user.id)
 
@@ -109,7 +112,7 @@ async def incoming_file_entry(client: Client, message: Message):
                 InlineKeyboardButton(f"🎬 {to_smallcaps('watch (4 players)')}", url=watch_url),
                 InlineKeyboardButton(f"⬇️ {to_smallcaps('12 mb/s download')}", url=download_url)
             ],
-            [InlineKeyboardButton(f"🗜️ {to_smallcaps('compress < 2gb')}", callback_data=f"compress_menu_{message.id}")],
+            [InlineKeyboardButton(f"🗜️ {to_smallcaps('compress or stream only')}", callback_data=f"compress_menu_{message.id}")],
             [InlineKeyboardButton(f"❌ {to_smallcaps('cancel')}", callback_data="cancel_op")]
         ]
         return await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), quote=True)
@@ -144,8 +147,8 @@ async def incoming_file_entry(client: Client, message: Message):
         ]
     ]
     row3 = []
-    if is_video:
-        row3.append(InlineKeyboardButton(f"🗜️ {to_smallcaps('compress video')}", callback_data=f"compress_menu_{message.id}"))
+    if is_compressible:
+        row3.append(InlineKeyboardButton(f"🗜️ {to_smallcaps('compress media')}", callback_data=f"compress_menu_{message.id}"))
     row3.append(InlineKeyboardButton(f"📊 {to_smallcaps('mediainfo')}", callback_data=f"pro_mediainfo_{message.id}"))
     buttons.append(row3)
     buttons.append([
@@ -379,11 +382,17 @@ async def run_rename_workflow(
     download_url: str = "",
     is_edit: bool = False
 ):
+    source_media = original_msg.document or original_msg.video or original_msg.audio
+    if getattr(source_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
+        return await reply_msg.reply_text(
+            f"🚫 **{to_smallcaps('rename is limited to files below 2 gb.')}**\n\n"
+            f"⚡ {to_smallcaps('use stream for oversized files, or compress them after reducing the size.')}{format_watermark()}"
+        )
     status_msg = await (reply_msg.edit_text if is_edit else reply_msg.reply_text)(
         f"⏳ **{to_smallcaps('initializing fast rename workflow...')}**"
     )
 
-    media = original_msg.document or original_msg.video or original_msg.audio
+    media = source_media
     u = await user_repo.get_user(user_id)
     prefix = (u.get("prefix") if u else "") or ""
     suffix = (u.get("suffix") if u else "") or ""

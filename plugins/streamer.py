@@ -10,6 +10,7 @@ from config import Config
 from plugins.core_db import file_repo
 from plugins.core_utils import to_smallcaps, format_watermark, humanbytes, time_formatter, logger
 from plugins.core_web import build_4_external_player_links
+from plugins.core_services import telegram_media_metadata
 
 @Client.on_message(filters.private & filters.command("stream"))
 async def stream_command_entry(client: Client, message: Message):
@@ -48,11 +49,7 @@ async def generate_stream_response(client: Client, media_msg: Message, target_re
     tg_file_id = getattr(media, "file_id", None)
 
     thumb_id = getattr(media.thumbs[0], "file_id", None) if getattr(media, "thumbs", None) else None
-    metadata = {
-        "duration": duration_val,
-        "width": getattr(media, "width", 0),
-        "height": getattr(media, "height", 0)
-    }
+    metadata = telegram_media_metadata(media, media_msg)
 
     user_id = media_msg.from_user.id if media_msg.from_user else (target_reply.from_user.id if target_reply.from_user else 0)
 

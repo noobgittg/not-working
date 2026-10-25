@@ -31,7 +31,7 @@ class Config:
 
     THAM_URL: str = os.environ.get("THAM_URL", "https://envs.sh/thumb.jpg")
 
-    WATERMARK: str = os.environ.get("WATERMARK", "t.me/mallumovieworldmain2")
+    WATERMARK: str = os.environ.get("WATERMARK", "MMW BOTZ")
     WATERMARK_URL: str = os.environ.get("WATERMARK_URL", "https://t.me/mallumovieworldmain2")
 
     # Fast Cache & 12 MB/s Streaming Speed Configuration

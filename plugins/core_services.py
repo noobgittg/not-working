@@ -35,6 +35,40 @@ except ImportError:
 
 # ==================== 1. FFMPEG & MEDIA ENGINE ====================
 
+def telegram_media_metadata(media: Any, message: Any = None) -> Dict[str, Any]:
+    """Normalize metadata available directly from a Telegram media object."""
+    mime_type = getattr(media, "mime_type", "") or "application/octet-stream"
+    if mime_type.startswith("video/") or getattr(message, "video", None):
+        media_kind = "video"
+    elif mime_type.startswith("audio/") or getattr(message, "audio", None):
+        media_kind = "audio"
+    elif mime_type.startswith("image/") or getattr(message, "photo", None):
+        media_kind = "image"
+    else:
+        media_kind = "document"
+
+    language = (
+        getattr(media, "language_code", None)
+        or getattr(media, "language", None)
+        or getattr(media, "lang", None)
+        or "Undetermined"
+    )
+    title = getattr(media, "title", None) or ""
+    performer = getattr(media, "performer", None) or ""
+    audio_track = " — ".join(part for part in (title, performer) if part) or "Default Audio"
+    return {
+        "media_kind": media_kind,
+        "mime_type": mime_type,
+        "duration": int(getattr(media, "duration", 0) or 0),
+        "width": int(getattr(media, "width", 0) or 0),
+        "height": int(getattr(media, "height", 0) or 0),
+        "language": str(language),
+        "audio_track": audio_track,
+        "audio_tracks": [],
+        "subtitle_tracks": [],
+        "caption": getattr(message, "caption", None) or ""
+    }
+
 FFMPEG_BIN = "ffmpeg"
 FFPROBE_BIN = "ffprobe"
 
@@ -876,7 +910,8 @@ DEFAULT_CAPTION = (
     "• 🌐 **ʟᴀɴɢᴜᴀɢᴇ** : `{language}`\n"
     "• 🎧 **ᴀᴜᴅɪᴏ** : `{audio_track}`\n"
     "• 🏷️ **ᴛʏᴘᴇ** : `{ext}`\n"
-    "• 🆔 **ғɪʟᴇ ɪᴅ** : `{file_id}`"
+    "• 🆔 **ғɪʟᴇ ɪᴅ** : `{file_id}`\n"
+    "• 📢 **ᴡᴀᴛᴇʀᴍᴀʀᴋ** : [{watermark}]({watermark_url})"
 )
 
 async def format_caption(

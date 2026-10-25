@@ -77,6 +77,23 @@ def build_4_external_player_links(stream_url: str, file_name: str = "video.mp4")
     }
 
 
+def media_metadata_view(file_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize stored metadata for templates and JSON clients."""
+    raw = dict(file_doc.get("metadata") or {})
+    return {
+        "media_kind": raw.get("media_kind") or "document",
+        "mime_type": file_doc.get("mime_type") or raw.get("mime_type") or "application/octet-stream",
+        "duration": int(raw.get("duration") or 0),
+        "width": int(raw.get("width") or 0),
+        "height": int(raw.get("height") or 0),
+        "language": raw.get("language") or "Undetermined",
+        "audio_track": raw.get("audio_track") or "Default Audio",
+        "audio_tracks": raw.get("audio_tracks") or raw.get("audio_streams") or [],
+        "subtitle_tracks": raw.get("subtitle_tracks") or raw.get("subtitle_streams") or [],
+        "caption": raw.get("caption") or ""
+    }
+
+
 async def resolve_telegram_message(bot: Any, file_doc: Dict[str, Any]):
     """Fetches and caches the Telegram message object from BIN_CHANNEL or user chat."""
     file_id = file_doc.get("file_id", "")
@@ -241,6 +258,7 @@ async def watch_page(request: Request, file_id: str):
     file_size = file_doc.get("file_size") or file_doc.get("size", 0)
     file_size_str = humanbytes(file_size)
     mime_type = file_doc.get("mime_type") or "video/mp4"
+    metadata = media_metadata_view(file_doc)
 
     base_url = str(request.base_url).rstrip("/")
     stream_url = f"{base_url}/stream/{file_id}"
@@ -254,6 +272,7 @@ async def watch_page(request: Request, file_id: str):
         "file_size": file_size_str,
         "file_size_bytes": file_size,
         "mime_type": mime_type,
+        "metadata": metadata,
         "stream_url": stream_url,
         "download_url": download_url,
         "player_links": player_links,
@@ -269,6 +288,7 @@ async def download_page(request: Request, file_id: str):
         raise HTTPException(status_code=404, detail="File not found or link expired.")
 
     file_name = file_doc.get("file_name", "download.mp4")
+    metadata = media_metadata_view(file_doc)
     file_size = humanbytes(file_doc.get("file_size", 0))
     mime_type = file_doc.get("mime_type", "video/mp4")
     base_url = str(request.base_url).rstrip("/")
@@ -283,6 +303,7 @@ async def download_page(request: Request, file_id: str):
         "file_name": file_name,
         "file_size": file_size,
         "mime_type": mime_type,
+        "metadata": metadata,
         "stream_url": stream_url,
         "download_url": download_url,
         "watch_url": watch_url,
@@ -468,6 +489,7 @@ async def api_file_info(file_id: str):
         "download_url": f"{Config.BASE_URL}/download/{file_id}",
         "direct_download_url": f"{Config.BASE_URL}/file/{file_id}",
         "external_players": build_4_external_player_links(stream_url, fname),
+        "metadata": media_metadata_view(file_doc),
         "watermark": Config.WATERMARK
     }
 

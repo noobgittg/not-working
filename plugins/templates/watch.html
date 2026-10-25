@@ -81,6 +81,22 @@
             </video>
         </div>
 
+        <!-- Metadata controls: values come from stored media metadata, never filenames. -->
+        <section class="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+                <h2 class="text-base sm:text-lg font-bold">🧠 ᴍᴇᴅɪᴀ ᴍᴇᴛᴀᴅᴀᴛᴀ</h2>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ metadata.media_kind | default('document') }} · {{ metadata.mime_type | default(mime_type) }}</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% if metadata.caption %}<button type="button" class="px-3 py-2 rounded-xl bg-brand-500/15 text-brand-400 border border-brand-500/30 text-xs font-bold" onclick="toggleMetadata('captionPanel')">📝 ᴇɴᴀʙʟᴇ / sᴇᴇ ᴄᴀᴘᴛɪᴏɴ</button>{% endif %}
+                {% if metadata.audio_track != 'Default Audio' or metadata.audio_tracks %}<button type="button" class="px-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold" onclick="toggleMetadata('audioPanel')">🎧 ᴇɴᴀʙʟᴇ / sᴇᴇ ᴀᴜᴅɪᴏ</button>{% endif %}
+                {% if metadata.language != 'Undetermined' or metadata.audio_tracks or metadata.subtitle_tracks %}<button type="button" class="px-3 py-2 rounded-xl bg-violet-500/15 text-violet-400 border border-violet-500/30 text-xs font-bold" onclick="toggleMetadata('languagePanel')">🌐 ᴇɴᴀʙʟᴇ / sᴇᴇ ʟᴀɴɢᴜᴀɢᴇ</button>{% endif %}
+            </div>
+            {% if metadata.caption %}<div id="captionPanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm whitespace-pre-wrap">{{ metadata.caption }}</div>{% endif %}
+            {% if metadata.audio_track != 'Default Audio' or metadata.audio_tracks %}<div id="audioPanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm"><strong>🎧 ᴀᴜᴅɪᴏ:</strong> {{ metadata.audio_track }}{% for track in metadata.audio_tracks %}<div class="mt-1">• {{ track.title | default('Track ' ~ loop.index) }} · {{ track.language | default(track.lang | default('Undetermined')) }} · {{ track.codec | default('unknown') }} · {{ track.channels | default('') }}ch</div>{% endfor %}</div>{% endif %}
+            {% if metadata.language != 'Undetermined' or metadata.audio_tracks or metadata.subtitle_tracks %}<div id="languagePanel" class="hidden mt-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm"><strong>🌐 ʟᴀɴɢᴜᴀɢᴇ:</strong> {{ metadata.language }}{% for track in metadata.subtitle_tracks %}<div class="mt-1">• ᴄᴀᴘᴛɪᴏɴ / sᴜʙᴛɪᴛʟᴇ: {{ track.title | default('Subtitle ' ~ loop.index) }} · {{ track.language | default(track.lang | default('Undetermined')) }}</div>{% endfor %}</div>{% endif %}
+        </section>
+
         <!-- 4 External Players ONLY Section (PLAYit, MX Player, VLC, S Player) -->
         <section class="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xl">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -181,6 +197,14 @@
     </main>
 
     <script>
+        function toggleMetadata(id) {
+            const panel = document.getElementById(id);
+            if (panel) panel.classList.toggle('hidden');
+        }
+        const metadataHash = window.location.hash.replace('#', '');
+        if (metadataHash && ['captionPanel', 'audioPanel', 'languagePanel'].includes(metadataHash)) {
+            toggleMetadata(metadataHash);
+        }
         const themeToggle = document.getElementById('themeToggle');
         themeToggle.addEventListener('click', () => {
             const isDark = document.documentElement.classList.toggle('dark');
