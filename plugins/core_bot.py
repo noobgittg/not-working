@@ -12,7 +12,7 @@ class MMWProBot(Client):
             in_memory=True,
             workers=Config.WORKERS,
             sleep_threshold=15,
-            max_concurrent_transmissions=10,
+            max_concurrent_transmissions=Config.TG_TRANSMISSION_WORKERS,
             plugins=dict(root="plugins")
         )
     async def start(self):

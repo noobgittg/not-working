@@ -141,6 +141,11 @@ async def download_media_with_auth_recovery(
                 if getattr(client, "is_connected", False):
                     await client.stop()
                 await client.start()
+            try:
+                if os.path.exists(file_name):
+                    os.remove(file_name)
+            except OSError:
+                pass
             return await message.download(file_name=file_name, **kwargs)
         except Exception as recovery_error:
             logger.error(f"AUTH_BYTES_INVALID recovery failed: {recovery_error}")
@@ -416,23 +421,25 @@ async def compress_media(
     try:
         process = await asyncio.create_subprocess_exec(
             *primary_cmd,
-            stdout=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE
         )
 
         last_update = 0
-        error_lines = []
+        error_tail = ""
         time_regex = re.compile(r"time=(\d+):(\d+):(\d+\.\d+)")
 
         while True:
-            line = await process.stderr.readline()
-            if not line:
+            chunk = await process.stderr.read(8192)
+            if not chunk:
                 break
-            decoded = line.decode('utf-8', errors='ignore')
-            if decoded.strip():
-                error_lines.append(decoded.strip())
-                del error_lines[:-8]
-            match = time_regex.search(decoded)
+            decoded = chunk.decode('utf-8', errors='ignore')
+            # StreamReader.readline() can raise when FFmpeg emits a line
+            # larger than its separator limit. Chunk reads are unbounded by
+            # line length and still retain enough text for progress parsing.
+            error_tail = (error_tail + decoded)[-16384:]
+            matches = list(time_regex.finditer(error_tail))
+            match = matches[-1] if matches else None
             if match and total_duration > 0 and progress_message:
                 hours, minutes, seconds = map(float, match.groups())
                 current_seconds = hours * 3600 + minutes * 60 + seconds
@@ -457,8 +464,8 @@ async def compress_media(
         await process.wait()
         if process.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             return True
-        if error_lines:
-            logger.error("FFmpeg compression failed: " + " | ".join(error_lines[-3:]))
+        if error_tail.strip():
+            logger.error("FFmpeg compression failed: " + error_tail.strip()[-2000:])
     except Exception as e:
         logger.warning(f"Primary compression attempt failed: {e}")
 

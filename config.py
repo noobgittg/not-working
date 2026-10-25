@@ -44,6 +44,7 @@ class Config:
     DEFAULT_AUTO_DELETE: int = int(os.environ.get("AUTO_DELETE_TIME", "0"))
     FORCE_SUB_CHANNEL: str = os.environ.get("FORCE_SUB_CHANNEL", os.environ.get("FORCE_SUB", ""))
     WORKERS: int = int(os.environ.get("WORKERS", "64"))
+    TG_TRANSMISSION_WORKERS: int = max(1, int(os.environ.get("TG_TRANSMISSION_WORKERS", "32")))
     MAX_CONCURRENT_TASKS: int = int(os.environ.get("MAX_CONCURRENT_TASKS", "10"))
 
     DOWNLOAD_DIR: str = os.path.join(os.getcwd(), "downloads")

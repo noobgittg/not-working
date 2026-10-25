@@ -132,7 +132,8 @@ async def iter_12mbps_file_stream(
     bot: Any,
     file_doc: Dict[str, Any],
     start: int,
-    end: int
+    end: int,
+    request: Optional[Request] = None
 ) -> AsyncGenerator[bytes, None]:
     """
     Adaptive Async Byte Streamer
@@ -149,6 +150,8 @@ async def iter_12mbps_file_stream(
             f.seek(start)
             remaining = content_length
             while remaining > 0:
+                if request is not None and await request.is_disconnected():
+                    return
                 read_size = min(chunk_size, remaining)
                 data = f.read(read_size)
                 if not data:
@@ -187,15 +190,22 @@ async def iter_12mbps_file_stream(
                 current_part += 1
                 if current_part > part_count:
                     break
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.error(f"adaptive range Telegram Stream producer error: {e}")
         finally:
-            await queue.put(None)
+            try:
+                queue.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
 
     producer_task = asyncio.create_task(_producer())
     remaining = content_length
     try:
         while remaining > 0:
+            if request is not None and await request.is_disconnected():
+                break
             item = await queue.get()
             if item is None:
                 break
@@ -206,6 +216,12 @@ async def iter_12mbps_file_stream(
     finally:
         if not producer_task.done():
             producer_task.cancel()
+        try:
+            await producer_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
 
 
 # ==================== 2. FASTAPI ROUTERS ====================
@@ -374,7 +390,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
         return Response(status_code=status_code, headers=headers)
 
     return StreamingResponse(
-        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
+        iter_12mbps_file_stream(file_path, bot, file_doc, start, end, request),
         status_code=status_code,
         headers=headers,
         media_type=mime_type
@@ -427,7 +443,7 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
         return Response(status_code=status_code, headers=headers)
 
     return StreamingResponse(
-        iter_12mbps_file_stream(file_path, bot, file_doc, start, end),
+        iter_12mbps_file_stream(file_path, bot, file_doc, start, end, request),
         status_code=status_code,
         media_type="application/octet-stream",
         headers=headers
