@@ -17,7 +17,8 @@ from plugins.core_db import user_repo, chat_repo, file_repo, FileRepository
 # ==================== 1. 12 MB/s TURBO BYTESTREAMER ENGINE ====================
 
 CHUNK_SIZE = 1024 * 1024  # 1 MiB Telegram chunk size
-TARGET_SPEED_BPS = int(getattr(Config, "STREAM_SPEED_LIMIT_MBPS", 12)) * 1024 * 1024  # 12 MB/s (12,582,912 B/s)
+STREAM_SPEED_MBPS = max(1, int(getattr(Config, "STREAM_SPEED_LIMIT_MBPS", 20)))
+TARGET_SPEED_BPS = STREAM_SPEED_MBPS * 1024 * 1024  # 12 MB/s (12,582,912 B/s)
 PREFETCH_QUEUE_SIZE = int(getattr(Config, "STREAM_BUFFER_CHUNKS", 12))  # 12 MB pre-fetch buffer
 
 
@@ -214,7 +215,7 @@ async def root_health():
     return {
         "status": "healthy",
         "service": "MMW-BOT-PRO",
-        "stream_speed": "12 MB/s",
+        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
         "external_players": 4,
         "timestamp": float(time.time()),
         "watermark": Config.WATERMARK
@@ -264,7 +265,7 @@ async def watch_page(request: Request, file_id: str):
         "stream_url": stream_url,
         "download_url": download_url,
         "player_links": player_links,
-        "stream_speed": "12 MB/s",
+        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
@@ -294,7 +295,7 @@ async def download_page(request: Request, file_id: str):
         "download_url": download_url,
         "watch_url": watch_url,
         "player_links": player_links,
-        "stream_speed": "12 MB/s",
+        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
@@ -332,9 +333,10 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
         "Accept-Ranges": "bytes",
         "Content-Type": mime_type,
         "Content-Disposition": f'inline; filename="{file_name}"',
-        "X-Stream-Speed-Limit": "12MB/s",
+        "X-Stream-Speed-Limit": f"{STREAM_SPEED_MBPS}MB/s",
         "X-Stream-Chunk-Size": "1048576",
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "public, max-age=86400, immutable",
+        "Vary": "Range",
         "Access-Control-Allow-Origin": "*"
     }
 
@@ -388,7 +390,7 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Disposition": f'attachment; filename="{file_name}"',
-        "X-Stream-Speed-Limit": "12MB/s",
+        "X-Stream-Speed-Limit": f"{STREAM_SPEED_MBPS}MB/s",
         "Access-Control-Allow-Origin": "*"
     }
 
@@ -426,7 +428,7 @@ async def api_status(request: Request):
         "status": "operational",
         "service": "MMW All-In-One Pro Engine",
         "version": "3.0.0-pro",
-        "stream_speed": "12 MB/s",
+        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
         "external_players": ["PLAYit", "MX Player", "VLC", "S Player"],
         "uptime_seconds": uptime_sec,
         "users": users_count,
@@ -443,7 +445,7 @@ async def api_health():
     return {
         "status": "healthy",
         "service": "MMW-BOT-PRO",
-        "engine": "12 MB/s Super-Sonic Streamer",
+        "engine": f"{STREAM_SPEED_MBPS} MB/s Super-Sonic Streamer",
         "timestamp": float(time.time()),
         "watermark": Config.WATERMARK
     }
@@ -474,7 +476,7 @@ async def api_file_info(file_id: str):
         "file_size_formatted": humanbytes(file_doc.get("file_size", 0)),
         "mime_type": file_doc.get("mime_type"),
         "created_at": file_doc.get("created_at"),
-        "stream_speed": "12 MB/s",
+        "stream_speed": f"{STREAM_SPEED_MBPS} MB/s",
         "stream_url": stream_url,
         "watch_url": f"{Config.BASE_URL}/watch/{file_id}",
         "download_url": f"{Config.BASE_URL}/download/{file_id}",
@@ -510,7 +512,7 @@ async def api_search_files(q: str = ""):
 
 def create_app(bot_instance=None) -> FastAPI:
     fastapi_app = FastAPI(
-        title="MMW All-In-One Pro 12 MB/s Stream Server",
+        title=f"MMW All-In-One Pro {STREAM_SPEED_MBPS} MB/s Stream Server",
         version="3.0.0",
         docs_url="/docs",
         redoc_url=None
@@ -525,6 +527,14 @@ def create_app(bot_instance=None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @fastapi_app.middleware("http")
+    async def public_page_cache(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path in {"/", "/stats"} or path.startswith("/watch/") or path.startswith("/dl/"):
+            response.headers.setdefault("Cache-Control", "public, max-age=30, stale-while-revalidate=120")
+        return response
 
     fastapi_app.include_router(pages_router)
     fastapi_app.include_router(stream_router)
@@ -554,5 +564,5 @@ class WebSupport:
 
     async def start(self):
         server = self.get_server()
-        logger.info(f"⚡ 12 MB/s Web Stream Server active on {Config.BIND_ADDRESS}:{Config.PORT}")
+        logger.info(f"⚡ {STREAM_SPEED_MBPS} MB/s Web Stream Server active on {Config.BIND_ADDRESS}:{Config.PORT}")
         await server.serve()

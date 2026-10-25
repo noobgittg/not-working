@@ -4,6 +4,20 @@ from config import Config
 from plugins.core_db import user_repo
 from plugins.core_utils import to_smallcaps, format_watermark
 
+
+@Client.on_message(filters.private & filters.command(["autocaption", "auto_caption"]))
+async def toggle_autocaption_cmd(client: Client, message: Message):
+    user = await user_repo.get_or_create(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    enabled = not bool(user.get("auto_caption", True))
+    await user_repo.update_user(message.from_user.id, {"auto_caption": enabled})
+    state = "🟢 ᴇɴᴀʙʟᴇᴅ" if enabled else "⚪ ᴅɪsᴀʙʟᴇᴅ"
+    await message.reply_text(
+        f"✦ **{to_smallcaps('auto-caption mode')}** ✦\n\n"
+        f"• 📝 **{to_smallcaps('status')}** : `{state}`\n\n"
+        f"💡 {to_smallcaps('use /setcaption to define a template, or /autocaption to toggle metadata captions.')}"
+        f"{format_watermark()}"
+    )
+
 @Client.on_message(filters.private & filters.command(["setcaption", "set_caption"]))
 async def set_caption_handler(client: Client, message: Message):
     if len(message.command) < 2:
@@ -34,7 +48,7 @@ async def set_caption_handler(client: Client, message: Message):
         return await message.reply_text(
             f"⚠️ **{to_smallcaps('caption template is too long (maximum 900 characters).')}**{format_watermark()}"
         )
-    await user_repo.update_user(message.from_user.id, {"custom_caption": caption})
+    await user_repo.update_user(message.from_user.id, {"custom_caption": caption, "auto_caption": True})
     await message.reply_text(
         f"✦ **{to_smallcaps('custom caption saved')}** ✦\n\n"
         f"✅ **{to_smallcaps('your template has been saved successfully!')}**\n\n"

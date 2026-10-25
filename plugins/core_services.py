@@ -912,6 +912,11 @@ async def format_caption(
 
     user_custom = user.get("custom_caption") if user else None
     user_caps_list = user.get("captions_list", []) if user else []
+    if user is not None and user.get("auto_caption") is False:
+        caption = file_caption or ""
+        if Config.WATERMARK not in caption:
+            caption += format_watermark()
+        return caption[:1024]
 
     template = user_custom
     if not template and user_caps_list:

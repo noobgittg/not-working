@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
-    <title>{{ file_name | default("Watch Video") }} — ⚡ 12 MB/s Stream</title>
+    <title>{{ file_name | default("Watch Video") }} — ⚡ 20 MB/s Stream</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link rel="preload" as="script" href="https://cdn.tailwindcss.com">
+    <script src="https://cdn.tailwindcss.com" defer></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -22,7 +25,10 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
@@ -45,7 +51,7 @@
             <div>
                 <h1 class="font-bold text-sm sm:text-base truncate max-w-xs md:max-w-xl" title="{{ file_name }}">{{ file_name | default("Streaming Media") }}</h1>
                 <div class="flex items-center space-x-2 text-xs text-emerald-500 font-semibold">
-                    <span>⚡ 12 MB/s Turbo Stream</span>
+                    <span>⚡ 20 MB/s Turbo Stream</span>
                     <span>•</span>
                     <span>{{ file_size | default("") }}</span>
                 </div>
@@ -84,11 +90,11 @@
                         <span>ᴘʟᴀʏ ɪɴ 4 ᴇxᴛᴇʀɴᴀʟ ᴘʟᴀʏᴇʀs ᴏɴʟʏ</span>
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        ⚡ 12 ᴍʙ/s ᴅɪʀᴇᴄᴛ ʜᴛᴛᴘ 206 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ — ᴢᴇʀᴏ ʙᴜғғᴇʀɪɴɢ (ᴍᴋᴠ / ᴍᴘ4 / ʜᴇᴠᴄ / ᴅᴜᴀʟ ᴀᴜᴅɪᴏ)
+                        ⚡ 20 ᴍʙ/s ᴅɪʀᴇᴄᴛ ʜᴛᴛᴘ 206 ʀᴀɴɢᴇ sᴛʀᴇᴀᴍɪɴɢ — ᴢᴇʀᴏ ʙᴜғғᴇʀɪɴɢ (ᴍᴋᴠ / ᴍᴘ4 / ʜᴇᴠᴄ / ᴅᴜᴀʟ ᴀᴜᴅɪᴏ)
                     </p>
                 </div>
                 <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    🚀 12 MB/s READY
+                    🚀 20 MB/s READY
                 </span>
             </div>
 
@@ -103,7 +109,7 @@
                         </span>
                         <div>
                             <div class="font-bold text-sm">1. PLAYit</div>
-                            <div class="text-[11px] text-amber-400 font-medium">⚡ 12 ᴍʙ/s ᴘʟᴀʏᴇʀ</div>
+                            <div class="text-[11px] text-amber-400 font-medium">⚡ 20 ᴍʙ/s ᴘʟᴀʏᴇʀ</div>
                         </div>
                     </div>
                     <i class="fa-solid fa-arrow-up-right-from-square text-xs text-amber-400 group-hover:translate-x-0.5 transition"></i>
@@ -160,7 +166,7 @@
                 <div class="flex flex-wrap gap-2">
                     <a href="{{ download_url }}" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition flex items-center gap-2">
                         <i class="fa-solid fa-download"></i>
-                        <span>⬇️ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ (12 ᴍʙ/s)</span>
+                        <span>⬇️ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ (20 ᴍʙ/s)</span>
                     </a>
                     <button onclick="copyStreamUrl('{{ stream_url }}')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center gap-2">
                         <i class="fa-solid fa-copy"></i>
