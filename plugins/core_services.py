@@ -14,6 +14,10 @@ import http.client
 from collections import defaultdict
 from typing import Tuple, Optional, Dict, Any, List, Union
 try:
+    from pyrogram.errors import AuthBytesInvalid
+except ImportError:
+    AuthBytesInvalid = type("AuthBytesInvalid", (Exception,), {})
+try:
     import aiohttp
 except ImportError:
     aiohttp = None
@@ -112,6 +116,35 @@ def _resolve_ffmpeg_binaries():
     FFPROBE_BIN = sys_ffprobe or "ffprobe"
 
 _resolve_ffmpeg_binaries()
+
+_AUTH_RECOVERY_LOCK = asyncio.Lock()
+
+
+async def download_media_with_auth_recovery(
+    client: Any,
+    message: Any,
+    file_name: str,
+    **kwargs: Any
+):
+    """Download media with one safe reconnect retry for invalid DC auth bytes.
+
+    AUTH_BYTES_INVALID is not a normal network timeout. Retrying the same
+    request repeatedly can loop forever, so recovery is attempted once only.
+    The existing session is never deleted and no second client is created.
+    """
+    try:
+        return await message.download(file_name=file_name, **kwargs)
+    except AuthBytesInvalid as first_error:
+        logger.error("Telegram media download hit AUTH_BYTES_INVALID; reconnecting the primary client once")
+        try:
+            async with _AUTH_RECOVERY_LOCK:
+                if getattr(client, "is_connected", False):
+                    await client.stop()
+                await client.start()
+            return await message.download(file_name=file_name, **kwargs)
+        except Exception as recovery_error:
+            logger.error(f"AUTH_BYTES_INVALID recovery failed: {recovery_error}")
+            raise first_error
 
 LANG_MAP = {
     "eng": "English", "en": "English",

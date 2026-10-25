@@ -27,7 +27,8 @@ from plugins.core_services import (
     telegram_media_metadata,
     resolve_thumbnail,
     extract_and_format_caption,
-    schedule_deletion
+    schedule_deletion,
+    download_media_with_auth_recovery
 )
 from plugins.media_types import is_audio_mime, is_video_mime, normalize_mime
 
@@ -420,7 +421,9 @@ async def run_rename_workflow(
 
     start_time = time.time()
     try:
-        await original_msg.download(
+        await download_media_with_auth_recovery(
+            client=client,
+            message=original_msg,
             file_name=download_path,
             progress=progress_for_pyrogram,
             progress_args=("📥 downloading file", status_msg, start_time)

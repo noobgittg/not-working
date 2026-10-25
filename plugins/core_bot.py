@@ -9,6 +9,7 @@ class MMWProBot(Client):
             api_id=Config.API_ID,
             api_hash=Config.API_HASH,
             bot_token=Config.BOT_TOKEN,
+            in_memory=True,
             workers=Config.WORKERS,
             sleep_threshold=15,
             max_concurrent_transmissions=10,

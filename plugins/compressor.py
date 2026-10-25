@@ -29,7 +29,8 @@ from plugins.core_services import (
     check_media_streams,
     resolve_thumbnail,
     extract_and_format_caption,
-    schedule_deletion
+    schedule_deletion,
+    download_media_with_auth_recovery
 )
 
 @Client.on_message(filters.private & filters.command(["autocompress", "auto_compress"]))
@@ -197,7 +198,9 @@ async def perform_compression_job(
 
     start_dl = time.time()
     try:
-        await original_msg.download(
+        await download_media_with_auth_recovery(
+            client=client,
+            message=original_msg,
             file_name=input_path,
             progress=progress_for_pyrogram,
             progress_args=("📥 downloading media", status, start_dl)
