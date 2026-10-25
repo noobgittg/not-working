@@ -92,7 +92,7 @@ async def incoming_file_entry(client: Client, message: Message):
         return await run_rename_workflow(client, message, message, user.id, message.id, auto_target, upload_mode, watch_url, download_url)
 
     # Check if Auto-Compress is enabled for videos
-    if u.get("auto_compress") and is_compressible and file_size_bytes <= MAX_BOT_FILE_SIZE:
+    if u.get("auto_compress") and is_compressible:
         from plugins.compressor import run_auto_compress_workflow
         return await run_auto_compress_workflow(client, message, user.id)
 

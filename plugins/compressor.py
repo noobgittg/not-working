@@ -32,8 +32,6 @@ from plugins.core_services import (
     schedule_deletion
 )
 
-MAX_BOT_FILE_SIZE = 2000 * 1024 * 1024  # 2000 MiB (2GB limit)
-
 @Client.on_message(filters.private & filters.command(["autocompress", "auto_compress"]))
 async def toggle_autocompress_cmd(client: Client, message: Message):
     user_id = message.from_user.id
@@ -71,13 +69,6 @@ async def compress_command_handler(client: Client, message: Message):
             f"⚠️ **{to_smallcaps('please reply to a video or audio file to compress.')}**\n\n"
             f"• **{to_smallcaps('usage')}** : {to_smallcaps('reply to any media with')} `/compress` {to_smallcaps('or')} `/compress 100MB`"
             f"{format_watermark()}"
-        )
-
-    target_media = target.video or target.document or target.audio
-    if getattr(target_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
-        return await message.reply_text(
-            f"🚫 **{to_smallcaps('compression is limited to files below 2 gb because telegram download access is limited.')}**\n\n"
-            f"⚡ {to_smallcaps('use stream for this oversized file, then compress a smaller copy.')}{format_watermark()}"
         )
 
     target_mb = None
@@ -168,13 +159,6 @@ async def execute_compression(client: Client, query: CallbackQuery):
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     if not original_msg or not original_msg.media:
         return await query.answer(to_smallcaps("original media not found!"), show_alert=True)
-
-    source_media = original_msg.video or original_msg.document or original_msg.audio
-    if getattr(source_media, "file_size", 0) > MAX_BOT_FILE_SIZE:
-        return await query.answer(
-            to_smallcaps("oversized files can only be streamed; compression requires a file below 2 gb."),
-            show_alert=True
-        )
 
     status = await query.message.edit_text(f"⏳ **{to_smallcaps('initializing compression workflow...')}**")
     await perform_compression_job(
