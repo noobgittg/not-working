@@ -467,6 +467,34 @@
             }
         }
 
+        function safeHttpUrl(value) {
+            try {
+                const url = new URL(String(value || ''), window.location.origin);
+                return ['http:', 'https:'].includes(url.protocol) ? url.href : '#';
+            } catch (_) {
+                return '#';
+            }
+        }
+
+        function makeResultLink(label, url, className) {
+            const link = document.createElement('a');
+            link.className = className;
+            link.href = safeHttpUrl(url);
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = label;
+            return link;
+        }
+
+        function makeCopyButton(value) {
+            const button = document.createElement('button');
+            button.className = 'btn btn-outline';
+            button.style.cssText = 'padding: 8px 16px; font-size: 0.85rem;';
+            button.textContent = '📋 Copy Stream';
+            button.addEventListener('click', () => copyText(String(value || ''), 'Stream URL Copied!'));
+            return button;
+        }
+
         async function lookupFile(customId) {
             const input = customId || document.getElementById('lookup-input').value.trim();
             const resBox = document.getElementById('lookup-result');
@@ -475,30 +503,41 @@
                 return false;
             }
             resBox.style.display = 'block';
-            resBox.innerHTML = '<span style="color: var(--accent);">⏳ Inspecting file record...</span>';
+            resBox.textContent = '⏳ Inspecting file record...';
             try {
-                const resp = await fetch('/api/info/' + encodeURIComponent(input));
-                if (resp.ok) {
-                    const data = await resp.json();
-                    resBox.innerHTML = `
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div>📁 <strong>Name:</strong> <code>${data.file_name || 'Media'}</code></div>
-                            <div>📦 <strong>Size:</strong> <code>${data.file_size_formatted || data.file_size || 'N/A'}</code></div>
-                            <div>🎞️ <strong>MIME:</strong> <code>${data.mime_type || 'N/A'}</code></div>
-                            <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-                                <a href="${data.watch_url}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem;" target="_blank">🎬 Watch Online</a>
-                                <a href="${data.direct_download_url || data.download_url}" class="btn btn-outline" style="padding: 8px 16px; font-size: 0.85rem;" target="_blank">⬇️ Direct Download</a>
-                                <button onclick="copyText('${data.stream_url}', 'Stream URL Copied!')" class="btn btn-outline" style="padding: 8px 16px; font-size: 0.85rem;">📋 Copy Stream</button>
-                            </div>
-                        </div>
-                    `;
-                    return true;
-                } else {
-                    resBox.innerHTML = '<span style="color: #ef4444;">❌ File ID not found in database.</span>';
+                const resp = await fetch('/api/info/' + encodeURIComponent(input), { cache: 'no-store' });
+                if (!resp.ok) {
+                    resBox.textContent = '❌ File ID not found in database.';
                     return false;
                 }
-            } catch (err) {
-                resBox.innerHTML = '<span style="color: #ef4444;">⚠️ Network error inspecting file.</span>';
+                const data = await resp.json();
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+                const fields = [
+                    ['📁 Name:', data.file_name || 'Media'],
+                    ['📦 Size:', data.file_size_formatted || data.file_size || 'N/A'],
+                    ['🎞️ MIME:', data.mime_type || 'N/A']
+                ];
+                fields.forEach(([label, value]) => {
+                    const row = document.createElement('div');
+                    row.append(document.createTextNode(label + ' '));
+                    const code = document.createElement('code');
+                    code.textContent = String(value);
+                    row.append(code);
+                    wrapper.append(row);
+                });
+                const actions = document.createElement('div');
+                actions.style.cssText = 'display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;';
+                actions.append(
+                    makeResultLink('🎬 Watch Online', data.watch_url, 'btn btn-primary'),
+                    makeResultLink('⬇️ Direct Download', data.direct_download_url || data.download_url, 'btn btn-outline'),
+                    makeCopyButton(data.stream_url)
+                );
+                wrapper.append(actions);
+                resBox.replaceChildren(wrapper);
+                return true;
+            } catch (_) {
+                resBox.textContent = '⚠️ Network error inspecting file.';
                 return false;
             }
         }
@@ -511,38 +550,45 @@
                 return;
             }
             resBox.style.display = 'block';
-            resBox.innerHTML = '<span style="color: var(--accent);">🔍 Searching indexed files...</span>';
+            resBox.textContent = '🔍 Searching indexed files...';
             try {
-                const resp = await fetch('/api/search?q=' + encodeURIComponent(input));
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (!data.results || data.results.length === 0) {
-                        resBox.innerHTML = `<span style="color: #ef4444;">🔍 No files found matching "${input}".</span>`;
-                        return;
-                    }
-                    let html = `<div style="margin-bottom: 8px; font-weight: 700; color: var(--accent);">Found ${data.count} result(s) for "${input}":</div>`;
-                    data.results.forEach((item, idx) => {
-                        html += `
-                            <div class="result-item">
-                                <div>
-                                    <strong>${idx + 1}. 📁 ${item.file_name}</strong>
-                                    <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">
-                                        📦 ${item.file_size_formatted} • 🏷️ ${item.mime_type}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <a href="${item.watch_url}" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem;" target="_blank">🎬 Watch</a>
-                                    <a href="${item.direct_download_url}" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.82rem;" target="_blank">⬇️ Download</a>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    resBox.innerHTML = html;
-                } else {
-                    resBox.innerHTML = '<span style="color: #ef4444;">❌ Failed to search files.</span>';
+                const resp = await fetch('/api/search?q=' + encodeURIComponent(input), { cache: 'no-store' });
+                if (!resp.ok) {
+                    resBox.textContent = '❌ Failed to search files.';
+                    return;
                 }
-            } catch (err) {
-                resBox.innerHTML = '<span style="color: #ef4444;">⚠️ Network error searching files.</span>';
+                const data = await resp.json();
+                if (!data.results || data.results.length === 0) {
+                    resBox.textContent = `🔍 No files found matching "${input}".`;
+                    return;
+                }
+                const wrapper = document.createElement('div');
+                const heading = document.createElement('div');
+                heading.style.cssText = 'margin-bottom:8px;font-weight:700;color:var(--accent);';
+                heading.textContent = `Found ${data.count} result(s) for "${input}":`;
+                wrapper.append(heading);
+                data.results.forEach((item, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'result-item';
+                    const details = document.createElement('div');
+                    const title = document.createElement('strong');
+                    title.textContent = `${idx + 1}. 📁 ${item.file_name || 'Media'}`;
+                    const meta = document.createElement('div');
+                    meta.style.cssText = 'font-size:0.82rem;color:var(--text-muted);margin-top:2px;';
+                    meta.textContent = `📦 ${item.file_size_formatted || 'N/A'} • 🏷️ ${item.mime_type || 'unknown'}`;
+                    details.append(title, meta);
+                    const actions = document.createElement('div');
+                    actions.style.cssText = 'display:flex;gap:8px;';
+                    actions.append(
+                        makeResultLink('🎬 Watch', item.watch_url, 'btn btn-primary'),
+                        makeResultLink('⬇️ Download', item.direct_download_url || item.download_url, 'btn btn-outline')
+                    );
+                    row.append(details, actions);
+                    wrapper.append(row);
+                });
+                resBox.replaceChildren(wrapper);
+            } catch (_) {
+                resBox.textContent = '⚠️ Network error searching files.';
             }
         }
 

@@ -13,7 +13,8 @@ from plugins.core_services import (
     RESTART_MARKER_FILE
 )
 
-async def start_bot_and_services(bot: MMWProBot):
+async def start_bot_and_services(bot: MMWProBot, service_tasks=None):
+    service_tasks = service_tasks if service_tasks is not None else []
     try:
         await mongo.connect()
     except Exception as e:
@@ -33,9 +34,11 @@ async def start_bot_and_services(bot: MMWProBot):
                 pass
             await send_restart_notification(bot)
 
-        asyncio.create_task(run_autodelete_sweeper(bot))
-        asyncio.create_task(run_keepalive_worker(bot, interval=Config.KEEPALIVE_INTERVAL))
-        asyncio.create_task(schedule_24h_restart(bot, interval=Config.RESTART_INTERVAL))
+        service_tasks.extend([
+            asyncio.create_task(run_autodelete_sweeper(bot), name="mmw-autodelete"),
+            asyncio.create_task(run_keepalive_worker(bot, interval=Config.KEEPALIVE_INTERVAL), name="mmw-keepalive"),
+            asyncio.create_task(schedule_24h_restart(bot, interval=Config.RESTART_INTERVAL), name="mmw-restart")
+        ])
 
         logger.info(f"⚡ {to_smallcaps('mmw all-in-one pro engine running! 12 mb/s stream & 4 players ready.')}")
     except Exception as e:
@@ -48,12 +51,19 @@ async def main():
     web_support = WebSupport(bot)
     server = web_support.get_server()
 
-    asyncio.create_task(start_bot_and_services(bot))
+    service_tasks = []
+    startup_task = asyncio.create_task(start_bot_and_services(bot, service_tasks), name="mmw-startup")
 
     try:
         await server.serve()
     finally:
         logger.info("Gracefully stopping engine...")
+        startup_task.cancel()
+        await asyncio.gather(startup_task, return_exceptions=True)
+        for task in service_tasks:
+            task.cancel()
+        if service_tasks:
+            await asyncio.gather(*service_tasks, return_exceptions=True)
         try:
             await bot.stop()
         except Exception:

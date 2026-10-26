@@ -25,7 +25,8 @@ from plugins.core_utils import (
     safe_edit_text,
     safe_reply_text,
     safe_send_message,
-    safe_forward_message
+    safe_forward_message,
+    bounded_media_job
 )
 from plugins.core_services import (
     get_media_attributes,
@@ -376,6 +377,7 @@ async def execute_rename_operation(client: Client, query: CallbackQuery):
 
     await run_rename_workflow(client, original_msg, query.message, user_id, target_id, new_name, upload_type, is_edit=True)
 
+@bounded_media_job
 async def run_rename_workflow(
     client: Client,
     original_msg: Message,

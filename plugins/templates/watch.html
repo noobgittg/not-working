@@ -176,7 +176,7 @@
                 </a>
 
                 <!-- 3. VLC Player -->
-                <a href="{{ player_links.vlc if player_links else ('vlc://' ~ stream_url) }}"
+                <a href="{{ player_links.vlc_intent if player_links else '#' }}"
                    class="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-orange-500/15 to-red-500/15 hover:from-orange-500/25 hover:to-red-500/25 border border-orange-500/30 transition group">
                     <div class="flex items-center space-x-3">
                         <span class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-extrabold text-sm shadow">

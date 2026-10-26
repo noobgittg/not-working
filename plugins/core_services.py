@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 import datetime
+import uuid
 from plugins.media_types import is_audio_mime, is_video_mime, normalize_mime
 import socket
 import urllib.request
@@ -421,6 +422,7 @@ async def compress_media(
         output_path
     ]
 
+    process = None
     try:
         process = await asyncio.create_subprocess_exec(
             *primary_cmd,
@@ -469,7 +471,19 @@ async def compress_media(
             return True
         if error_tail.strip():
             logger.error("FFmpeg compression failed: " + error_tail.strip()[-2000:])
+    except asyncio.CancelledError:
+        if process and process.returncode is None:
+            process.kill()
+            await process.wait()
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        raise
     except Exception as e:
+        if process and process.returncode is None:
+            process.kill()
+            await process.wait()
+        if os.path.exists(output_path):
+            os.remove(output_path)
         logger.warning(f"Primary compression attempt failed: {e}")
 
     fallback_cmd = [
@@ -873,6 +887,7 @@ async def compress_to_target_size(
 # ==================== 2. THUMBNAIL SERVICE ====================
 
 GLOBAL_THUMB_CACHE = os.path.join(Config.DOWNLOAD_DIR, "global_tham_cache.jpg")
+GLOBAL_THUMB_CACHE_LOCK = asyncio.Lock()
 
 async def download_thumbnail_url(url: str, target_path: str) -> Optional[str]:
     if not url or not is_valid_url(url):
@@ -945,11 +960,21 @@ async def resolve_thumbnail(
             return downloaded
 
     if Config.THAM_URL:
-        if os.path.exists(GLOBAL_THUMB_CACHE) and os.path.getsize(GLOBAL_THUMB_CACHE) > 0:
-            return GLOBAL_THUMB_CACHE
-        downloaded = await download_thumbnail_url(Config.THAM_URL, GLOBAL_THUMB_CACHE)
-        if downloaded and os.path.exists(downloaded):
-            return downloaded
+        async with GLOBAL_THUMB_CACHE_LOCK:
+            if os.path.exists(GLOBAL_THUMB_CACHE) and os.path.getsize(GLOBAL_THUMB_CACHE) > 0:
+                return GLOBAL_THUMB_CACHE
+            temp_cache = f"{GLOBAL_THUMB_CACHE}.{uuid.uuid4().hex}.tmp"
+            try:
+                downloaded = await download_thumbnail_url(Config.THAM_URL, temp_cache)
+                if downloaded and os.path.exists(downloaded) and os.path.getsize(downloaded) > 0:
+                    os.replace(downloaded, GLOBAL_THUMB_CACHE)
+                    return GLOBAL_THUMB_CACHE
+            finally:
+                if os.path.exists(temp_cache):
+                    try:
+                        os.remove(temp_cache)
+                    except OSError:
+                        pass
 
     if video_path and os.path.exists(video_path):
         return await extract_frame_screenshot(video_path, resolved_dir, duration)
@@ -1229,23 +1254,25 @@ class KeepAliveManager:
     async def ping_type_4_http_client(self) -> bool:
         loop = asyncio.get_running_loop()
         def _sync_http_client():
+            conn = None
             try:
                 conn = http.client.HTTPConnection("127.0.0.1", Config.PORT, timeout=3)
                 conn.request("GET", "/health")
                 resp = conn.getresponse()
-                conn.close()
                 return resp.status in [200, 204]
             except Exception:
                 return False
+            finally:
+                if conn is not None:
+                    conn.close()
         return await loop.run_in_executor(None, _sync_http_client)
 
     async def ping_type_5_tcp_socket(self) -> bool:
         loop = asyncio.get_running_loop()
         def _sync_tcp_ping():
             try:
-                sock = socket.create_connection(("127.0.0.1", Config.PORT), timeout=3)
-                sock.close()
-                return True
+                with socket.create_connection(("127.0.0.1", Config.PORT), timeout=3):
+                    return True
             except Exception:
                 return False
         return await loop.run_in_executor(None, _sync_tcp_ping)

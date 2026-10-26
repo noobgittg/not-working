@@ -76,11 +76,18 @@ def build_4_external_player_links(stream_url: str, file_name: str = "video.mp4")
         "playit_intent": f"intent:{stream_url}#Intent;package=com.playit.videoplayer;type=video/*;S.title={safe_title};end",
         "mxplayer": f"intent:{stream_url}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;S.title={safe_title};end",
         "mxplayer_pro": f"intent:{stream_url}#Intent;package=com.mxtech.videoplayer.pro;type=video/*;S.title={safe_title};end",
-        "vlc": f"vlc://{stream_url}",
+        "vlc": f"intent://{clean_url_no_scheme}#Intent;scheme={scheme};package=org.videolan.vlc;type=video/*;S.title={safe_title};end",
         "vlc_intent": f"intent://{clean_url_no_scheme}#Intent;scheme={scheme};package=org.videolan.vlc;type=video/*;S.title={safe_title};end",
         "splayer": f"intent:{stream_url}#Intent;package=com.young.simple.player;type=video/*;S.title={safe_title};end",
         "splayer_alt": f"intent:{stream_url}#Intent;package=com.kmplayer;type=video/*;S.title={safe_title};end"
     }
+
+
+def _safe_metadata_int(value: Any) -> int:
+    try:
+        return max(0, int(float(value or 0)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def media_metadata_view(file_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,9 +97,9 @@ def media_metadata_view(file_doc: Dict[str, Any]) -> Dict[str, Any]:
         "media_kind": raw.get("media_kind") or media_kind(file_doc.get("mime_type") or raw.get("mime_type")),
         "mime_type": normalize_mime(file_doc.get("mime_type") or raw.get("mime_type")),
         "browser_supported": browser_media_supported(file_doc.get("mime_type") or raw.get("mime_type")),
-        "duration": int(raw.get("duration") or 0),
-        "width": int(raw.get("width") or 0),
-        "height": int(raw.get("height") or 0),
+        "duration": _safe_metadata_int(raw.get("duration")),
+        "width": _safe_metadata_int(raw.get("width")),
+        "height": _safe_metadata_int(raw.get("height")),
         "language": raw.get("language") or "Undetermined",
         "audio_track": raw.get("audio_track") or "Default Audio",
         "audio_tracks": raw.get("audio_tracks") or raw.get("audio_streams") or [],
@@ -171,6 +178,7 @@ async def iter_12mbps_file_stream(
     part_count = math.ceil((end + 1) / CHUNK_SIZE) - offset_chunks
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=PREFETCH_QUEUE_SIZE)
+    producer_error = []
 
     async def _producer():
         try:
@@ -193,12 +201,10 @@ async def iter_12mbps_file_stream(
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            producer_error.append(e)
             logger.error(f"adaptive range Telegram Stream producer error: {e}")
         finally:
-            try:
-                queue.put_nowait(None)
-            except asyncio.QueueFull:
-                pass
+            await queue.put(None)
 
     producer_task = asyncio.create_task(_producer())
     remaining = content_length
@@ -208,6 +214,8 @@ async def iter_12mbps_file_stream(
                 break
             item = await queue.get()
             if item is None:
+                if producer_error:
+                    raise RuntimeError("Telegram media stream failed") from producer_error[0]
                 break
             if len(item) > remaining:
                 item = item[:remaining]
@@ -278,7 +286,7 @@ async def watch_page(request: Request, file_id: str):
         raise HTTPException(status_code=404, detail="Stream link expired or file not found.")
 
     file_name = file_doc.get("file_name") or file_doc.get("name") or "Media Stream.mp4"
-    file_size = file_doc.get("file_size") or file_doc.get("size", 0)
+    file_size = _safe_metadata_int(file_doc.get("file_size") or file_doc.get("size", 0))
     file_size_str = humanbytes(file_size)
     mime_type = file_doc.get("mime_type") or "video/mp4"
     metadata = media_metadata_view(file_doc)
@@ -303,7 +311,7 @@ async def watch_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
+    response.headers["Cache-Control"] = "private, no-cache"
     return response
 
 @pages_router.get("/dl/{file_id}")
@@ -314,7 +322,7 @@ async def download_page(request: Request, file_id: str):
 
     file_name = file_doc.get("file_name", "download.mp4")
     metadata = media_metadata_view(file_doc)
-    file_size = humanbytes(file_doc.get("file_size", 0))
+    file_size = humanbytes(_safe_metadata_int(file_doc.get("file_size", 0)))
     mime_type = file_doc.get("mime_type", "video/mp4")
     base_url = str(request.base_url).rstrip("/")
     stream_url = f"{base_url}/stream/{file_id}"
@@ -337,7 +345,7 @@ async def download_page(request: Request, file_id: str):
         "watermark": Config.WATERMARK,
         "watermark_url": Config.WATERMARK_URL
     })
-    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
+    response.headers["Cache-Control"] = "private, no-cache"
     return response
 
 
@@ -356,7 +364,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
     if file_path and os.path.exists(file_path):
         file_size = os.path.getsize(file_path)
     else:
-        file_size = int(file_doc.get("file_size", 0))
+        file_size = _safe_metadata_int(file_doc.get("file_size", 0))
 
     if file_size <= 0:
         raise HTTPException(status_code=404, detail="File size invalid or source unavailable.")
@@ -375,7 +383,7 @@ async def stream_media_endpoint(request: Request, file_id: str, range: str = Hea
         "Content-Disposition": content_disposition("inline", file_name),
         "X-Stream-Mode": "adaptive-http-byte-range",
         "X-Stream-Chunk-Size": str(CHUNK_SIZE),
-        "Cache-Control": "public, max-age=86400, immutable",
+        "Cache-Control": "private, no-store",
         "Vary": "Range",
         "Access-Control-Allow-Origin": "*"
     }
@@ -412,7 +420,7 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
     if file_path and os.path.exists(file_path):
         file_size = os.path.getsize(file_path)
     else:
-        file_size = int(file_doc.get("file_size", 0))
+        file_size = _safe_metadata_int(file_doc.get("file_size", 0))
 
     if file_size <= 0:
         raise HTTPException(status_code=404, detail="File missing on server.")
@@ -430,7 +438,7 @@ async def download_media_endpoint(request: Request, file_id: str, range: str = H
         "Content-Disposition": content_disposition("attachment", file_name),
         "X-Stream-Mode": "adaptive-http-byte-range",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=86400, immutable",
+        "Cache-Control": "private, no-store",
         "Vary": "Range"
     }
 
@@ -570,12 +578,14 @@ def create_app(bot_instance=None) -> FastAPI:
     async def public_page_cache(request: Request, call_next):
         response = await call_next(request)
         path = request.url.path
-        if path in {"/", "/stats"} or path.startswith("/watch/") or path.startswith("/dl/"):
+        if path in {"/", "/stats"}:
             response.headers.setdefault("Cache-Control", "public, max-age=300, stale-while-revalidate=3600")
+        elif path.startswith("/watch/") or path.startswith("/dl/"):
+            response.headers.setdefault("Cache-Control", "private, no-cache")
         elif path.startswith("/api/info/"):
-            response.headers.setdefault("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+            response.headers.setdefault("Cache-Control", "private, no-cache")
         elif path.startswith("/api/search"):
-            response.headers.setdefault("Cache-Control", "public, max-age=15, stale-while-revalidate=60")
+            response.headers.setdefault("Cache-Control", "private, no-cache")
         elif path == "/api/status":
             response.headers.setdefault("Cache-Control", "private, max-age=5, stale-while-revalidate=15")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")

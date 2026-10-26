@@ -1,5 +1,7 @@
 import time
 import asyncio
+import functools
+import inspect
 import logging
 import sys
 import os
@@ -99,6 +101,13 @@ def setup_logger(name: str = "MMW_PRO") -> logging.Logger:
 logger = setup_logger()
 
 _TELEGRAM_WRITE_BLOCK_UNTIL = 0.0
+_TELEGRAM_WRITE_LOCK = asyncio.Lock()
+
+
+async def _set_write_cooldown(until: float) -> None:
+    global _TELEGRAM_WRITE_BLOCK_UNTIL
+    async with _TELEGRAM_WRITE_LOCK:
+        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, until)
 
 
 def _flood_wait_seconds(error: Exception) -> int:
@@ -120,7 +129,7 @@ async def safe_edit_text(message: Any, text: str, **kwargs: Any) -> Any:
         return await message.edit_text(text=text, **kwargs)
     except FloodWait as error:
         wait_for = _flood_wait_seconds(error)
-        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        await _set_write_cooldown(now + wait_for)
         logger.warning(f"Telegram write cooldown active for {wait_for}s; skipping optional status edits")
         return message
     except MessageNotModified:
@@ -144,7 +153,7 @@ async def safe_reply_text(target: Any, text: str, **kwargs: Any) -> Any:
         return await target.reply_text(text, **kwargs)
     except FloodWait as error:
         wait_for = _flood_wait_seconds(error)
-        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        await _set_write_cooldown(now + wait_for)
         logger.warning(f"Telegram write cooldown active for {wait_for}s; continuing without a status message")
         return None
     except asyncio.CancelledError:
@@ -164,7 +173,7 @@ async def safe_send_message(client: Any, **kwargs: Any) -> Any:
         return await client.send_message(**kwargs)
     except FloodWait as error:
         wait_for = _flood_wait_seconds(error)
-        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        await _set_write_cooldown(now + wait_for)
         logger.warning(f"Telegram write cooldown active for {wait_for}s; skipping optional message send")
         return None
     except asyncio.CancelledError:
@@ -184,7 +193,7 @@ async def safe_forward_message(message: Any, chat_id: Any) -> Any:
         return await message.forward(chat_id)
     except FloodWait as error:
         wait_for = _flood_wait_seconds(error)
-        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        await _set_write_cooldown(now + wait_for)
         logger.warning(f"Telegram forward cooldown active for {wait_for}s; indexing original message instead")
         return message
     except asyncio.CancelledError:
@@ -205,7 +214,7 @@ async def safe_delete_messages(client: Any, chat_id: Any, message_ids: Any) -> b
         return True
     except FloodWait as error:
         wait_for = _flood_wait_seconds(error)
-        _TELEGRAM_WRITE_BLOCK_UNTIL = max(_TELEGRAM_WRITE_BLOCK_UNTIL, now + wait_for)
+        await _set_write_cooldown(now + wait_for)
         logger.warning(f"Telegram delete cooldown active for {wait_for}s; deferring auto-delete batch")
         return False
     except asyncio.CancelledError:
@@ -520,7 +529,7 @@ class TaskManager:
         return [task for task in self._tasks.values() if task.user_id == user_id]
 
     def is_user_busy(self, user_id: int) -> bool:
-        return False
+        return any(not task.is_cancelled for task in self._tasks.values() if task.user_id == user_id)
 
     async def cancel_user_tasks(self, user_id: int) -> int:
         user_tasks = self.get_user_tasks(user_id)
@@ -555,3 +564,29 @@ class TaskManager:
                 pass
 
 task_manager = TaskManager()
+MEDIA_JOB_SEMAPHORE = asyncio.Semaphore(max(1, int(getattr(Config, "MAX_CONCURRENT_TASKS", 10))))
+
+
+def bounded_media_job(func):
+    """Limit CPU/disk-heavy media jobs while preserving async cancellation."""
+    @functools.wraps(func)
+    async def wrapped(*args, **kwargs):
+        user_id = kwargs.get("user_id")
+        if user_id is None:
+            try:
+                user_id = inspect.signature(func).bind_partial(*args, **kwargs).arguments.get("user_id")
+            except (TypeError, ValueError):
+                user_id = None
+        task_id = None
+        if user_id is not None:
+            task_id = task_manager.generate_task_id(int(user_id))
+            await task_manager.register_task(
+                task_id, int(user_id), func.__name__, "", asyncio.current_task()
+            )
+        try:
+            async with MEDIA_JOB_SEMAPHORE:
+                return await func(*args, **kwargs)
+        finally:
+            if task_id:
+                await task_manager.cleanup_task(task_id)
+    return wrapped

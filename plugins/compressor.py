@@ -22,7 +22,8 @@ from plugins.core_utils import (
     progress_for_pyrogram,
     logger,
     safe_edit_text,
-    safe_reply_text
+    safe_reply_text,
+    bounded_media_job
 )
 from plugins.core_services import (
     get_media_attributes,
@@ -177,6 +178,7 @@ async def execute_compression(client: Client, query: CallbackQuery):
         target_mb=target_mb
     )
 
+@bounded_media_job
 async def perform_compression_job(
     client: Client,
     original_msg: Message,
@@ -333,7 +335,14 @@ async def perform_compression_job(
             except FloodWait as error:
                 clean_temp_files(input_path, output_path, thumb_path, download_dir)
                 return await safe_edit_text(status, f"⚠️ **{to_smallcaps('telegram upload cooldown active; retry this file later')}** (`{getattr(error, 'value', 0)}s`)")
-            except Exception:
+            except Exception as upload_error:
+                error_text = str(upload_error).lower()
+                retryable_format_error = any(
+                    marker in error_text
+                    for marker in ("thumbnail", "thumb", "video_content", "content type", "width", "height")
+                )
+                if not retryable_format_error:
+                    raise
                 sent_video = await client.send_document(
                     chat_id=getattr(getattr(status, "chat", None), "id", getattr(original_msg.chat, "id", user_id)),
                     document=output_path,
